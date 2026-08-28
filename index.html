@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#071a45">
+  <title>EZEE VISION CHAMPUA</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <section id="loginView" class="screen login-screen">
+      <div class="login-card">
+        <img src="assets/images/logo.png" class="brand-logo" alt="EZEE VISION">
+        <h1>EZEE VISION</h1>
+        <p class="brand-subtitle">CHAMPUA</p>
+        <p class="welcome">Smart Coaching Management</p>
+
+        <form id="loginForm">
+          <label>Email / Mobile</label>
+          <input id="loginId" type="text" placeholder="Enter email or mobile" autocomplete="username" required>
+          <label>Password</label>
+          <input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" required>
+          <button class="primary-btn" type="submit">LOGIN</button>
+        </form>
+
+        <button class="link-btn" type="button" id="forgotBtn">Forgot Password?</button>
+        <p class="demo-hint">Phase 1 demo: enter any non-empty details.</p>
+      </div>
+    </section>
+
+    <section id="appView" class="screen hidden">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">EZEE VISION CHAMPUA</p>
+          <h2 id="pageTitle">Dashboard</h2>
+          <p id="pageDate"></p>
+        </div>
+        <button class="icon-btn" aria-label="Notifications" onclick="showToast('Notifications module coming in Phase 2')">🔔</button>
+      </header>
+
+      <main id="pageContent" class="content"></main>
+
+      <nav class="bottom-nav">
+        <button data-page="dashboard" class="nav-item active">⌂<span>Home</span></button>
+        <button data-page="students" class="nav-item">♙<span>Students</span></button>
+        <button data-page="attendance" class="nav-item">✓<span>Attendance</span></button>
+        <button data-page="fees" class="nav-item">₹<span>Fees</span></button>
+        <button data-page="more" class="nav-item">☰<span>More</span></button>
+      </nav>
+    </section>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
