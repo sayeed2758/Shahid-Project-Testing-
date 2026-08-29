@@ -2,7 +2,9 @@ import { CLASSES, SUBJECTS, SECTIONS, DEMO_CATALOG, normalizeCatalog, allItems }
 
 const firebase = await new Promise(resolve => {
   if (window.EVFirebase) return resolve(window.EVFirebase);
-  window.addEventListener("ev-firebase-ready", () => resolve(window.EVFirebase), { once:true });
+  const done = () => resolve(window.EVFirebase || { configured:false, error:"Firebase failed to initialize." });
+  window.addEventListener("ev-firebase-ready", done, { once:true });
+  setTimeout(done, 8000);
 });
 
 const state = {
@@ -289,7 +291,7 @@ function bindDynamic(){
       const uid=currentUid();
       state.profile={...state.profile,name,email:firebase.currentUser()?.email||""};
       await firebase.saveProfile(uid,state.profile);
-      if(firebase.currentUser()?.uid) await import("https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js").then(m=>m.updateProfile(firebase.currentUser(),{displayName:name}));
+      if(firebase.currentUser()?.uid && firebase.updateProfile) await firebase.updateProfile(firebase.currentUser(),{displayName:name});
       toast("Profile saved");render();
     }catch(e){toast(e?.message||"Could not save profile")}
   });
@@ -321,7 +323,11 @@ function render(){
 
 async function start(){
   loadRecent();
-  if(!firebase?.configured){el.hint.textContent="Firebase configuration is missing.";return;}
+  if(!firebase?.configured){
+    el.hint.textContent = firebase?.error || "Firebase could not be initialized. Please refresh the page.";
+    el.loginBtn.disabled = false;
+    return;
+  }
   firebase.onAuthStateChanged(async user=>{
     if(!user){
       el.appView.classList.add("hidden");el.loginView.classList.remove("hidden");
