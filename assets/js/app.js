@@ -1,53 +1,86 @@
-const state={page:"dashboard"};
-const students=[
- {name:"Rahul Kumar",cls:"Class 10",batch:"Batch A",att:"92%",due:"₹1,000"},
- {name:"Aman Kumar",cls:"Class 10",batch:"Batch B",att:"88%",due:"₹0"},
- {name:"Priya Singh",cls:"Class 9",batch:"Batch A",att:"95%",due:"₹2,000"},
- {name:"Neha Das",cls:"Class 8",batch:"Batch C",att:"91%",due:"₹0"}
-];
+const KEY='ezee_vision_phase2';
+const defaultDB={
+ loggedIn:false,user:null,
+ students:[
+  {id:'EV001',name:'Rahul Kumar',cls:'Class 10',batch:'Batch A',phone:'',att:92,due:1000},
+  {id:'EV002',name:'Aman Kumar',cls:'Class 10',batch:'Batch B',phone:'',att:88,due:0},
+  {id:'EV003',name:'Priya Singh',cls:'Class 9',batch:'Batch A',phone:'',att:95,due:2000},
+  {id:'EV004',name:'Neha Das',cls:'Class 8',batch:'Batch C',phone:'',att:91,due:0}
+ ],
+ batches:['Batch A','Batch B','Batch C'], attendance:{}, payments:[], notifications:['Welcome to EZEE VISION CHAMPUA'], items:{exams:[],materials:[],homework:[],online:[],income:[],expenses:[],enquiries:[],staff:[]}
+};
+let db=load();
+let state={page:'dashboard',selectedStudent:null};
+function load(){try{return deepMerge(structuredClone(defaultDB),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{return structuredClone(defaultDB)}}
+function deepMerge(base,saved){for(const k in saved){if(saved[k]&&typeof saved[k]==='object'&&!Array.isArray(saved[k])&&base[k])base[k]=deepMerge(base[k],saved[k]);else base[k]=saved[k]}return base}
+function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function money(v){return '₹'+Number(v||0).toLocaleString('en-IN')}
+function dateText(){return new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+function todayKey(){return new Date().toISOString().slice(0,10)}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove('show'),2200)}
+function go(page){state.page=page;render();window.scrollTo({top:0,behavior:'smooth'})}
 
-document.addEventListener("DOMContentLoaded",()=>{
- document.getElementById("pageDate").textContent=new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
- document.getElementById("loginForm").addEventListener("submit",e=>{e.preventDefault();document.getElementById("loginView").classList.add("hidden");document.getElementById("appView").classList.remove("hidden");render();});
- document.getElementById("forgotBtn").onclick=()=>showToast("Password recovery will be connected in Phase 2");
- document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{state.page=b.dataset.page;render();});
-});
-
-function render(){
- document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===state.page));
- const titles={dashboard:"Dashboard",students:"Students",attendance:"Attendance",fees:"Fees",more:"More"};
- document.getElementById("pageTitle").textContent=titles[state.page]||"Dashboard";
- const c=document.getElementById("pageContent");
- c.innerHTML={dashboard:dashboard,students:studentsPage,attendance:attendancePage,fees:feesPage,more:morePage}[state.page]();
+function init(){
+ document.getElementById('pageDate').textContent=dateText();
+ document.getElementById('loginForm').addEventListener('submit',login);
+ document.getElementById('forgotBtn').onclick=()=>toast('Password reset will use Firebase in the backend step.');
+ document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>go(b.dataset.page));
+ const bell=document.querySelector('.icon-btn'); if(bell) bell.onclick=()=>go('notifications');
+ if(db.loggedIn){document.getElementById('loginView').classList.add('hidden');document.getElementById('appView').classList.remove('hidden');render()}
 }
+document.addEventListener('DOMContentLoaded',init);
+function login(e){e.preventDefault();const id=document.getElementById('loginId').value.trim(),pw=document.getElementById('loginPassword').value.trim();if(!id||!pw)return toast('Please enter both fields');db.loggedIn=true;db.user={name:'Shahid Sir',login:id,role:'Admin'};save();document.getElementById('loginView').classList.add('hidden');document.getElementById('appView').classList.remove('hidden');render();toast('Login successful')}
+function logout(){db.loggedIn=false;db.user=null;save();document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden');document.getElementById('loginForm').reset();toast('Logged out')}
 
-function dashboard(){return `
- <div class="hero-card"><h3>Good Morning, Shahid Sir 👋</h3><p>Manage your coaching centre from one place.</p></div>
- <div class="grid">
-  ${stat("👨‍🎓","Students","120")}${stat("🏫","Batches","08")}${stat("✓","Attendance","90%")}${stat("₹","Fees Due","₹18,500")}
- </div>
- <div class="section-title"><h3>Quick Actions</h3></div>
- <div class="quick-grid">
-  ${action("＋","Add Student","students")}${action("✓","Take Attendance","attendance")}${action("₹","Collect Fee","fees")}${action("📝","Create Exam","more")}${action("📚","Add Material","more")}
- </div>
- <div class="section-title"><h3>Today's Attendance</h3><small>108 / 120 present</small></div>
- <div class="list-card"><div class="activity">🟢 Present <b>108</b></div><div class="activity">🔴 Absent <b>12</b></div><div class="activity">📊 Percentage <b>90%</b></div></div>
- <div class="section-title"><h3>Recent Activity</h3></div>
- <div class="list-card"><div class="activity">💰 Rahul paid ₹2,000</div><div class="activity">📋 Aman marked absent</div><div class="activity">👨‍🎓 New student added</div><div class="activity">📝 Exam result published</div></div>`}
+const titles={dashboard:'Dashboard',students:'Students',attendance:'Attendance',fees:'Fees',more:'More',profile:'Student Profile',addStudent:'Add Student',notifications:'Notifications',batches:'Batches',exams:'Exams',performance:'Performance',materials:'Study Material',homework:'Homework',online:'Online Exams',income:'Income',expenses:'Expenses',enquiries:'Enquiries',staff:'Staff',reports:'Reports',settings:'Settings',backup:'Backup & Restore'};
+function render(){
+ document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===state.page));
+ document.getElementById('pageTitle').textContent=titles[state.page]||'Dashboard';
+ const pages={dashboard,students:studentsPage,attendance:attendancePage,fees:feesPage,more:morePage,profile:profilePage,addStudent,notifications:notificationsPage,batches:batchesPage,exams:examsPage,performance:performancePage,materials:materialsPage,homework:homeworkPage,online:onlinePage,income:incomePage,expenses:expensesPage,enquiries:enquiriesPage,staff:staffPage,reports:reportsPage,settings:settingsPage,backup:backupPage};
+ document.getElementById('pageContent').innerHTML=(pages[state.page]||dashboard)();
+}
+function stat(icon,label,value){return `<div class="stat-card"><div>${icon}</div><div class="label">${label}</div><div class="value">${value}</div></div>`}
+function action(icon,label,page){return `<button class="action-btn" onclick="go('${page}')">${icon} ${label}</button>`}
+function dashboard(){const due=db.students.reduce((a,s)=>a+Number(s.due||0),0);const avg=db.students.length?Math.round(db.students.reduce((a,s)=>a+Number(s.att||0),0)/db.students.length):0;return `<div class="hero-card"><h3>Good Morning, ${esc(db.user?.name||'Shahid Sir')} 👋</h3><p>EZEE VISION CHAMPUA • Smart Coaching Management</p></div><div class="grid">${stat('👨‍🎓','Students',db.students.length)}${stat('🏫','Batches',db.batches.length)}${stat('✓','Attendance',avg+'%')}${stat('₹','Fees Due',money(due))}</div><div class="section-title"><h3>Quick Actions</h3></div><div class="quick-grid">${action('＋','Add Student','addStudent')}${action('✓','Take Attendance','attendance')}${action('₹','Collect Fee','fees')}${action('📝','Create Exam','exams')}${action('📚','Add Material','materials')}</div><div class="section-title"><h3>Today's Attendance</h3><small>${dateText()}</small></div><div class="list-card">${attendanceSummary()}</div><div class="section-title"><h3>Recent Activity</h3></div><div class="list-card">${db.payments.slice(-4).reverse().map(p=>`<div class="activity">💰 ${esc(p.name)} paid ${money(p.amount)}</div>`).join('')||'<div class="activity">✨ No payments recorded yet</div>'}</div>`}
+function attendanceSummary(){let p=0,a=0;db.students.forEach(s=>{const v=db.attendance[todayKey()+'_'+s.id]||'present';v==='present'?p++:a++});const total=p+a,pc=total?Math.round(p/total*100):0;return `<div class="activity">🟢 Present <b>${p}</b></div><div class="activity">🔴 Absent <b>${a}</b></div><div class="activity">📊 Percentage <b>${pc}%</b></div>`}
+function studentsPage(){return `<input class="search" id="studentSearch" placeholder="🔍 Search students..." oninput="filterStudents(this.value)"><div class="filters"><button class="chip active" onclick="filterStudents('')">All</button><button class="chip" onclick="filterStatus('active')">Active</button><button class="chip" onclick="filterStatus('due')">Fees Due</button></div><div id="studentList">${studentCards(db.students)}</div><button class="primary-btn" onclick="go('addStudent')">＋ ADD STUDENT</button>`}
+function studentCards(arr){return arr.map(s=>`<button class="student-card" onclick="openStudent('${s.id}')"><div class="avatar">${esc(s.name.split(' ').map(x=>x[0]).join(''))}</div><div class="student-main"><strong>${esc(s.name)}</strong><small>${esc(s.cls)} • ${esc(s.batch)}</small></div><div class="student-meta">${s.att}%<br>${money(s.due)} due</div></button>`).join('')||'<div class="list-card empty">No students found</div>'}
+function filterStudents(q){const x=db.students.filter(s=>(s.name+' '+s.cls+' '+s.batch).toLowerCase().includes(q.toLowerCase()));const el=document.getElementById('studentList');if(el)el.innerHTML=studentCards(x)}
+function filterStatus(type){const x=type==='due'?db.students.filter(s=>Number(s.due)>0):db.students;const el=document.getElementById('studentList');if(el)el.innerHTML=studentCards(x)}
+function openStudent(id){state.selectedStudent=id;go('profile')}
+function profilePage(){const s=db.students.find(x=>x.id===state.selectedStudent)||db.students[0];if(!s)return studentsPage();return `<button class="back-btn" onclick="go('students')">← Back</button><div class="panel"><div class="profile-head"><div class="avatar big">${esc(s.name[0])}</div><div><h3>${esc(s.name)}</h3><div class="muted">${esc(s.cls)} • ${esc(s.batch)}</div></div></div></div><div class="panel"><div class="kv"><span>Student ID</span><b>${s.id}</b></div><div class="kv"><span>Attendance</span><b>${s.att}%</b></div><div class="kv"><span>Fees Due</span><b>${money(s.due)}</b></div><div class="kv"><span>Parent/Mobile</span><b>${esc(s.phone||'Not added')}</b></div></div><div class="quick-grid">${action('✓','Attendance','attendance')}${action('₹','Collect Fee','fees')}${action('📈','Performance','performance')}${action('📝','Exams','exams')}</div><button class="danger" onclick="deleteStudent('${s.id}')">DELETE STUDENT</button>`}
+function addStudent(){return `<button class="back-btn" onclick="go('students')">← Back</button><div class="panel"><h3>Add New Student</h3><form onsubmit="saveStudent(event)"><label>Name</label><input class="field" id="newName" required placeholder="Student name"><label>Class</label><input class="field" id="newClass" required placeholder="Class 10"><label>Batch</label><select class="field" id="newBatch">${db.batches.map(b=>`<option>${esc(b)}</option>`).join('')}</select><label>Parent / Mobile</label><input class="field" id="newPhone" placeholder="Optional"><button class="primary-btn" type="submit">SAVE STUDENT</button></form></div>`}
+function saveStudent(e){e.preventDefault();db.students.push({id:'EV'+String(Date.now()).slice(-6),name:document.getElementById('newName').value.trim(),cls:document.getElementById('newClass').value.trim(),batch:document.getElementById('newBatch').value,phone:document.getElementById('newPhone').value.trim(),att:100,due:0});save();go('students');toast('Student added successfully')}
+function deleteStudent(id){if(!confirm('Delete this student?'))return;db.students=db.students.filter(s=>s.id!==id);save();go('students');toast('Student deleted')}
 
-function stat(i,l,v){return `<div class="stat-card"><div>${i}</div><div class="label">${l}</div><div class="value">${v}</div></div>`}
-function action(i,t,p){return `<button class="action-btn" onclick="go('${p}')">${i} ${t}</button>`}
-function go(p){state.page=p;render();window.scrollTo({top:0,behavior:"smooth"})}
+function attendancePage(){return `<div class="panel"><label><b>Select Batch</b><select class="field" id="attendanceBatch">${db.batches.map(b=>`<option>${esc(b)}</option>`).join('')}</select></label><p class="muted">Date: ${new Date().toLocaleDateString('en-IN')}</p></div><div class="list-card">${db.students.map(s=>{const k=todayKey()+'_'+s.id,v=db.attendance[k]||'present';return `<div class="attendance-row"><div class="avatar">${esc(s.name[0])}</div><div class="row-main"><strong>${esc(s.name)}</strong><small>${esc(s.batch)}</small></div><button class="toggle ${v}" onclick="toggleAttendance('${s.id}',this)">${v==='present'?'Present':'Absent'}</button></div>`}).join('')}</div><button class="primary-btn" onclick="markAllPresent()">MARK ALL PRESENT</button><button class="secondary-btn" onclick="save();toast('Attendance saved successfully')">SAVE ATTENDANCE</button>`}
+function toggleAttendance(id,b){const k=todayKey()+'_'+id;db.attendance[k]=db.attendance[k]==='absent'?'present':'absent';b.className='toggle '+db.attendance[k];b.textContent=db.attendance[k]==='present'?'Present':'Absent'}
+function markAllPresent(){db.students.forEach(s=>db.attendance[todayKey()+'_'+s.id]='present');save();render();toast('All students marked present')}
 
-function studentsPage(){return `<input class="search" placeholder="🔍 Search students..." oninput="filterStudents(this.value)"><div class="filters"><button class="chip active">All</button><button class="chip">Active</button><button class="chip">Inactive</button></div><div id="studentList">${studentCards(students)}</div><button class="primary-btn" style="margin-top:14px" onclick="showToast('Add Student will be connected in Phase 2')">＋ ADD STUDENT</button>`}
-function studentCards(arr){return arr.map(s=>`<div class="student-card"><div class="avatar">${s.name.split(" ").map(x=>x[0]).join("")}</div><div class="student-main"><strong>${s.name}</strong><small>${s.cls} • ${s.batch}</small></div><div class="student-meta">${s.att}<br>${s.due} due</div></div>`).join("")}
-function filterStudents(q){const x=students.filter(s=>s.name.toLowerCase().includes(q.toLowerCase())||s.batch.toLowerCase().includes(q.toLowerCase()));document.getElementById("studentList").innerHTML=studentCards(x)||`<div class="list-card" style="padding:20px;text-align:center">No students found</div>`}
+function feesPage(){const due=db.students.reduce((a,s)=>a+Number(s.due||0),0),col=db.payments.reduce((a,p)=>a+Number(p.amount||0),0);return `<div class="grid">${stat('₹','Total Collection',money(col))}${stat('!','Pending',money(due))}</div><div class="section-title"><h3>Fee Records</h3></div><div class="list-card">${db.students.map(s=>`<div class="fee-row"><div class="avatar">${esc(s.name[0])}</div><div class="row-main"><strong>${esc(s.name)}</strong><small>${esc(s.batch)}</small></div><div class="fee-due">${money(s.due)} due<br><button class="chip" onclick="collectFee('${s.id}')">Collect</button></div></div>`).join('')}</div>`}
+function collectFee(id){const s=db.students.find(x=>x.id===id);const amount=Number(prompt('Payment amount for '+s.name,s.due||0));if(!Number.isFinite(amount)||amount<=0)return toast('Payment cancelled');s.due=Math.max(0,Number(s.due)-amount);db.payments.push({name:s.name,amount,date:todayKey()});save();render();toast('Payment recorded: '+money(amount))}
 
-function attendancePage(){return `<div class="list-card" style="padding:15px"><label class="section-title" style="margin:0 0 8px"><b>Select Batch</b><select id="batch" style="padding:10px;border:1px solid #dce4ef;border-radius:10px"><option>Class 10 - Batch A</option><option>Class 10 - Batch B</option></select></label><p style="font-size:12px;color:#78869c;margin-bottom:0">Date: ${new Date().toLocaleDateString("en-IN")}</p></div><div class="grid">${stat("🟢","Present","108")}${stat("🔴","Absent","12")}${stat("📊","Percentage","90%")}</div><div class="section-title"><h3>Students</h3></div><div class="list-card">${students.map((s,i)=>`<div class="attendance-row"><div class="avatar">${s.name[0]}</div><div class="row-main"><strong>${s.name}</strong><small>${s.batch}</small></div><button class="toggle ${i===1?'absent':'present'}" onclick="toggleAttendance(this)">${i===1?'Absent':'Present'}</button></div>`).join("")}</div><button class="primary-btn" onclick="showToast('Attendance saved locally for Phase 1 demo')">SAVE ATTENDANCE</button>`}
-function toggleAttendance(b){const a=b.classList.contains("present");b.classList.toggle("present",!a);b.classList.toggle("absent",a);b.textContent=a?"Absent":"Present"}
-
-function feesPage(){return `<div class="grid">${stat("₹","Total Collection","₹42,500")}${stat("!","Pending","₹18,500")}</div><div class="section-title"><h3>Fee Records</h3></div><div class="list-card">${students.map(s=>`<div class="fee-row"><div class="avatar">${s.name[0]}</div><div class="row-main"><strong>${s.name}</strong><small>${s.batch}</small></div><div class="fee-due">${s.due} due<br><button class="chip" onclick="showToast('Payment screen will be connected in Phase 5')">Collect</button></div></div>`).join("")}</div>`}
-
-function morePage(){const modules=[["🏫","Batches","Manage classes & batches"],["📝","Exams","Marks & results"],["📈","Performance","Student progress"],["📚","Study Material","Notes & resources"],["🏠","Homework","Assignments"],["🖥️","Online Exams","Digital tests"],["💵","Income","Money received"],["💸","Expenses","Track spending"],["📩","Enquiries","New admissions"],["👨‍🏫","Staff","Staff management"],["📊","Reports","PDF & reports"],["🔔","Notifications","Announcements"],["☁️","Backup & Restore","Data safety"],["⚙️","Settings","App settings"]];return `<div class="module-grid">${modules.map(m=>`<button class="module-card" onclick="showToast('${m[1]} module will be connected in its development phase')"><span class="ico">${m[0]}</span><strong>${m[1]}</strong><small>${m[2]}</small></button>`).join("")}</div><button class="logout" onclick="location.reload()">↪ LOG OUT</button>`}
-
-function showToast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove("show"),2200)}
+function morePage(){const modules=[['🏫','Batches','batches'],['📝','Exams','exams'],['📈','Performance','performance'],['📚','Study Material','materials'],['🏠','Homework','homework'],['🖥️','Online Exams','online'],['💵','Income','income'],['💸','Expenses','expenses'],['📩','Enquiries','enquiries'],['👨‍🏫','Staff','staff'],['📊','Reports','reports'],['🔔','Notifications','notifications'],['☁️','Backup & Restore','backup'],['⚙️','Settings','settings']];return `<div class="module-grid">${modules.map(m=>`<button class="module-card" onclick="go('${m[2]}')"><span class="ico">${m[0]}</span><strong>${m[1]}</strong><small>Open module</small></button>`).join('')}</div><button class="danger" onclick="logout()">↪ LOG OUT</button>`}
+function notificationsPage(){return `<button class="back-btn" onclick="go('more')">← More</button>${db.notifications.map(n=>`<div class="panel"><b>🔔 ${esc(n)}</b><p class="muted">EZEE VISION CHAMPUA</p></div>`).join('')}<button class="primary-btn" onclick="addNotification()">＋ ADD NOTIFICATION</button>`}
+function addNotification(){const x=prompt('Notification text');if(x?.trim()){db.notifications.unshift(x.trim());save();render();toast('Notification added')}}
+function batchesPage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="module-grid">${db.batches.map(b=>`<div class="module-card"><span class="ico">🏫</span><strong>${esc(b)}</strong><small>${db.students.filter(s=>s.batch===b).length} students</small></div>`).join('')}</div><button class="primary-btn" onclick="addBatch()">＋ ADD BATCH</button>`}
+function addBatch(){const x=prompt('Batch name');if(x?.trim()){db.batches.push(x.trim());save();render();toast('Batch added')}}
+function modulePage(type,title,icon){const arr=db.items[type]||[];return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>${icon} ${title}</h3><p class="muted">Phase 2 functional local module. Cloud sync will be connected later.</p><button class="primary-btn" onclick="addItem('${type}','${title}')">＋ ADD ${title.toUpperCase()}</button></div><div class="list-card">${arr.map(x=>`<div class="activity"><b>${esc(x)}</b></div>`).join('')||'<div class="activity">No records yet.</div>'}</div>`}
+function addItem(type,title){const x=prompt('Enter '+title+' name');if(x?.trim()){db.items[type].push(x.trim());save();render();toast(title+' added')}}
+function examsPage(){return modulePage('exams','Exams','📝')}
+function materialsPage(){return modulePage('materials','Study Material','📚')}
+function homeworkPage(){return modulePage('homework','Homework','🏠')}
+function onlinePage(){return modulePage('online','Online Exams','🖥️')}
+function incomePage(){return modulePage('income','Income','💵')}
+function expensesPage(){return modulePage('expenses','Expenses','💸')}
+function enquiriesPage(){return modulePage('enquiries','Enquiries','📩')}
+function staffPage(){return modulePage('staff','Staff','👨‍🏫')}
+function performancePage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>📈 Performance</h3>${db.students.map(s=>`<div class="kv"><span>${esc(s.name)}</span><b>${s.att}% attendance</b></div>`).join('')}</div>`}
+function reportsPage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="module-grid">${['Student Report','Attendance Report','Fees Report','Payment Report'].map(x=>`<button class="module-card" onclick="exportReport('${x}')"><span class="ico">📊</span><strong>${x}</strong><small>Export TXT</small></button>`).join('')}</div>`}
+function exportReport(name){const data=['EZEE VISION CHAMPUA',name,'Generated: '+dateText(),'Students: '+db.students.length,'Fees Due: '+money(db.students.reduce((a,s)=>a+Number(s.due),0))].join('\n');const blob=new Blob([data],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replaceAll(' ','-').toLowerCase()+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast(name+' exported')}
+function backupPage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>☁️ Backup & Restore</h3><p class="muted">Download your current local data or restore a JSON backup.</p><button class="primary-btn" onclick="downloadBackup()">DOWNLOAD BACKUP</button><label class="secondary-btn file-btn">RESTORE BACKUP<input type="file" accept="application/json" onchange="restoreBackup(event)" hidden></label></div>`}
+function downloadBackup(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ezee-vision-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast('Backup downloaded')}
+function restoreBackup(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{db=deepMerge(structuredClone(defaultDB),JSON.parse(r.result));save();render();toast('Backup restored')}catch{toast('Invalid backup file')}};r.readAsText(f)}
+function settingsPage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>⚙️ Settings</h3><div class="kv"><span>Account</span><button class="chip" onclick="go('profile')">Open Profile</button></div><div class="kv"><span>Data storage</span><b>Local device</b></div><div class="kv"><span>Cloud backend</span><b>Next backend step</b></div></div><button class="danger" onclick="resetData()">RESET DEMO DATA</button>`}
+function resetData(){if(confirm('Reset all Phase 2 local data?')){localStorage.removeItem(KEY);db=structuredClone(defaultDB);go('dashboard');toast('Demo data reset')}}
