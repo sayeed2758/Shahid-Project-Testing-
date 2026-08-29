@@ -1,0 +1,33 @@
+{
+  "catalog": {
+    "10": {
+      "science": {
+        "detailed": {
+          "science-1": {
+            "id": "science-1",
+            "title": "Chemical Reactions",
+            "chapter": "Chemical Reactions",
+            "type": "detailed",
+            "order": 1,
+            "filePath": "content/class10/science/detailed/chemical-reactions.pdf",
+            "published": true,
+            "description": "Detailed notes"
+          }
+        },
+        "short": {},
+        "worksheet": {
+          "science-ws-1": {
+            "id": "science-ws-1",
+            "title": "Chemical Reactions Worksheet",
+            "chapter": "Chemical Reactions",
+            "type": "worksheet",
+            "order": 1,
+            "filePath": "content/class10/science/worksheet/chemical-reactions.pdf",
+            "published": true,
+            "description": "Downloadable worksheet"
+          }
+        }
+      }
+    }
+  }
+}

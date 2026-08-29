@@ -1,0 +1,9 @@
+{
+  "name":"EZEE VISION CHAMPUA Student Learning",
+  "short_name":"EZEE VISION",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#eef3fb",
+  "theme_color":"#071a45",
+  "icons":[]
+}
