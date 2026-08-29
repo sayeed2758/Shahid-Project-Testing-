@@ -1,9 +1,0 @@
-{
-  "name": "EZEE VISION CHAMPUA",
-  "short_name": "EZEE VISION",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#f5f7fb",
-  "theme_color": "#1d4ed8",
-  "icons": []
-}
