@@ -1,0 +1,5 @@
+/*
+ * Firebase rules are intentionally NOT replaced in Phase 1.
+ * Existing production rules must be audited before any change.
+ * Final rules will be supplied after the Firebase security design is implemented.
+ */
