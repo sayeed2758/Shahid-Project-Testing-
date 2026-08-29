@@ -1,7 +1,6 @@
 import {
   GoogleAuthProvider,
   browserLocalPersistence,
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   sendPasswordResetEmail,
   setPersistence,
@@ -20,15 +19,30 @@ let persistenceReady = null;
 let authObserverStarted = false;
 let authObserverUnsubscribe = null;
 
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+  ]);
+}
+
 function ensurePersistence() {
   if (!persistenceReady) {
-    persistenceReady = setPersistence(auth, browserLocalPersistence);
+    persistenceReady = withTimeout(
+      setPersistence(auth, browserLocalPersistence),
+      10000,
+      "Firebase session setup timed out. Please check your connection and retry."
+    ).catch(error => {
+      persistenceReady = null;
+      throw error;
+    });
   }
   return persistenceReady;
 }
 
 function friendlyAuthError(error) {
   const code = error?.code || "";
+  if (error?.message && !code) return error.message;
 
   const messages = {
     "auth/invalid-credential": "Email or password is incorrect.",
@@ -48,23 +62,35 @@ function friendlyAuthError(error) {
 
 async function loginWithEmail(email, password) {
   await ensurePersistence();
-  const result = await signInWithEmailAndPassword(auth, email.trim(), password);
+  const result = await withTimeout(
+    signInWithEmailAndPassword(auth, email.trim(), password),
+    20000,
+    "Login timed out. Please check your internet connection and try again."
+  );
   return result.user;
 }
 
 async function loginWithGoogle() {
   await ensurePersistence();
-  const result = await signInWithPopup(auth, googleProvider);
+  const result = await withTimeout(
+    signInWithPopup(auth, googleProvider),
+    30000,
+    "Google sign-in timed out. Please try again."
+  );
   return result.user;
 }
 
 async function resetPassword(email) {
   await ensurePersistence();
-  await sendPasswordResetEmail(auth, email.trim());
+  await withTimeout(
+    sendPasswordResetEmail(auth, email.trim()),
+    20000,
+    "Password reset request timed out. Please check your connection and try again."
+  );
 }
 
 async function logout() {
-  await signOut(auth);
+  await withTimeout(signOut(auth), 10000, "Logout timed out. Please try again.");
 }
 
 async function updateStudentDisplayName(displayName) {
@@ -74,13 +100,11 @@ async function updateStudentDisplayName(displayName) {
   const cleanName = displayName.trim();
   if (!cleanName) throw new Error("Please enter your name.");
 
-  await updateProfile(user, { displayName: cleanName });
+  await withTimeout(updateProfile(user, { displayName: cleanName }), 10000, "Profile update timed out. Please try again.");
 }
 
 function startAuthObserver(callback) {
-  if (authObserverStarted) {
-    return authObserverUnsubscribe;
-  }
+  if (authObserverStarted) return authObserverUnsubscribe;
 
   authObserverStarted = true;
   authObserverUnsubscribe = onAuthStateChanged(auth, callback);
