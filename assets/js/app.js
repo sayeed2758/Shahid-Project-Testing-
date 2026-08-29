@@ -324,14 +324,19 @@ async function start(){
   if(!firebase?.configured){el.hint.textContent="Firebase configuration is missing.";return;}
   firebase.onAuthStateChanged(async user=>{
     if(!user){
-      el.appView.classList.add("hidden");el.loginView.classList.remove("hidden");return;
+      el.appView.classList.add("hidden");el.loginView.classList.remove("hidden");
+      setBusy(el.loginBtn,false,"LOGIN");
+      setBusy(el.google,false,"Continue with Google");
+      return;
     }
     el.loginView.classList.add("hidden");el.appView.classList.remove("hidden");
+    setBusy(el.loginBtn,false,"LOGIN");
+    setBusy(el.google,false,"Continue with Google");
     try{state.profile=await firebase.loadProfile(user.uid)||{name:user.displayName||"Student",email:user.email||""}}catch{state.profile={name:user.displayName||"Student",email:user.email||""}}
     try{state.catalog=normalizeCatalog(await firebase.loadCatalog())}catch{state.catalog=normalizeCatalog(DEMO_CATALOG)}
     loadRecent();render();
   });
-  try{await firebase.finishRedirect()}catch(e){/* handled by auth observer */}
+  try{await firebase.finishRedirect()}catch(e){toast(authMessage(e))}
 }
 
 el.loginForm.addEventListener("submit",async e=>{

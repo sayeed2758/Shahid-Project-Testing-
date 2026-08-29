@@ -35,7 +35,12 @@ if (!configured) {
       try {
         return await signInWithPopup(auth, provider);
       } catch (e) {
-        if (e?.code === "auth/popup-blocked" || e?.code === "auth/cancelled-popup-request") {
+        const redirectCodes = new Set([
+          "auth/popup-blocked",
+          "auth/cancelled-popup-request",
+          "auth/operation-not-supported-in-this-environment"
+        ]);
+        if (redirectCodes.has(e?.code)) {
           await signInWithRedirect(auth, provider);
           return null;
         }
