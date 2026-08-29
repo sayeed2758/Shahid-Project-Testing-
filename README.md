@@ -45,3 +45,9 @@ Phase 2 will connect Firebase Authentication after the Firebase configuration an
 
 ### Important account policy
 The portal is designed for admin-created student accounts. Phase 2 already requires a `/users/{uid}` profile with an email and assigned `classId` before the application shell is shown. The later security/admin phases will tighten who can create or modify those profiles; the current development rules are intentionally preserved until that audit.
+
+## Phase 2 stability fix
+- Firebase/auth module bootstrap is now recoverable if the CDN/config fails.
+- Session checks have a watchdog timeout instead of an infinite spinner.
+- Retry reloads the application cleanly.
+- Student profile/database lookup is intentionally deferred to the authorization/data phases and is not used as an authentication gate yet.
