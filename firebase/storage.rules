@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /content/{allPaths=**} {
+    match /materials/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if false;
     }
