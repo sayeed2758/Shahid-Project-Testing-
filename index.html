@@ -1,37 +1,47 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#071a45"><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="assets/css/style.css">
-<title>EZEE VISION CHAMPUA — Student Learning Portal</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#071a46">
+  <meta name="description" content="EZEE VISION CHAMPUA Student Learning Portal">
+  <title>EZEE VISION CHAMPUA</title>
+  <link rel="icon" type="image/png" href="./assets/images/logo.png">
+  <link rel="stylesheet" href="./assets/css/base.css">
+  <link rel="stylesheet" href="./assets/css/components.css">
+  <link rel="stylesheet" href="./assets/css/app.css">
 </head>
 <body>
-<div id="toast" class="toast" aria-live="polite"></div>
-<section id="loginView" class="screen login-screen">
-  <div class="login-card">
-    <img src="assets/images/logo.png" class="brand-logo" alt="EZEE VISION">
-    <h1>EZEE VISION</h1><div class="brand-subtitle">CHAMPUA</div><p class="welcome">Student Learning Portal</p>
-    <form id="loginForm" novalidate>
-      <label for="email">Email</label><input id="email" type="email" autocomplete="username" placeholder="Enter your email" required>
-      <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter password" required>
-      <button id="loginBtn" class="primary-btn" type="submit">LOGIN</button>
-    </form>
-    <button id="googleBtn" class="secondary-btn" type="button">Continue with Google</button>
-    <button id="forgotBtn" class="link-btn" type="button">Forgot Password?</button>
-    <p id="authHint" class="auth-hint">Firebase secure login • Classes 6–10 • Protected notes</p>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img src="./assets/images/logo.png" alt="EZEE VISION logo" class="brand-logo">
+        <div>
+          <span class="brand-kicker">EZEE VISION</span>
+          <strong>CHAMPUA</strong>
+        </div>
+      </div>
+      <button class="icon-button" type="button" data-action="profile" aria-label="Open profile">EV</button>
+    </header>
+
+    <main id="view" class="main-view" tabindex="-1"></main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button type="button" class="nav-item is-active" data-route="home">
+        <span class="nav-icon">⌂</span><span>Home</span>
+      </button>
+      <button type="button" class="nav-item" data-route="classes">
+        <span class="nav-icon">▦</span><span>Classes</span>
+      </button>
+      <button type="button" class="nav-item" data-route="search">
+        <span class="nav-icon">⌕</span><span>Search</span>
+      </button>
+      <button type="button" class="nav-item" data-route="recent">
+        <span class="nav-icon">◷</span><span>Recent</span>
+      </button>
+    </nav>
   </div>
-</section>
-<section id="appView" class="screen hidden">
-  <header class="topbar"><div><p class="eyebrow">EZEE VISION CHAMPUA</p><h2 id="pageTitle">Home</h2><p id="pageDate"></p></div><button id="profileBtn" class="icon-btn" type="button">◯</button></header>
-  <main id="content" class="content"></main>
-  <nav class="bottom-nav"><button class="nav-item active" data-route="home" type="button">⌂<span>Home</span></button><button class="nav-item" data-route="classes" type="button">▦<span>Classes</span></button><button class="nav-item" data-route="search" type="button">⌕<span>Search</span></button><button class="nav-item" data-route="recent" type="button">◷<span>Recent</span></button></nav>
-</section>
-<script src="assets/js/firebase-config.js?v=16"></script>
-<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-storage-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
-<script src="assets/js/firebase.js?v=16"></script><script src="assets/js/catalog.js?v=16"></script><script src="assets/js/admin-config.js?v=16"></script><script src="assets/js/app.js?v=16"></script>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=11').catch(()=>{})}</script>
-</body></html>
+
+  <script type="module" src="./assets/js/app.js"></script>
+</body>
+</html>

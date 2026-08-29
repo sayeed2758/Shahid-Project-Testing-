@@ -1,15 +1,16 @@
 {
-  "name": "EZEE VISION CHAMPUA Student Learning Portal",
+  "name": "EZEE VISION CHAMPUA",
   "short_name": "EZEE VISION",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#edf3fb",
-  "theme_color": "#071a45",
+  "background_color": "#f4f7fc",
+  "theme_color": "#071a46",
   "icons": [
     {
-      "src": "assets/images/logo.png",
+      "src": "./assets/images/logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
