@@ -74,3 +74,5 @@
   border-top-color: var(--blue-700); border-radius: 50%; animation: spin .75s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.auth-loading-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+.auth-retry { margin-top: 14px; width: 100%; }
