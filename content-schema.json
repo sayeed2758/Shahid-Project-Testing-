@@ -1,32 +1,34 @@
 {
   "catalog": {
-    "10": {
-      "science": {
-        "detailed": {
-          "science-1": {
-            "id": "science-1",
-            "title": "Chemical Reactions",
-            "chapter": "Chemical Reactions",
-            "type": "detailed",
+    "<classId>": {
+      "<subjectId>": {
+        "detailed": [
+          {
+            "id": "...",
+            "title": "...",
             "order": 1,
-            "filePath": "content/class10/science/detailed/chemical-reactions.pdf",
-            "published": true,
-            "description": "Detailed notes"
+            "protected": true,
+            "filePath": "materials/class10/science/detailed/ch1.pdf"
           }
-        },
-        "short": {},
-        "worksheet": {
-          "science-ws-1": {
-            "id": "science-ws-1",
-            "title": "Chemical Reactions Worksheet",
-            "chapter": "Chemical Reactions",
-            "type": "worksheet",
+        ],
+        "short": [
+          {
+            "id": "...",
+            "title": "...",
             "order": 1,
-            "filePath": "content/class10/science/worksheet/chemical-reactions.pdf",
-            "published": true,
-            "description": "Downloadable worksheet"
+            "protected": true,
+            "filePath": "materials/class10/science/short/ch1.pdf"
           }
-        }
+        ],
+        "worksheet": [
+          {
+            "id": "...",
+            "title": "...",
+            "order": 1,
+            "protected": false,
+            "filePath": "materials/class10/science/worksheet/ch1.pdf"
+          }
+        ]
       }
     }
   }
