@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071a45">
+<title>EZEE VISION — Admin Panel</title>
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body>
+<div id="toast" class="toast" aria-live="polite"></div>
+<section id="authView" class="admin-auth">
+  <div class="auth-card">
+    <img src="assets/images/logo.png" alt="EZEE VISION" class="admin-logo">
+    <p class="kicker">EZEE VISION CHAMPUA</p>
+    <h1>Content Admin</h1>
+    <p class="muted">Secure study-material management</p>
+    <form id="adminLoginForm">
+      <label>Email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Admin email" required>
+      <label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Password" required>
+      <button id="adminLoginBtn" class="primary" type="submit">SIGN IN</button>
+    </form>
+    <button id="adminGoogleBtn" class="secondary" type="button">Continue with Google</button>
+    <a class="back-link" href="./index.html">← Back to Student App</a>
+    <p id="authMessage" class="small-note"></p>
+  </div>
+</section>
+
+<section id="panelView" class="hidden">
+  <header class="admin-topbar">
+    <div><p class="kicker">EZEE VISION CHAMPUA</p><h1>Admin Studio</h1><p id="adminIdentity" class="muted"></p></div>
+    <div class="top-actions"><a class="ghost" href="./index.html">Student App</a><button id="adminLogout" class="danger" type="button">LOG OUT</button></div>
+  </header>
+  <main class="admin-main">
+    <section id="metrics" class="metrics"></section>
+    <section class="workspace">
+      <div class="workspace-head"><div><p class="kicker">PHASE 16–20</p><h2>Study Material Manager</h2><p class="muted">Upload PDFs to Firebase Storage and publish their catalog entry in one step.</p></div><button id="refreshBtn" class="ghost" type="button">↻ Refresh</button></div>
+      <div class="tabs"><button class="tab active" data-tab="upload" type="button">＋ Upload / Replace</button><button class="tab" data-tab="library" type="button">▦ Library</button></div>
+      <section id="uploadTab" class="tab-panel">
+        <form id="uploadForm" class="upload-form">
+          <div class="field"><label>Class</label><select id="classSelect" required></select></div>
+          <div class="field"><label>Subject</label><select id="subjectSelect" required></select></div>
+          <div class="field"><label>Section</label><select id="sectionSelect" required></select></div>
+          <div class="field full"><label>Material title</label><input id="titleInput" maxlength="120" placeholder="e.g. Light — Detailed Notes" required></div>
+          <div class="field full"><label>PDF file</label><input id="fileInput" type="file" accept="application/pdf,.pdf" required><small>PDF only • maximum 25 MB</small></div>
+          <div id="replaceBox" class="replace-box hidden"></div>
+          <div class="upload-actions"><button id="uploadBtn" class="primary" type="submit">UPLOAD &amp; PUBLISH</button><button id="resetFormBtn" class="ghost" type="button">RESET</button></div>
+          <div id="progressWrap" class="progress-wrap hidden"><div class="progress-line"><span id="progressBar"></span></div><strong id="progressText">0%</strong><small id="progressStatus">Preparing…</small></div>
+        </form>
+      </section>
+      <section id="libraryTab" class="tab-panel hidden">
+        <div class="library-tools"><input id="librarySearch" placeholder="Search title, class or subject…"><select id="libraryClassFilter"><option value="all">All Classes</option></select><select id="librarySectionFilter"><option value="all">All Sections</option></select></div>
+        <div id="libraryList" class="library-list"></div>
+      </section>
+    </section>
+    <section class="admin-note"><strong>Security model</strong><span>Students can read published material. Only the configured admin account is allowed to upload, replace or delete files by Firebase Security Rules.</span></section>
+  </main>
+</section>
+
+<script src="assets/js/firebase-config.js?v=16"></script>
+<script src="assets/js/admin-config.js?v=16"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-storage-compat.js"></script>
+<script src="assets/js/catalog.js?v=16"></script>
+<script src="assets/js/firebase.js?v=16"></script>
+<script src="assets/js/admin.js?v=16"></script>
+</body>
+</html>

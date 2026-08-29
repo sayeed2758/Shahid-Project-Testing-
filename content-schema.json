@@ -4,11 +4,15 @@
       "science": {
         "detailed": [
           {
-            "id": "6-science-detailed-1",
-            "title": "Chapter 1",
+            "id": "6-science-detailed-<unique>",
+            "title": "Chapter title",
             "order": 1,
             "protected": true,
-            "filePath": "materials/class6/science/detailed/1.pdf"
+            "filePath": "materials/class6/science/detailed/<id>.pdf",
+            "originalName": "chapter.pdf",
+            "size": 123456,
+            "contentType": "application/pdf",
+            "updatedAt": 1750000000000
           }
         ],
         "short": [],
