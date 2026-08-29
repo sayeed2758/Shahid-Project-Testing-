@@ -1,143 +1,363 @@
-import { CLASS_IDS, SUBJECTS, SECTIONS, DEMO_CATALOG, normalizeCatalog, flattenCatalog } from "./catalog.js";
+import { CLASSES, SUBJECTS, SECTIONS, DEMO_CATALOG, normalizeCatalog, allItems } from "./catalog.js";
 
-const firebase = await new Promise(resolve=>{
-  if(window.EVFirebase) return resolve(window.EVFirebase);
-  window.addEventListener("ev-firebase-ready",()=>resolve(window.EVFirebase),{once:true});
+const firebase = await new Promise(resolve => {
+  if (window.EVFirebase) return resolve(window.EVFirebase);
+  window.addEventListener("ev-firebase-ready", () => resolve(window.EVFirebase), { once:true });
 });
 
-const state={route:"home",classId:null,subjectId:null,sectionId:null,itemId:null,catalog:normalizeCatalog(null),profile:{},recent:[],search:""};
-const els={loginView:document.getElementById("loginView"),appView:document.getElementById("appView"),content:document.getElementById("content"),pageTitle:document.getElementById("pageTitle"),pageDate:document.getElementById("pageDate"),toast:document.getElementById("toast")};
-const STORE="ezee_student_recent_v1";
+const state = {
+  route: "home", classId:null, subjectId:null, sectionId:null, itemId:null,
+  catalog: normalizeCatalog(DEMO_CATALOG), profile:{}, recent:[], search:"", busy:false
+};
 
-function esc(x){return String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function showToast(msg){els.toast.textContent=msg;els.toast.classList.add("show");clearTimeout(showToast.t);showToast.t=setTimeout(()=>els.toast.classList.remove("show"),2400)}
-function nowText(){return new Intl.DateTimeFormat("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date())}
-function className(c){return `Class ${c}`}
-function subject(id){return SUBJECTS.find(s=>s.id===id)}
-function section(id){return SECTIONS.find(s=>s.id===id)}
-function saveRecent(){localStorage.setItem(STORE+"_"+(firebase.currentUser()?.uid||"local"),JSON.stringify(state.recent.slice(0,15)))}
-function loadRecent(){try{return JSON.parse(localStorage.getItem(STORE+"_"+(firebase.currentUser()?.uid||"local"))||"[]")}catch{return []}}
-function navigate(route, params={}){Object.assign(state,params,{route});render()}
-function authError(e){const map={"auth/invalid-credential":"Email or password is incorrect.","auth/user-not-found":"Account not found.","auth/wrong-password":"Password is incorrect.","auth/invalid-email":"Please enter a valid email.","auth/too-many-requests":"Too many attempts. Try again later.","auth/popup-closed-by-user":"Google sign-in was cancelled."};return map[e?.code]||e?.message||"Something went wrong."}
+const $ = (id) => document.getElementById(id);
+const el = {
+  loginView:$("loginView"), appView:$("appView"), loginForm:$("loginForm"),
+  email:$("loginEmail"), password:$("loginPassword"), loginBtn:$("loginBtn"),
+  google:$("googleBtn"), forgot:$("forgotBtn"), hint:$("authHint"),
+  content:$("content"), title:$("pageTitle"), date:$("pageDate"),
+  toast:$("toast"), profile:$("profileBtn")
+};
 
-function cardButton(cls,text,attrs=""){return `<button type="button" class="${cls}" ${attrs}>${text}</button>`}
+const RECENT_KEY = "ezee_student_recent_v2";
+
+const esc = x => String(x ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const classLabel = c => `Class ${c}`;
+const subj = id => SUBJECTS.find(x=>x.id===id);
+const sec = id => SECTIONS.find(x=>x.id===id);
+const items = () => state.catalog?.[state.classId]?.[state.subjectId]?.[state.sectionId] || [];
+const itemKey = x => `${x.classId}|${x.subjectId}|${x.sectionId}|${x.id}`;
+
+function toast(msg){
+  el.toast.textContent = msg;
+  el.toast.classList.add("show");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(()=>el.toast.classList.remove("show"),2600);
+}
+function authMessage(e){
+  const m = {
+    "auth/invalid-credential":"Email or password is incorrect.",
+    "auth/invalid-email":"Please enter a valid email.",
+    "auth/user-not-found":"Account not found.",
+    "auth/wrong-password":"Password is incorrect.",
+    "auth/too-many-requests":"Too many attempts. Try again later.",
+    "auth/popup-closed-by-user":"Google sign-in was cancelled.",
+    "auth/popup-blocked":"Popup was blocked. Please allow popups and try again."
+  };
+  return m[e?.code] || e?.message || "Something went wrong.";
+}
+function dateText(){return new Intl.DateTimeFormat("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date())}
+function currentUid(){return firebase?.currentUser?.()?.uid || "local";}
+
+function loadRecent(){
+  try { state.recent = JSON.parse(localStorage.getItem(RECENT_KEY+"_"+currentUid()) || "[]"); }
+  catch { state.recent=[]; }
+}
+function saveRecent(){localStorage.setItem(RECENT_KEY+"_"+currentUid(),JSON.stringify(state.recent.slice(0,20)))}
+
+function navigate(route, params={}){
+  Object.assign(state, params, {route});
+  render();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function setBusy(button, busy, text){
+  if(!button) return;
+  button.disabled=busy;
+  button.dataset.original=text || button.textContent;
+  button.textContent=busy ? "PLEASE WAIT…" : button.dataset.original;
+}
 
 function render(){
-  els.pageDate.textContent=nowText();
+  el.date.textContent = dateText();
   const titles={home:"Home",classes:"Classes",subject:"Subjects",section:"Materials",viewer:"Reader",search:"Search",recent:"Recent",profile:"Profile"};
-  els.pageTitle.textContent=titles[state.route]||"Home";
+  el.title.textContent=titles[state.route]||"Home";
   document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.route===state.route));
   const views={home:viewHome,classes:viewClasses,subject:viewSubject,section:viewSection,viewer:viewViewer,search:viewSearch,recent:viewRecent,profile:viewProfile};
-  els.content.innerHTML=(views[state.route]||viewHome)();
-  bind();
+  el.content.innerHTML=(views[state.route]||viewHome)();
+}
+
+function classCards(){
+  return CLASSES.map(c=>`<button type="button" class="class-card" data-class="${c}">
+    <span class="class-badge">${c}</span><strong>${classLabel(c)}</strong><small>4 Subjects</small>
+  </button>`).join("");
 }
 
 function viewHome(){
-  const total=flattenCatalog(state.catalog).length;
-  const protectedCount=flattenCatalog(state.catalog).filter(x=>x.sectionId!=="worksheet").length;
-  return `<section class="hero-card"><div><p class="hero-kicker">WELCOME BACK</p><h3>${esc(state.profile.name||firebase.currentUser()?.displayName||"Student")} 👋</h3><p>Learn from Class 6 to Class 10 • ${total} material entries</p></div><button class="hero-link" data-go="classes">Browse Classes →</button></section>
-  <div class="home-grid"><div class="stat-card"><span>🎓</span><small>Classes</small><strong>5</strong></div><div class="stat-card"><span>📚</span><small>Subjects</small><strong>4</strong></div><div class="stat-card"><span>🔒</span><small>Protected Notes</small><strong>${protectedCount}</strong></div><div class="stat-card"><span>📄</span><small>Worksheets</small><strong>${total-protectedCount}</strong></div></div>
+  const total=allItems(state.catalog).length;
+  const protectedCount=allItems(state.catalog).filter(x=>x.sectionId!=="worksheet").length;
+  const worksheetCount=total-protectedCount;
+  return `<section class="hero-card">
+    <div><p class="hero-kicker">WELCOME BACK</p><h3>${esc(state.profile.name || firebase.currentUser()?.displayName || "Student")} 👋</h3>
+    <p>Classes 6–10 • ${total} material entries</p></div>
+    <button type="button" class="hero-link" data-go="classes">Browse Classes →</button>
+  </section>
+  <div class="home-grid">
+    <div class="stat-card"><span>🎓</span><small>Classes</small><strong>5</strong></div>
+    <div class="stat-card"><span>📚</span><small>Subjects</small><strong>4</strong></div>
+    <div class="stat-card"><span>🔒</span><small>Protected Notes</small><strong>${protectedCount}</strong></div>
+    <div class="stat-card"><span>📄</span><small>Worksheets</small><strong>${worksheetCount}</strong></div>
+  </div>
   <div class="section-heading"><h3>Choose your class</h3><button type="button" class="text-btn" data-go="classes">View all</button></div>
-  <div class="class-grid">${CLASS_IDS.map(c=>cardButton("class-card",`<span class="class-badge">${c}</span><strong>Class ${c}</strong><small>4 Subjects</small>`,`data-class="${c}"`)).join("")}</div>
-  <div class="section-heading"><h3>Continue reading</h3></div>
-  ${state.recent.length?renderRecentCards(3):`<div class="empty-card"><div>📖</div><strong>No recent material</strong><p>Open a note or worksheet to see it here.</p></div>`}`;
-}
-function viewClasses(){return `<div class="page-intro"><p>Choose a class to explore its study material.</p></div><div class="class-grid large">${CLASS_IDS.map(c=>cardButton("class-card",`<span class="class-badge">${c}</span><strong>Class ${c}</strong><small>SST • Science • Math • English</small>`,`data-class="${c}"`)).join("")}</div>`}
-function viewSubject(){const c=state.classId;return `<button class="back-btn" type="button" data-go="classes">← Back to Classes</button><div class="title-block"><p>${className(c)}</p><h3>Choose a subject</h3></div><div class="subject-grid">${SUBJECTS.map(s=>cardButton("subject-card",`<span class="subject-icon">${s.icon}</span><strong>${esc(s.name)}</strong><small>3 sections</small>`,`data-subject="${s.id}"`)).join("")}</div>`}
-function viewSection(){const c=state.classId,s=subject(state.subjectId);return `<button class="back-btn" type="button" data-go="subject">← Back to Subjects</button><div class="title-block"><p>${className(c)} • ${esc(s?.name||"")}</p><h3>Choose material type</h3></div><div class="section-grid">${SECTIONS.map(sec=>cardButton("section-card",`<span class="section-icon">${sec.icon}</span><strong>${sec.name}</strong><small>${sec.protected?"Read-only • Protected":"Download available"}</small>`,`data-section="${sec.id}"`)).join("")}</div>`}
-function itemsFor(){return flattenCatalog(state.catalog).filter(x=>x.classId===state.classId&&x.subjectId===state.subjectId&&x.sectionId===state.sectionId).sort((a,b)=>(a.order||0)-(b.order||0))}
-function viewSectionList(){return ""}
-function viewMaterialsList(){return ""}
-function viewViewer(){const item=itemsFor().find(x=>x.id===state.itemId);if(!item)return `<div class="empty-card"><strong>Material not found.</strong><button class="primary-btn" data-go="section">Go back</button></div>`;
-  state.lastOpened=item.id; if(!state.recent.some(r=>r.key===itemKey(item)))state.recent.unshift({key:itemKey(item),classId:item.classId,subjectId:item.subjectId,sectionId:item.sectionId,itemId:item.id,title:item.title});else state.recent=[{key:itemKey(item),classId:item.classId,subjectId:item.subjectId,sectionId:item.sectionId,itemId:item.id,title:item.title},...state.recent.filter(r=>r.key!==itemKey(item))];saveRecent();
-  if(item.sectionId==="worksheet") return `<button class="back-btn" type="button" data-go="section">← Back to Worksheets</button><section class="viewer-card"><div class="viewer-head"><div><p>${className(item.classId)} • ${esc(subject(item.subjectId)?.name||"")}</p><h3>${esc(item.title)}</h3></div><span class="access-pill download">DOWNLOAD</span></div><div class="protected-placeholder"><div>📄</div><h4>Worksheet ready</h4><p>Preview is available inside the app. Download is enabled for worksheets.</p>${item.filePath?'<button class="primary-btn" id="downloadWorksheet">DOWNLOAD WORKSHEET</button>':'<button class="primary-btn" id="downloadWorksheet" disabled>PDF NOT PUBLISHED</button>'}<button class="secondary-btn" id="worksheetPreview">OPEN PREVIEW</button></div></section>`;
-  return `<button class="back-btn" type="button" data-go="section">← Back to Notes</button><section class="reader-shell"><div class="reader-head"><div><p>${className(item.classId)} • ${esc(subject(item.subjectId)?.name||"")}</p><h3>${esc(item.title)}</h3></div><span class="access-pill protected">READ ONLY</span></div><div id="pdfStatus" class="reader-status">Loading protected reader…</div><div id="pdfToolbar" class="pdf-toolbar hidden"><button id="prevPage">←</button><span id="pageInfo">Page 1</span><button id="nextPage">→</button><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="fullscreenReader">⛶</button></div><div id="pdfCanvasWrap" class="pdf-canvas-wrap" aria-label="Protected PDF reader"><canvas id="pdfCanvas"></canvas></div><div class="privacy-note">🔒 Download, print and external PDF opening are disabled in this reader.</div></section>`}
-function viewSearch(){return `<div class="search-box"><input id="searchInput" value="${esc(state.search)}" placeholder="Search chapters, notes, worksheets…" autocomplete="off"><button class="icon-btn small" id="clearSearch">✕</button></div><div id="searchResults"></div>`}
-function renderSearchResults(){const q=state.search.trim().toLowerCase();const all=flattenCatalog(state.catalog);const rows=q?all.filter(x=>`${x.title} ${x.chapter} ${x.subjectName} ${x.classId} ${x.sectionName}`.toLowerCase().includes(q)).slice(0,50):[];document.getElementById("searchResults").innerHTML=rows.length?`<div class="result-list">${rows.map(r=>`<button type="button" class="result-card" data-item="${r.itemId||r.id}" data-class="${r.classId}" data-subject="${r.subjectId}" data-section="${r.sectionId}"><span>${esc(section(r.sectionId)?.icon||"📄")}</span><div><strong>${esc(r.title)}</strong><small>Class ${r.classId} • ${esc(r.subjectName)} • ${esc(r.sectionName)}</small></div><b>›</b></button>`).join("")}</div>`:(q?`<div class="empty-card"><div>🔎</div><strong>No material found</strong><p>Try another chapter or subject name.</p></div>`:`<div class="empty-card"><div>⌕</div><strong>Search your material</strong><p>Type a chapter, subject or class above.</p></div>`)}
-function viewRecent(){return state.recent.length?`<div class="section-heading"><h3>Recently opened</h3><button type="button" class="text-btn" id="clearRecent">Clear</button></div>${renderRecentCards(15)}`:`<div class="empty-card"><div>◷</div><strong>No recent items</strong><p>Your opened notes and worksheets will appear here.</p></div>`}
-function renderRecentCards(limit){return `<div class="recent-list">${state.recent.slice(0,limit).map(r=>`<button type="button" class="recent-card" data-recent="${r.key}"><span>${section(r.sectionId)?.icon||"📄"}</span><div><strong>${esc(r.title)}</strong><small>Class ${r.classId} • ${esc(subject(r.subjectId)?.name||"")} • ${esc(section(r.sectionId)?.name||"")}</small></div><b>›</b></button>`).join("")}</div>`}
-function viewProfile(){const u=firebase.currentUser?.();return `<div class="profile-card"><div class="profile-avatar">${esc((state.profile.name||u?.displayName||u?.email||"S").slice(0,1).toUpperCase())}</div><h3>${esc(state.profile.name||u?.displayName||"Student")}</h3><p>${esc(u?.email||"")}</p></div><div class="panel"><label class="field-label">Display name</label><input id="displayName" class="field" value="${esc(state.profile.name||u?.displayName||"")}" placeholder="Your name"><button class="primary-btn" id="saveProfile">SAVE PROFILE</button><button class="danger-btn" id="logoutBtn">LOG OUT</button></div>`}
-
-function itemKey(item){return `${item.classId}|${item.subjectId}|${item.sectionId}|${item.id}`}
-function bind(){
-  document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>navigate(b.dataset.go));
-  document.querySelectorAll("[data-class]").forEach(b=>b.onclick=()=>navigate("subject",{classId:b.dataset.classId}));
-  document.querySelectorAll("[data-subject]").forEach(b=>b.onclick=()=>navigate("section",{subjectId:b.dataset.subjectId}));
-  if(state.route==="section") document.querySelectorAll("[data-section]").forEach(b=>b.onclick=()=>navigate("sectionList",{sectionId:b.dataset.section}));
-  if(state.route==="sectionList") bindItemList();
-  const searchInput=document.getElementById("searchInput"); if(searchInput){searchInput.oninput=()=>{state.search=searchInput.value;renderSearchResults()};renderSearchResults()}
-  const clearSearch=document.getElementById("clearSearch"); if(clearSearch)clearSearch.onclick=()=>{state.search="";render()};
-  const clearRecent=document.getElementById("clearRecent");if(clearRecent)clearRecent.onclick=()=>{state.recent=[];saveRecent();render()};
-  document.querySelectorAll("[data-recent]").forEach(b=>b.onclick=()=>{const r=state.recent.find(x=>x.key===b.dataset.recent);if(r)navigate("viewer",r)});
-  document.querySelectorAll("[data-item]").forEach(b=>b.onclick=()=>navigate("viewer",{classId:b.dataset.class,subjectId:b.dataset.subject,sectionId:b.dataset.section,itemId:b.dataset.item}));
-  const profile=document.getElementById("profileBtn");if(profile)profile.onclick=()=>navigate("profile");
-  const save=document.getElementById("saveProfile");if(save)save.onclick=saveProfile;
-  const logout=document.getElementById("logoutBtn");if(logout)logout.onclick=logout;
-  const dl=document.getElementById("downloadWorksheet");if(dl)dl.onclick=downloadWorksheet;
-  const prev=document.getElementById("worksheetPreview");if(prev)prev.onclick=()=>loadWorksheetPreview();
-  if(state.route==="viewer" && section(state.sectionId)?.protected) loadProtectedPdf();
-}
-function bindItemList(){
-  document.querySelectorAll("[data-material]").forEach(b=>b.onclick=()=>navigate("viewer",{itemId:b.dataset.material}));
+  <div class="class-grid">${classCards()}</div>
+  <div class="section-heading"><h3>Continue reading</h3><button type="button" class="text-btn" data-go="recent">View recent</button></div>
+  ${state.recent.length ? renderRecentCards(3) : `<div class="empty-card"><div>📖</div><strong>No recent material</strong><p>Open a note or worksheet and it will appear here.</p></div>`}`;
 }
 
-function viewSectionList(){const s=subject(state.subjectId),sec=section(state.sectionId),rows=itemsFor();return `<button class="back-btn" type="button" data-go="section">← Back</button><div class="title-block"><p>${className(state.classId)} • ${esc(s?.name||"")}</p><h3>${esc(sec?.name||"")}</h3><small>${sec?.protected?"Read-only viewer • No download/print":"Worksheets can be downloaded"}</small></div><div class="material-list">${rows.map(x=>`<button type="button" class="material-card" data-material="${esc(x.id)}"><span class="material-icon">${sec?.icon||"📄"}</span><div><strong>${esc(x.title)}</strong><small>${esc(x.description||"Tap to open")}</small></div><span class="material-action">${sec?.protected?"READ":"DOWNLOAD"}</span></button>`).join("")}</div>`}
+function viewClasses(){return `<div class="page-intro"><h3>Select a class</h3><p>Choose Class 6 to Class 10 to explore subjects.</p></div><div class="class-grid large">${classCards()}</div>`}
 
-// Dynamic view dispatch for sectionList.
-const originalRender=render;
-render=function(){
-  els.pageDate.textContent=nowText();
-  const titles={home:"Home",classes:"Classes",subject:"Subjects",section:"Materials",sectionList:section(state.sectionId)?.name||"Materials",viewer:"Reader",search:"Search",recent:"Recent",profile:"Profile"};
-  els.pageTitle.textContent=titles[state.route]||"Home";
-  document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",["home","classes","search","recent"].includes(state.route)&&b.dataset.route===state.route));
-  const views={home:viewHome,classes:viewClasses,subject:viewSubject,section:viewSection,sectionList:viewSectionList,viewer:viewViewer,search:viewSearch,recent:viewRecent,profile:viewProfile};
-  els.content.innerHTML=(views[state.route]||viewHome)();bind();els.content.focus({preventScroll:true});
-};
+function viewSubject(){
+  const c=state.classId;
+  return `<button type="button" class="back-btn" data-go="classes">← Back to Classes</button>
+  <div class="title-block"><p>${classLabel(c)}</p><h3>Choose a subject</h3></div>
+  <div class="subject-grid">${SUBJECTS.map(s=>`<button type="button" class="subject-card" data-subject="${s.id}">
+    <span class="subject-icon">${s.icon}</span><strong>${esc(s.name)}</strong><small>3 sections</small></button>`).join("")}</div>`;
+}
 
-async function boot(){
-  state.recent=loadRecent();
-  if(!firebase?.configured){showToast("Firebase configuration is missing.");return;}
-  firebase.onAuthStateChanged(async user=>{
-    if(user){
-      els.loginView.classList.add("hidden");els.appView.classList.remove("hidden");
-      try{state.profile=await firebase.loadUserProfile(user.uid)||{name:user.displayName||"Student",email:user.email||""};}catch{state.profile={name:user.displayName||"Student",email:user.email||""}}
-      try{state.catalog=normalizeCatalog(await firebase.loadCatalog())}catch{state.catalog=normalizeCatalog(DEMO_CATALOG)}
-      render();
-    }else{els.appView.classList.add("hidden");els.loginView.classList.remove("hidden");}
+function viewSection(){
+  const s=subj(state.subjectId);
+  return `<button type="button" class="back-btn" data-go="subject">← Back to Subjects</button>
+  <div class="title-block"><p>${classLabel(state.classId)} • ${esc(s?.name||"")}</p><h3>Choose material type</h3></div>
+  <div class="section-grid">${SECTIONS.map(x=>`<button type="button" class="section-card" data-section="${x.id}">
+    <span class="section-icon">${x.icon}</span><strong>${x.name}</strong><small>${x.protected?"Read-only • Protected":"Download available"}</small></button>`).join("")}</div>`;
+}
+
+function materialCards(){
+  const section=sec(state.sectionId);
+  return items().sort((a,b)=>(a.order||0)-(b.order||0)).map(item=>`<button type="button" class="material-card" data-item="${esc(item.id)}">
+    <span class="material-icon">${section.icon}</span>
+    <span class="material-body"><strong>${esc(item.title)}</strong><small>${section.protected?"Open in protected reader":"Open and download worksheet"}</small></span>
+    <span class="material-arrow">›</span>
+  </button>`).join("");
+}
+
+function viewSection(){
+  const s=subj(state.subjectId), x=sec(state.sectionId);
+  return `<button type="button" class="back-btn" data-go="subject">← Back to Subjects</button>
+  <div class="title-block"><p>${classLabel(state.classId)} • ${esc(s?.name||"")}</p><h3>${x?.name||"Materials"}</h3>
+  <span class="section-note">${x?.protected?"🔒 Read-only content • Download and Print disabled":"📥 Worksheets can be downloaded"}</span></div>
+  <div class="materials-list">${materialCards() || `<div class="empty-card"><div>${x?.icon||"📚"}</div><strong>No material yet</strong><p>Materials will appear here after publication.</p></div>`}</div>`;
+}
+
+function renderRecentCards(limit=20){
+  const rs=state.recent.slice(0,limit).map(r=>{
+    const item=state.catalog?.[r.classId]?.[r.subjectId]?.[r.sectionId]?.find(x=>x.id===r.itemId);
+    if(!item) return "";
+    return `<button type="button" class="recent-card" data-recent="${esc(r.itemId)}" data-class="${esc(r.classId)}" data-subject="${esc(r.subjectId)}" data-section="${esc(r.sectionId)}">
+      <span>${sec(r.sectionId)?.icon||"📖"}</span><span><strong>${esc(item.title)}</strong><small>${classLabel(r.classId)} • ${esc(subj(r.subjectId)?.name||"")}</small></span></button>`;
+  }).join("");
+  return rs || `<div class="empty-card"><strong>No recent material</strong></div>`;
+}
+
+function viewRecent(){return `<div class="page-intro"><h3>Recently opened</h3><p>Your recent notes and worksheets are saved on this device.</p></div>${state.recent.length?`<div class="recent-list">${renderRecentCards(20)}</div>`:`<div class="empty-card"><div>◷</div><strong>No recent material</strong><p>Open something from Classes to build your recent list.</p></div>`}`}
+
+function viewSearch(){
+  const q=state.search.trim().toLowerCase();
+  const rows=q?allItems(state.catalog).filter(x=>`${x.title} ${x.classId} ${subj(x.subjectId)?.name||""} ${sec(x.sectionId)?.name||""}`.toLowerCase().includes(q)).slice(0,50):[];
+  return `<div class="page-intro"><h3>Search material</h3><p>Search chapters, worksheets, subjects or class numbers.</p></div>
+  <input id="searchInput" class="search-input" type="search" value="${esc(state.search)}" placeholder="🔎 Search e.g. Class 10, Light, Algebra…">
+  <div class="search-results">${q?(rows.length?rows.map(x=>`<button type="button" class="result-card" data-search-item="${esc(x.id)}" data-class="${x.classId}" data-subject="${x.subjectId}" data-section="${x.sectionId}"><span>${sec(x.sectionId).icon}</span><span><strong>${esc(x.title)}</strong><small>${classLabel(x.classId)} • ${esc(subj(x.subjectId).name)} • ${esc(sec(x.sectionId).name)}</small></span>›</button>`).join(""):`<div class="empty-card"><strong>No results found</strong><p>Try another keyword.</p></div>`):`<div class="empty-card"><div>🔎</div><strong>Start searching</strong><p>Search across all Class 6–10 material.</p></div>`}</div>`;
+}
+
+function viewerItem(){
+  return items().find(x=>x.id===state.itemId);
+}
+
+function viewViewer(){
+  const item=viewerItem(), section=sec(state.sectionId);
+  if(!item) return `<div class="empty-card"><strong>Material not found</strong><button class="primary-btn" data-go="section">Go back</button></div>`;
+  return `<button type="button" class="back-btn" data-go="section">← Back to ${section?.name||"Materials"}</button>
+  <section class="reader-card">
+    <div class="reader-head"><div><p>${classLabel(item.classId||state.classId)} • ${esc(subj(state.subjectId)?.name||"")}</p><h3>${esc(item.title)}</h3></div>
+      <span class="access-pill ${section?.protected?"protected":"download"}">${section?.protected?"PROTECTED":"WORKSHEET"}</span>
+    </div>
+    ${section?.protected ? `<div class="reader-shell protected-reader" id="readerShell">
+      <div id="pdfStatus" class="reader-status"><div class="spinner"></div><strong>Loading protected note…</strong><p>The document stays inside this reader. Download and Print are disabled.</p></div>
+      <canvas id="pdfCanvas" class="pdf-canvas" aria-label="Protected PDF page"></canvas>
+      <div id="pdfToolbar" class="pdf-toolbar hidden">
+        <button type="button" id="prevPage" class="mini-btn">‹</button>
+        <span id="pageInfo">Page 1 / 1</span>
+        <button type="button" id="nextPage" class="mini-btn">›</button>
+        <button type="button" id="zoomOut" class="mini-btn">−</button>
+        <button type="button" id="zoomIn" class="mini-btn">+</button>
+        <button type="button" id="fullscreenBtn" class="mini-btn">⛶</button>
+      </div>
+    </div>` : `<div class="worksheet-box"><div class="big-icon">📄</div><h3>Worksheet</h3><p>Open the worksheet here, then download it to your device.</p><div class="reader-actions"><button id="previewWorksheet" class="secondary-btn" type="button">Preview</button><button id="downloadWorksheet" class="primary-btn" type="button">DOWNLOAD</button></div></div>`}
+  </section>`;
+}
+
+function viewProfile(){
+  const u=firebase.currentUser?.();
+  return `<div class="profile-card panel"><div class="profile-avatar">${esc((state.profile.name||u?.displayName||"S")[0]).toUpperCase()}</div>
+    <h3>${esc(state.profile.name||u?.displayName||"Student")}</h3><p>${esc(state.profile.email||u?.email||"")}</p>
+    <button type="button" class="primary-btn" id="saveProfile">SAVE PROFILE</button>
+    <label class="profile-label" for="profileName">Display name</label><input id="profileName" class="search-input" value="${esc(state.profile.name||u?.displayName||"")}">
+    <button type="button" class="danger-btn" id="logoutBtn">LOG OUT</button>
+  </div>`;
+}
+
+function touchRecent(item){
+  const row={classId:state.classId,subjectId:state.subjectId,sectionId:state.sectionId,itemId:item.id,title:item.title};
+  state.recent=[row,...state.recent.filter(r=>itemKey({...r})!==itemKey(row))].slice(0,20);
+  saveRecent();
+}
+
+async function loadPdf(){
+  const item=viewerItem(), status=$("pdfStatus"), canvas=$("pdfCanvas");
+  if(!item||!status||!canvas) return;
+  touchRecent(item);
+  if(!item.filePath){
+    status.innerHTML=`<div class="empty-reader"><div>📖</div><strong>Protected note not published yet</strong><p>Upload the PDF to Firebase Storage and add its Storage path in the catalog.</p></div>`;
+    return;
+  }
+  try{
+    const blob=await firebase.readProtectedPdf(item.filePath);
+    const pdfjs=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+    const pdf=await pdfjs.getDocument({data:await blob.arrayBuffer()}).promise;
+    window.EVReader={pdf,page:1,scale:1.1};
+    status.classList.add("hidden");
+    $("pdfToolbar").classList.remove("hidden");
+    await paintPage();
+  }catch(e){
+    status.innerHTML=`<div class="empty-reader"><div>⚠️</div><strong>Could not open this note</strong><p>${esc(e?.message||"Access denied or file unavailable.")}</p></div>`;
+  }
+}
+
+async function paintPage(){
+  const r=window.EVReader, canvas=$("pdfCanvas");
+  if(!r?.pdf||!canvas) return;
+  const page=await r.pdf.getPage(r.page);
+  const vp=page.getViewport({scale:r.scale});
+  canvas.width=vp.width;canvas.height=vp.height;
+  await page.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;
+  $("pageInfo").textContent=`Page ${r.page} / ${r.pdf.numPages}`;
+}
+
+async function downloadWorksheet(){
+  const item=viewerItem();
+  if(!item?.filePath){toast("Worksheet PDF is not published yet.");return}
+  try{
+    const blob=await firebase.readProtectedPdf(item.filePath);
+    const url=URL.createObjectURL(blob), a=document.createElement("a");
+    a.href=url;a.download=(item.title||"worksheet").replace(/[^a-z0-9 _-]/gi,"")+".pdf";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);toast("Worksheet downloaded");
+  }catch(e){toast("Worksheet download failed: "+(e?.message||"Access denied"))}
+}
+
+async function previewWorksheet(){
+  const item=viewerItem();
+  if(!item?.filePath){toast("Worksheet PDF is not published yet.");return}
+  try{
+    const blob=await firebase.readProtectedPdf(item.filePath);
+    const url=URL.createObjectURL(blob);
+    const w=window.open("about:blank","_blank","noopener,noreferrer");
+    if(!w){toast("Allow pop-ups to preview worksheet.");URL.revokeObjectURL(url);return}
+    w.document.write(`<html><head><title>${esc(item.title)}</title></head><body style="margin:0;background:#111"><iframe title="Worksheet Preview" src="${url}" style="width:100%;height:100vh;border:0"></iframe></body></html>`);
+    w.document.close();
+    setTimeout(()=>URL.revokeObjectURL(url),120000);
+  }catch(e){toast("Preview failed")}
+}
+
+function bindDynamic(){
+  el.content.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>navigate(b.dataset.go));
+  el.content.querySelectorAll("[data-class]").forEach(b=>b.onclick=()=>navigate("subject",{classId:b.dataset.class}));
+  el.content.querySelectorAll("[data-subject]").forEach(b=>b.onclick=()=>navigate("section",{subjectId:b.dataset.subject}));
+  el.content.querySelectorAll("[data-section]").forEach(b=>b.onclick=()=>navigate("sectionList",{sectionId:b.dataset.section}));
+  el.content.querySelectorAll("[data-item]").forEach(b=>b.onclick=()=>navigate("viewer",{itemId:b.dataset.item}));
+  el.content.querySelectorAll("[data-recent]").forEach(b=>b.onclick=()=>navigate("viewer",{classId:b.dataset.class,subjectId:b.dataset.subject,sectionId:b.dataset.section,itemId:b.dataset.recent}));
+  el.content.querySelectorAll("[data-search-item]").forEach(b=>b.onclick=()=>navigate("viewer",{classId:b.dataset.class,subjectId:b.dataset.subject,sectionId:b.dataset.section,itemId:b.dataset.searchItem}));
+
+  const search=$("searchInput");
+  if(search){
+    search.oninput=()=>{state.search=search.value;render();const i=$("searchInput");i?.focus();i?.setSelectionRange(state.search.length,state.search.length)}
+  }
+
+  $("pdfToolbar")?.querySelector("#prevPage")?.addEventListener("click",()=>{if(window.EVReader?.page>1){window.EVReader.page--;paintPage()}});
+  $("pdfToolbar")?.querySelector("#nextPage")?.addEventListener("click",()=>{if(window.EVReader?.page<window.EVReader?.pdf?.numPages){window.EVReader.page++;paintPage()}});
+  $("pdfToolbar")?.querySelector("#zoomOut")?.addEventListener("click",()=>{window.EVReader.scale=Math.max(.7,window.EVReader.scale-.1);paintPage()});
+  $("pdfToolbar")?.querySelector("#zoomIn")?.addEventListener("click",()=>{window.EVReader.scale=Math.min(2.2,window.EVReader.scale+.1);paintPage()});
+  $("pdfToolbar")?.querySelector("#fullscreenBtn")?.addEventListener("click",()=>{$("readerShell")?.requestFullscreen?.()});
+  $("downloadWorksheet")?.addEventListener("click",downloadWorksheet);
+  $("previewWorksheet")?.addEventListener("click",previewWorksheet);
+
+  $("saveProfile")?.addEventListener("click",async()=>{
+    const name=$("profileName").value.trim();
+    if(!name){toast("Enter your name.");return}
+    try{
+      const uid=currentUid();
+      state.profile={...state.profile,name,email:firebase.currentUser()?.email||""};
+      await firebase.saveProfile(uid,state.profile);
+      if(firebase.currentUser()?.uid) await import("https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js").then(m=>m.updateProfile(firebase.currentUser(),{displayName:name}));
+      toast("Profile saved");render();
+    }catch(e){toast(e?.message||"Could not save profile")}
   });
-  await firebase.getRedirectResult().catch(()=>{});
+  $("logoutBtn")?.addEventListener("click",async()=>{
+    try{await firebase.logout()}catch(e){toast("Could not log out")}
+  });
+
+  if(state.route==="viewer" && sec(state.sectionId)?.protected) loadPdf();
+  else if(state.route==="viewer") touchRecent(viewerItem()||{});
 }
 
-document.getElementById("loginForm").addEventListener("submit",async e=>{e.preventDefault();const email=document.getElementById("loginEmail").value.trim(),pass=document.getElementById("loginPassword").value;if(!email||!pass){showToast("Enter email and password");return}try{await firebase.signIn(email,pass)}catch(err){showToast(authError(err))}});
-document.getElementById("googleLoginBtn").onclick=async()=>{try{await firebase.signInWithGoogle()}catch(err){showToast(authError(err))}};
-document.getElementById("forgotBtn").onclick=async()=>{const email=document.getElementById("loginEmail").value.trim();if(!email){showToast("Enter your email first");return}try{await firebase.resetPassword(email);showToast("Password reset email sent") }catch(err){showToast(authError(err))}};
-
-document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>navigate(b.dataset.route));
-
-async function saveProfile(){const input=document.getElementById("displayName"),name=input.value.trim();if(!name){showToast("Enter your name");return}try{await firebase.updateDisplayName(name);await firebase.saveUserProfile(firebase.currentUser().uid,{name,email:firebase.currentUser().email||"",updatedAt:Date.now()});state.profile={...state.profile,name};showToast("Profile saved");render()}catch(e){showToast(e.message||"Profile could not be saved")}}
-async function logout(){try{await firebase.signOut()}catch(e){showToast("Could not log out")}}
-
-async function fetchPdfDocument(blob){
-  if(!window.__pdfjs){window.__pdfjs=import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");}
-  const pdfjs=await window.__pdfjs;pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
-  return pdfjs.getDocument({data:await blob.arrayBuffer(),disableAutoFetch:false}).promise;
+function renderPatched(){
+  const original=state.route;
+  if(original==="sectionList") state.route="section";
+  render();
+  state.route=original;
+  bindDynamic();
 }
-let reader={pdf:null,page:1,scale:1.12};
-async function loadProtectedPdf(){
-  const item=itemsFor().find(x=>x.id===state.itemId),status=document.getElementById("pdfStatus");if(!item||!status)return;
-  if(!item.filePath){status.innerHTML="<strong>Material not published yet.</strong><br><span>Your protected PDF will appear here after it is uploaded to Firebase Storage.</span>";return}
-  try{const blob=await firebase.readBlob(item.filePath);reader.pdf=await fetchPdfDocument(blob);reader.page=1;reader.scale=1.12;status.classList.add("hidden");document.getElementById("pdfToolbar").classList.remove("hidden");await renderPdfPage();}
-  catch(e){status.innerHTML=`<strong>Could not open this note.</strong><br><span>${esc(e?.message||"Access denied or file unavailable.")}</span>`}
+
+function render(){
+  el.date.textContent = dateText();
+  const titles={home:"Home",classes:"Classes",subject:"Subjects",section:"Materials",sectionList:"Materials",viewer:"Reader",search:"Search",recent:"Recent",profile:"Profile"};
+  el.title.textContent=titles[state.route]||"Home";
+  document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.route===state.route));
+  const views={home:viewHome,classes:viewClasses,subject:viewSubject,section:viewSection,sectionList:viewSection,viewer:viewViewer,search:viewSearch,recent:viewRecent,profile:viewProfile};
+  el.content.innerHTML=(views[state.route]||viewHome)();
+  bindDynamic();
 }
-async function renderPdfPage(){const canvas=document.getElementById("pdfCanvas"),ctx=canvas?.getContext("2d");if(!reader.pdf||!canvas)return;const page=await reader.pdf.getPage(reader.page),vp=page.getViewport({scale:reader.scale});canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;document.getElementById("pageInfo").textContent=`Page ${reader.page} / ${reader.pdf.numPages}`}
-document.addEventListener("click",async e=>{const id=e.target.id;if(!id)return;if(id==="prevPage"&&reader.pdf&&reader.page>1){reader.page--;renderPdfPage()}if(id==="nextPage"&&reader.pdf&&reader.page<reader.pdf.numPages){reader.page++;renderPdfPage()}if(id==="zoomOut"){reader.scale=Math.max(.75,reader.scale-.12);renderPdfPage()}if(id==="zoomIn"){reader.scale=Math.min(2.5,reader.scale+.12);renderPdfPage()}if(id==="fullscreenReader"){document.querySelector(".reader-shell")?.requestFullscreen?.()}});
 
-async function downloadWorksheet(){const item=itemsFor().find(x=>x.id===state.itemId);if(!item?.filePath){showToast("Worksheet PDF is not published yet");return}try{const blob=await firebase.readBlob(item.filePath);const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=(item.title||"worksheet").replace(/[^a-z0-9-_ ]/gi,"")+".pdf";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);showToast("Worksheet downloaded")}catch(e){showToast("Download failed")}}
-async function loadWorksheetPreview(){const item=itemsFor().find(x=>x.id===state.itemId);if(!item?.filePath){showToast("Worksheet PDF is not published yet");return}try{const blob=await firebase.readBlob(item.filePath),url=URL.createObjectURL(blob);const w=window.open("about:blank","_blank","noopener,noreferrer");if(!w){showToast("Allow pop-ups to preview worksheet");URL.revokeObjectURL(url);return}w.document.write(`<html><head><title>${esc(item.title)}</title></head><body style="margin:0"><iframe src="${url}" style="width:100%;height:100vh;border:0"></iframe></body></html>`);w.document.close();setTimeout(()=>URL.revokeObjectURL(url),60000)}catch(e){showToast("Preview failed")}}
+async function start(){
+  loadRecent();
+  if(!firebase?.configured){el.hint.textContent="Firebase configuration is missing.";return;}
+  firebase.onAuthStateChanged(async user=>{
+    if(!user){
+      el.appView.classList.add("hidden");el.loginView.classList.remove("hidden");return;
+    }
+    el.loginView.classList.add("hidden");el.appView.classList.remove("hidden");
+    try{state.profile=await firebase.loadProfile(user.uid)||{name:user.displayName||"Student",email:user.email||""}}catch{state.profile={name:user.displayName||"Student",email:user.email||""}}
+    try{state.catalog=normalizeCatalog(await firebase.loadCatalog())}catch{state.catalog=normalizeCatalog(DEMO_CATALOG)}
+    loadRecent();render();
+  });
+  try{await firebase.finishRedirect()}catch(e){/* handled by auth observer */}
+}
 
-// Prevent common browser actions in protected reader. OS-level screenshots cannot be fully prevented by a web app.
-document.addEventListener("contextmenu",e=>{if(e.target.closest(".reader-shell"))e.preventDefault()});
-document.addEventListener("keydown",e=>{if(document.querySelector(".reader-shell") && ((e.ctrlKey||e.metaKey)&&["p","s","u"].includes(e.key.toLowerCase()))){e.preventDefault();showToast("This action is disabled in protected reader")}});
+el.loginForm.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const email=el.email.value.trim(), pass=el.password.value;
+  if(!email||!pass){toast("Enter email and password.");return}
+  setBusy(el.loginBtn,true,"LOGIN");
+  try{await firebase.signIn(email,pass)}catch(err){toast(authMessage(err));setBusy(el.loginBtn,false,"LOGIN")}
+});
+el.google.addEventListener("click",async()=>{
+  setBusy(el.google,true,"Continue with Google");
+  try{await firebase.googleSignIn()}catch(err){toast(authMessage(err));setBusy(el.google,false,"Continue with Google")}
+});
+el.forgot.addEventListener("click",async()=>{
+  const email=el.email.value.trim();
+  if(!email){toast("Enter your email first.");el.email.focus();return}
+  try{await firebase.resetPassword(email);toast("Password reset email sent.")}catch(err){toast(authMessage(err))}
+});
+el.profile.addEventListener("click",()=>navigate("profile"));
+document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.route)));
 
-authorizeNavigation();
-function authorizeNavigation(){render();boot()}
+document.addEventListener("contextmenu",e=>{if(e.target.closest(".protected-reader"))e.preventDefault()});
+document.addEventListener("keydown",e=>{
+  if(document.querySelector(".protected-reader") && (e.ctrlKey||e.metaKey) && ["p","s","u"].includes(e.key.toLowerCase())){
+    e.preventDefault();toast("This action is disabled in the protected reader.");
+  }
+});
+
+start();

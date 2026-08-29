@@ -1,11 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail,
-  signOut, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
-  updateProfile
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  sendPasswordResetEmail, signOut, GoogleAuthProvider,
+  signInWithPopup, signInWithRedirect, getRedirectResult, updateProfile
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
-  getDatabase, ref as dbRef, get, set, update, onValue
+  getDatabase, ref, get, set, update
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import {
   getStorage, ref as storageRef, getBlob
@@ -15,52 +15,60 @@ const cfg = window.EV_FIREBASE_CONFIG || {};
 const configured = Boolean(cfg.apiKey && cfg.authDomain && cfg.databaseURL && cfg.projectId && cfg.appId);
 
 if (!configured) {
-  window.EVFirebase = { configured:false };
-  window.dispatchEvent(new CustomEvent("ev-firebase-ready"));
+  window.EVFirebase = { configured: false };
 } else {
   const app = initializeApp(cfg);
   const auth = getAuth(app);
-  const database = getDatabase(app);
+  const db = getDatabase(app);
   const storage = getStorage(app);
-  const googleProvider = new GoogleAuthProvider();
-  googleProvider.setCustomParameters({ prompt:"select_account" });
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
 
-  async function loadUserProfile(uid){
-    const snap = await get(dbRef(database, `users/${uid}/profile`));
-    return snap.exists() ? snap.val() : null;
-  }
-  async function saveUserProfile(uid, data){
-    await update(dbRef(database, `users/${uid}/profile`), data);
-  }
-  async function loadCatalog(){
-    const snap = await get(dbRef(database, "catalog"));
-    return snap.exists() ? snap.val() : null;
-  }
-  async function readBlob(path){
-    if (!path) throw new Error("This material is not published yet.");
-    return getBlob(storageRef(storage, path));
-  }
-
-  window.EVFirebase = {
-    configured:true, auth, database, storage,
-    signIn:(email,password)=>signInWithEmailAndPassword(auth,email,password),
-    signInWithGoogle:async()=>{
-      try{return await signInWithPopup(auth,googleProvider)}
-      catch(e){
-        if(e?.code === "auth/popup-blocked" || e?.code === "auth/popup-cancelled"){
-          await signInWithRedirect(auth,googleProvider); return null;
+  const api = {
+    configured: true,
+    currentUser: () => auth.currentUser,
+    onAuthStateChanged: (cb) => onAuthStateChanged(auth, cb),
+    async signIn(email, password) {
+      return signInWithEmailAndPassword(auth, email, password);
+    },
+    async googleSignIn() {
+      try {
+        return await signInWithPopup(auth, provider);
+      } catch (e) {
+        if (e?.code === "auth/popup-blocked" || e?.code === "auth/cancelled-popup-request") {
+          await signInWithRedirect(auth, provider);
+          return null;
         }
         throw e;
       }
     },
-    getRedirectResult:()=>getRedirectResult(auth),
-    resetPassword:(email)=>sendPasswordResetEmail(auth,email),
-    signOut:()=>signOut(auth),
-    currentUser:()=>auth.currentUser,
-    onAuthStateChanged:(cb)=>onAuthStateChanged(auth,cb),
-    updateDisplayName:(name)=>auth.currentUser ? updateProfile(auth.currentUser,{displayName:name}) : Promise.resolve(),
-    loadUserProfile, saveUserProfile, loadCatalog, readBlob
+    async finishRedirect() {
+      return getRedirectResult(auth);
+    },
+    async resetPassword(email) {
+      return sendPasswordResetEmail(auth, email);
+    },
+    async logout() {
+      return signOut(auth);
+    },
+    async loadProfile(uid) {
+      const snap = await get(ref(db, `users/${uid}/profile`));
+      return snap.exists() ? snap.val() : null;
+    },
+    async saveProfile(uid, profile) {
+      await update(ref(db, `users/${uid}/profile`), profile);
+    },
+    async loadCatalog() {
+      const snap = await get(ref(db, "catalog"));
+      return snap.exists() ? snap.val() : null;
+    },
+    async readProtectedPdf(path) {
+      if (!path) throw new Error("This PDF is not published yet.");
+      const blob = await getBlob(storageRef(storage, path));
+      return blob;
+    }
   };
-  window.dispatchEvent(new CustomEvent("ev-firebase-ready"));
-  getRedirectResult(auth).catch(()=>{});
+
+  window.EVFirebase = api;
 }
+window.dispatchEvent(new CustomEvent("ev-firebase-ready"));

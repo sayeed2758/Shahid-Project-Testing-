@@ -1,5 +1,3 @@
-// Public Firebase web configuration. Keep production security in Authentication,
-// Realtime Database Rules and Storage Rules. Never put service-account keys here.
 window.EV_FIREBASE_CONFIG = {
   apiKey: "AIzaSyAAXE62v0nC_T0QqbUh5hJ9gDHoahMFOdc",
   authDomain: "ezee-vision-champua.firebaseapp.com",
