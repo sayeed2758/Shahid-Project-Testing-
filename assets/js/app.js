@@ -1,11 +1,69 @@
-import { CLASSES, SUBJECTS, SECTIONS, DEMO_CATALOG, normalizeCatalog, allItems } from "./catalog.js";
+const CLASSES = ["6","7","8","9","10"];
+const SUBJECTS = [
+  { id:"sst", name:"SST", icon:"🌍" },
+  { id:"science", name:"SCIENCE", icon:"🔬" },
+  { id:"math", name:"MATH", icon:"🧮" },
+  { id:"english", name:"ENGLISH", icon:"📚" }
+];
+const SECTIONS = [
+  { id:"detailed", name:"Detailed Notes", icon:"📖", protected:true },
+  { id:"short", name:"Short Notes", icon:"📝", protected:true },
+  { id:"worksheet", name:"Worksheet", icon:"📄", protected:false }
+];
 
-const firebase = await new Promise(resolve => {
-  if (window.EVFirebase) return resolve(window.EVFirebase);
-  const done = () => resolve(window.EVFirebase || { configured:false, error:"Firebase failed to initialize." });
-  window.addEventListener("ev-firebase-ready", done, { once:true });
-  setTimeout(done, 8000);
-});
+const demo = {};
+for (const c of CLASSES) {
+  demo[c] = {};
+  for (const s of SUBJECTS) {
+    demo[c][s.id] = {
+      detailed: [
+        { id:`${c}-${s.id}-d-1`, title:"Chapter 1 — Overview", order:1, protected:true, filePath:"" },
+        { id:`${c}-${s.id}-d-2`, title:"Chapter 2 — Core Concepts", order:2, protected:true, filePath:"" }
+      ],
+      short: [
+        { id:`${c}-${s.id}-s-1`, title:"Chapter 1 — Quick Revision", order:1, protected:true, filePath:"" },
+        { id:`${c}-${s.id}-s-2`, title:"Chapter 2 — Exam Points", order:2, protected:true, filePath:"" }
+      ],
+      worksheet: [
+        { id:`${c}-${s.id}-w-1`, title:"Worksheet 1", order:1, protected:false, filePath:"" },
+        { id:`${c}-${s.id}-w-2`, title:"Practice Worksheet", order:2, protected:false, filePath:"" }
+      ]
+    };
+  }
+}
+const DEMO_CATALOG = demo;
+
+function normalizeCatalog(raw) {
+  const out = {};
+  for (const c of CLASSES) {
+    out[c] = {};
+    for (const s of SUBJECTS) {
+      out[c][s.id] = {};
+      for (const sec of SECTIONS) {
+        const items = raw?.[c]?.[s.id]?.[sec.id];
+        out[c][s.id][sec.id] = Array.isArray(items) ? items : DEMO_CATALOG[c][s.id][sec.id];
+      }
+    }
+  }
+  return out;
+}
+
+function allItems(catalog) {
+  const rows = [];
+  for (const c of CLASSES)
+    for (const s of SUBJECTS)
+      for (const sec of SECTIONS)
+        for (const item of (catalog?.[c]?.[s.id]?.[sec.id] || []))
+          rows.push({ ...item, classId:c, subjectId:s.id, sectionId:sec.id });
+  return rows;
+}
+
+
+
+const firebase = window.EVFirebase || {
+  configured:false,
+  error:"Firebase SDK could not be initialized. Please refresh the page."
+};
 
 const state = {
   route: "home", classId:null, subjectId:null, sectionId:null, itemId:null,
@@ -44,6 +102,9 @@ function authMessage(e){
     "auth/wrong-password":"Password is incorrect.",
     "auth/too-many-requests":"Too many attempts. Try again later.",
     "auth/popup-closed-by-user":"Google sign-in was cancelled.",
+    "auth/operation-not-allowed":"This sign-in method is not enabled in Firebase Authentication.",
+    "auth/missing-credentials":"Enter email and password first.",
+    "auth/network-request-failed":"Network error. Check your internet connection.",
     "auth/popup-blocked":"Popup was blocked. Please allow popups and try again."
   };
   return m[e?.code] || e?.message || "Something went wrong.";
@@ -324,10 +385,11 @@ function render(){
 async function start(){
   loadRecent();
   if(!firebase?.configured){
-    el.hint.textContent = firebase?.error || "Firebase could not be initialized. Please refresh the page.";
+    el.hint.textContent = "⚠️ " + (firebase?.error || "Firebase could not be initialized. Please refresh the page.");
     el.loginBtn.disabled = false;
     return;
   }
+  el.hint.textContent = "Firebase secure login • Classes 6–10 • Protected notes";
   firebase.onAuthStateChanged(async user=>{
     if(!user){
       el.appView.classList.add("hidden");el.loginView.classList.remove("hidden");
