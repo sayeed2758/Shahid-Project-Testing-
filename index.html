@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#071a45">
   <title>EZEE VISION CHAMPUA</title>
   <link rel="stylesheet" href="assets/css/style.css">
+<link rel="manifest" href="manifest.json">
 </head>
 <body>
   <div class="app-shell">
@@ -55,5 +56,12 @@
   <script src="assets/js/firebase-config.js"></script>
   <script type="module" src="assets/js/firebase.js"></script>
   <script src="assets/js/app.js"></script>
+<script src="assets/js/services/store.js"></script>
+<script src="assets/js/services/crud.js"></script>
+<script src="assets/js/modules/finance.js"></script>
+<script src="assets/js/modules/attendance.js"></script>
+<script src="assets/js/printing/templates.js"></script>
+<script src="assets/js/modules/backup.js"></script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
 </body>
 </html>
