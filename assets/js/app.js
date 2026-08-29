@@ -1,6 +1,10 @@
 const STORAGE_KEY = 'ezee_vision_phase3';
+const STORAGE_VERSION = 4;
+let activeStorageKey = STORAGE_KEY;
+let cloudSavePromise = Promise.resolve();
 
 const DEFAULT_DB = {
+  schemaVersion: STORAGE_VERSION,
   user: null,
   students: [
     { id: 'EV001', name: 'Rahul Kumar', cls: 'Class 10', batch: 'Batch A', phone: '', att: 92, due: 1000 },
@@ -52,6 +56,7 @@ function deepMerge(base, saved) {
 
 function normalizeData(value) {
   const clean = deepMerge(clone(DEFAULT_DB), value || {});
+  clean.schemaVersion = STORAGE_VERSION;
   clean.students = Array.isArray(clean.students) ? clean.students : [];
   clean.batches = Array.isArray(clean.batches) ? clean.batches : [];
   clean.payments = Array.isArray(clean.payments) ? clean.payments : [];
@@ -64,16 +69,25 @@ function normalizeData(value) {
   return clean;
 }
 
-function loadLocal() {
+function loadLocal(key = activeStorageKey) {
   try {
-    return normalizeData(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'));
+    const raw = localStorage.getItem(key);
+    return normalizeData(raw ? JSON.parse(raw) : {});
   } catch (_) {
     return clone(DEFAULT_DB);
   }
 }
 
 function persistLocal() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  try {
+    localStorage.setItem(activeStorageKey, JSON.stringify(db));
+  } catch (err) {
+    console.warn('Local cache save failed:', err);
+  }
+}
+
+function setUserStorage(uid) {
+  activeStorageKey = uid ? `${STORAGE_KEY}_${uid}` : STORAGE_KEY;
 }
 
 function save({ toastMessage = '', immediate = false } = {}) {
@@ -94,17 +108,24 @@ function scheduleCloudSave(immediate = false, toastMessage = '') {
 
 async function saveCloudNow(toastMessage = '') {
   const firebase = window.EVFirebase;
-  if (!firebase?.configured || !firebase.auth?.currentUser || cloudBusy) return;
-  cloudBusy = true;
-  try {
-    await firebase.saveCloud(firebase.auth.currentUser.uid, db);
-    if (toastMessage) toast(toastMessage);
-  } catch (err) {
-    console.warn('Firebase save failed:', err);
-    if (toastMessage) toast('Cloud save failed. Check internet.');
-  } finally {
-    cloudBusy = false;
-  }
+  const user = firebase?.auth?.currentUser;
+  if (!firebase?.configured || !user) return;
+
+  // Queue cloud writes so rapid button presses cannot silently drop a save.
+  const snapshot = clone(db);
+  cloudSavePromise = cloudSavePromise.then(async () => {
+    cloudBusy = true;
+    try {
+      await firebase.saveCloud(user.uid, snapshot);
+      if (toastMessage) toast(toastMessage);
+    } catch (err) {
+      console.warn('Firebase save failed:', err);
+      if (toastMessage) toast('Cloud save failed. Check internet.');
+    } finally {
+      cloudBusy = false;
+    }
+  });
+  await cloudSavePromise;
 }
 
 function esc(value) {
@@ -192,6 +213,8 @@ function waitForFirebase() {
 }
 
 async function loadAuthenticatedUser(user) {
+  setUserStorage(user.uid);
+  db = loadLocal();
   db.user = {
     uid: user.uid,
     name: user.displayName || db.user?.name || 'Shahid Sir',
@@ -226,6 +249,8 @@ function showApp() {
 }
 
 function showLogin() {
+  clearTimeout(cloudTimer);
+  activeStorageKey = STORAGE_KEY;
   document.getElementById('appView').classList.add('hidden');
   document.getElementById('loginView').classList.remove('hidden');
   setLoginBusy(false);
@@ -389,7 +414,7 @@ function filterStudentsData(query = '', filter = state.studentFilter) {
   const q = query.trim().toLowerCase();
   return db.students.filter(student => {
     const matchesQuery = !q || `${student.name} ${student.cls} ${student.batch} ${student.phone}`.toLowerCase().includes(q);
-    const matchesFilter = filter === 'due' ? Number(student.due) > 0 : true;
+    const matchesFilter = filter === 'due' ? Number(student.due) > 0 : filter === 'active' ? student.active !== false : true;
     return matchesQuery && matchesFilter;
   });
 }
@@ -531,6 +556,7 @@ function toggleAttendance(id, button) {
   db.attendance[key] = db.attendance[key] === 'absent' ? 'present' : 'absent';
   button.className = `toggle ${db.attendance[key]}`;
   button.textContent = db.attendance[key] === 'present' ? 'Present' : 'Absent';
+  save();
   const counts = attendanceCounts(state.attendanceBatch);
   toast(`${counts.present} present • ${counts.absent} absent`);
 }
