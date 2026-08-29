@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071a45">
+<meta name="description" content="EZEE VISION CHAMPUA Student Learning App">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/style.css">
+<title>EZEE VISION CHAMPUA</title>
+</head>
+<body>
+<div id="app" class="app-shell">
+  <section id="loginView" class="screen login-screen">
+    <div class="login-card">
+      <img src="assets/images/logo.png" class="brand-logo" alt="EZEE VISION">
+      <h1>EZEE VISION</h1><p class="brand-subtitle">CHAMPUA</p>
+      <p class="welcome">Student Learning Portal</p>
+      <form id="loginForm" novalidate>
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" autocomplete="username" placeholder="Enter your email" required>
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter password" required>
+        <button class="primary-btn" type="submit">LOGIN</button>
+        <button class="secondary-btn" type="button" id="googleLoginBtn">Continue with Google</button>
+      </form>
+      <button class="link-btn" id="forgotBtn" type="button">Forgot Password?</button>
+      <p class="auth-hint" id="authHint">Secure Firebase login • Classes 6–10 • Protected notes</p>
+    </div>
+  </section>
+
+  <section id="appView" class="screen hidden">
+    <header class="topbar">
+      <div class="topbar-main">
+        <p class="eyebrow">EZEE VISION CHAMPUA</p>
+        <h2 id="pageTitle">Home</h2>
+        <p id="pageDate"></p>
+      </div>
+      <button id="profileBtn" class="icon-btn" type="button" aria-label="Profile">◯</button>
+    </header>
+
+    <main id="content" class="content" tabindex="-1"></main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button type="button" class="nav-item active" data-route="home">⌂<span>Home</span></button>
+      <button type="button" class="nav-item" data-route="classes">▦<span>Classes</span></button>
+      <button type="button" class="nav-item" data-route="search">⌕<span>Search</span></button>
+      <button type="button" class="nav-item" data-route="recent">◷<span>Recent</span></button>
+    </nav>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</div>
+<script src="assets/js/firebase-config.js"></script>
+<script type="module" src="assets/js/firebase.js"></script>
+<script type="module" src="assets/js/app.js"></script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
+</body>
+</html>
