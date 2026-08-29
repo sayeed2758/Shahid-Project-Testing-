@@ -124,10 +124,11 @@ function renderProfile() {
       <section class="profile-card">
         <div class="avatar" aria-hidden="true">EV</div>
         <div class="meta">
-          <strong>Student</strong>
-          <span>Authentication will be connected in Phase 2.</span>
+          <strong>Authenticated Student</strong>
+          <span>Your Firebase session is active.</span>
         </div>
       </section>
+      <button class="auth-button primary" type="button" data-auth-action="logout">Logout</button>
     </div>
   `;
 }
