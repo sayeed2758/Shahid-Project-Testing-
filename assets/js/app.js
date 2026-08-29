@@ -11,27 +11,118 @@ const defaultDB={
 };
 let db=load();
 let state={page:'dashboard',selectedStudent:null};
-function load(){try{return deepMerge(structuredClone(defaultDB),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{return structuredClone(defaultDB)}}
-function deepMerge(base,saved){for(const k in saved){if(saved[k]&&typeof saved[k]==='object'&&!Array.isArray(saved[k])&&base[k])base[k]=deepMerge(base[k],saved[k]);else base[k]=saved[k]}return base}
-function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+
+function load(){
+ try{return deepMerge(structuredClone(defaultDB),JSON.parse(localStorage.getItem(KEY)||'{}'))}
+ catch{return structuredClone(defaultDB)}
+}
+function deepMerge(base,saved){
+ for(const k in saved){
+   if(saved[k]&&typeof saved[k]==='object'&&!Array.isArray(saved[k])&&base[k]) base[k]=deepMerge(base[k],saved[k]);
+   else base[k]=saved[k];
+ }
+ return base;
+}
+function save(){
+ localStorage.setItem(KEY,JSON.stringify(db));
+ cloudSave();
+}
+let cloudTimer=null;
+function cloudSave(){
+ if(!window.EVFirebase?.configured || !window.EVFirebase.auth?.currentUser) return;
+ clearTimeout(cloudTimer);
+ cloudTimer=setTimeout(async()=>{
+   try{
+     await window.EVFirebase.saveCloud(window.EVFirebase.auth.currentUser.uid,db);
+     toast('Saved to Firebase ☁️');
+   }catch(err){console.warn('Firebase save failed',err);}
+ },250);
+}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
 function money(v){return '₹'+Number(v||0).toLocaleString('en-IN')}
 function dateText(){return new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
 function todayKey(){return new Date().toISOString().slice(0,10)}
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove('show'),2200)}
+function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.classList.add('show');clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove('show'),2200)}
 function go(page){state.page=page;render();window.scrollTo({top:0,behavior:'smooth'})}
 
 function init(){
  document.getElementById('pageDate').textContent=dateText();
  document.getElementById('loginForm').addEventListener('submit',login);
- document.getElementById('forgotBtn').onclick=()=>toast('Password reset will use Firebase in the backend step.');
+ document.getElementById('forgotBtn').onclick=forgotPassword;
  document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>go(b.dataset.page));
- const bell=document.querySelector('.icon-btn'); if(bell) bell.onclick=()=>go('notifications');
- if(db.loggedIn){document.getElementById('loginView').classList.add('hidden');document.getElementById('appView').classList.remove('hidden');render()}
+ const wait=window.EVFirebase?.ready || Promise.resolve(null);
+ wait.then(async user=>{
+   if(user){
+     await loadAuthenticatedUser(user);
+   }else if(db.loggedIn){
+     // Legacy local demo sessions are not trusted as Firebase sessions.
+     db.loggedIn=false; db.user=null; localStorage.setItem(KEY,JSON.stringify(db));
+   }
+ });
+}
+async function loadAuthenticatedUser(user){
+ db.loggedIn=true;
+ db.user={name:user.displayName||'Shahid Sir',login:user.email||'',role:'Admin'};
+ try{
+   const cloud=await window.EVFirebase.loadCloud(user.uid);
+   if(cloud) db=deepMerge(structuredClone(defaultDB),cloud);
+   db.loggedIn=true;
+   db.user={name:user.displayName||db.user?.name||'Shahid Sir',login:user.email||db.user?.login||'',role:'Admin'};
+   localStorage.setItem(KEY,JSON.stringify(db));
+   if(!cloud) await window.EVFirebase.saveCloud(user.uid,db);
+ }catch(err){console.warn('Cloud load failed',err);toast('Firebase data load failed');}
+ showApp();
+}
+function showApp(){
+ document.getElementById('loginView').classList.add('hidden');
+ document.getElementById('appView').classList.remove('hidden');
+ render();
+}
+async function login(e){
+ e.preventDefault();
+ const id=document.getElementById('loginId').value.trim();
+ const pw=document.getElementById('loginPassword').value;
+ if(!id||!pw)return toast('Please enter both fields');
+ if(!window.EVFirebase?.configured){
+   return toast('Firebase is not configured');
+ }
+ try{
+   const cred=await window.EVFirebase.signIn(id,pw);
+   await loadAuthenticatedUser(cred.user);
+   toast('Login successful ☁️');
+ }catch(err){toast(firebaseError(err));}
+}
+async function forgotPassword(){
+ const email=document.getElementById('loginId').value.trim();
+ if(!email)return toast('Enter your email first');
+ if(!window.EVFirebase?.configured)return toast('Firebase is not configured');
+ try{await window.EVFirebase.resetPassword(email);toast('Password reset email sent')}
+ catch(err){toast(firebaseError(err))}
+}
+function firebaseError(err){
+ const code=err?.code||'';
+ const map={
+  'auth/invalid-credential':'Invalid email or password.',
+  'auth/user-not-found':'Account not found.',
+  'auth/wrong-password':'Wrong password.',
+  'auth/invalid-email':'Enter a valid email address.',
+  'auth/too-many-requests':'Too many attempts. Try again later.',
+  'auth/operation-not-allowed':'Email/Password login is not enabled in Firebase.',
+  'auth/network-request-failed':'Network error. Check your internet connection.'
+ };
+ return map[code]||err?.message||'Authentication failed.';
 }
 document.addEventListener('DOMContentLoaded',init);
-function login(e){e.preventDefault();const id=document.getElementById('loginId').value.trim(),pw=document.getElementById('loginPassword').value.trim();if(!id||!pw)return toast('Please enter both fields');db.loggedIn=true;db.user={name:'Shahid Sir',login:id,role:'Admin'};save();document.getElementById('loginView').classList.add('hidden');document.getElementById('appView').classList.remove('hidden');render();toast('Login successful')}
-function logout(){db.loggedIn=false;db.user=null;save();document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden');document.getElementById('loginForm').reset();toast('Logged out')}
+
+async function logout(){
+ if(window.EVFirebase?.configured){try{await window.EVFirebase.signOut()}catch(_){}}
+ db.loggedIn=false;db.user=null;
+ localStorage.setItem(KEY,JSON.stringify(db));
+ document.getElementById('appView').classList.add('hidden');
+ document.getElementById('loginView').classList.remove('hidden');
+ document.getElementById('loginForm').reset();
+ toast('Logged out');
+}
 
 const titles={dashboard:'Dashboard',students:'Students',attendance:'Attendance',fees:'Fees',more:'More',profile:'Student Profile',addStudent:'Add Student',notifications:'Notifications',batches:'Batches',exams:'Exams',performance:'Performance',materials:'Study Material',homework:'Homework',online:'Online Exams',income:'Income',expenses:'Expenses',enquiries:'Enquiries',staff:'Staff',reports:'Reports',settings:'Settings',backup:'Backup & Restore'};
 function render(){
@@ -66,7 +157,7 @@ function notificationsPage(){return `<button class="back-btn" onclick="go('more'
 function addNotification(){const x=prompt('Notification text');if(x?.trim()){db.notifications.unshift(x.trim());save();render();toast('Notification added')}}
 function batchesPage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="module-grid">${db.batches.map(b=>`<div class="module-card"><span class="ico">🏫</span><strong>${esc(b)}</strong><small>${db.students.filter(s=>s.batch===b).length} students</small></div>`).join('')}</div><button class="primary-btn" onclick="addBatch()">＋ ADD BATCH</button>`}
 function addBatch(){const x=prompt('Batch name');if(x?.trim()){db.batches.push(x.trim());save();render();toast('Batch added')}}
-function modulePage(type,title,icon){const arr=db.items[type]||[];return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>${icon} ${title}</h3><p class="muted">Phase 2 functional local module. Cloud sync will be connected later.</p><button class="primary-btn" onclick="addItem('${type}','${title}')">＋ ADD ${title.toUpperCase()}</button></div><div class="list-card">${arr.map(x=>`<div class="activity"><b>${esc(x)}</b></div>`).join('')||'<div class="activity">No records yet.</div>'}</div>`}
+function modulePage(type,title,icon){const arr=db.items[type]||[];return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>${icon} ${title}</h3><p class="muted">Firebase cloud-synced module.</p><button class="primary-btn" onclick="addItem('${type}','${title}')">＋ ADD ${title.toUpperCase()}</button></div><div class="list-card">${arr.map(x=>`<div class="activity"><b>${esc(x)}</b></div>`).join('')||'<div class="activity">No records yet.</div>'}</div>`}
 function addItem(type,title){const x=prompt('Enter '+title+' name');if(x?.trim()){db.items[type].push(x.trim());save();render();toast(title+' added')}}
 function examsPage(){return modulePage('exams','Exams','📝')}
 function materialsPage(){return modulePage('materials','Study Material','📚')}
@@ -82,5 +173,5 @@ function exportReport(name){const data=['EZEE VISION CHAMPUA',name,'Generated: '
 function backupPage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>☁️ Backup & Restore</h3><p class="muted">Download your current local data or restore a JSON backup.</p><button class="primary-btn" onclick="downloadBackup()">DOWNLOAD BACKUP</button><label class="secondary-btn file-btn">RESTORE BACKUP<input type="file" accept="application/json" onchange="restoreBackup(event)" hidden></label></div>`}
 function downloadBackup(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ezee-vision-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast('Backup downloaded')}
 function restoreBackup(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{db=deepMerge(structuredClone(defaultDB),JSON.parse(r.result));save();render();toast('Backup restored')}catch{toast('Invalid backup file')}};r.readAsText(f)}
-function settingsPage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>⚙️ Settings</h3><div class="kv"><span>Account</span><button class="chip" onclick="go('profile')">Open Profile</button></div><div class="kv"><span>Data storage</span><b>Local device</b></div><div class="kv"><span>Cloud backend</span><b>Next backend step</b></div></div><button class="danger" onclick="resetData()">RESET DEMO DATA</button>`}
+function settingsPage(){return `<button class="back-btn" onclick="go('more')">← More</button><div class="panel"><h3>⚙️ Settings</h3><div class="kv"><span>Account</span><button class="chip" onclick="go('profile')">Open Profile</button></div><div class="kv"><span>Data storage</span><b>Firebase + local cache</b></div><div class="kv"><span>Cloud backend</span><b>${window.EVFirebase?.configured?'Firebase Connected':'Firebase Config Pending'}</b></div></div><button class="danger" onclick="resetData()">RESET DEMO DATA</button>`}
 function resetData(){if(confirm('Reset all Phase 2 local data?')){localStorage.removeItem(KEY);db=structuredClone(defaultDB);go('dashboard');toast('Demo data reset')}}
