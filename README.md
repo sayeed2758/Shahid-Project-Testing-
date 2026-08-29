@@ -1,40 +1,34 @@
-# EZEE VISION CHAMPUA — Student Learning App (Phase 1–5)
+# EZEE VISION CHAMPUA — Student Learning Portal (Rebuilt)
 
-This is a rebuild around the new student-only study-material concept while preserving the existing Firebase login identity/branding.
+This build intentionally keeps the established EZEE VISION branding and Firebase project connection, but replaces the duplicated/broken runtime with one clean application controller.
 
-## Included
-- Existing EZEE VISION branding and logo
-- Firebase Email/Password + Google login
+## Features
+- One login screen only
+- Firebase Email/Password login
+- Google login
 - Forgot password
+- Session-aware dashboard
 - Classes 6–10
-- 4 subjects per class: SST, SCIENCE, MATH, ENGLISH
-- Per-subject sections: Detailed Notes, Short Notes, Worksheet
-- Search
-- Recently opened items
-- Profile + logout
+- Exactly 4 subjects: SST, SCIENCE, MATH, ENGLISH
+- Per-subject folders: Detailed Notes, Short Notes, Worksheet
+- Protected note reader using PDF.js canvas rendering
+- Protected notes have no Download or Print controls
+- Worksheet preview and download controls
+- Search, recent material, profile, logout
 - PWA shell
-- Firebase Realtime Database catalog
-- Firebase Storage file access
-- Protected in-app PDF reader for Detailed/Short notes
-- Worksheet download flow
-- A4/print is intentionally absent for protected notes
+- UID-scoped user data
+- Catalog read-only to students through Realtime Database rules
+- Storage materials readable only to authenticated users
+- No Study Material / Homework modules outside the requested student material structure
 
-## Privacy reality
-A web app cannot guarantee OS-level screenshot blocking. The reader disables its own download/print/external-PDF UI, keeps note PDFs in memory via Firebase Storage `getBlob`, blocks common context-menu/shortcut actions, and renders pages on canvas. A student can still photograph the screen or use device-level capture tools. For stronger Android protection, package the app natively later and use Android secure-screen controls.
+## Important privacy limitation
+A web application cannot guarantee OS-level screenshot blocking. The protected reader removes normal download/print controls, prevents common context-menu/keyboard shortcuts and renders the PDF into a canvas, but screenshots/photos cannot be made mathematically impossible on the web. A future native Android build can add stronger screen-security measures.
 
-## Firebase setup
-1. Keep the Firebase Web app config in `assets/js/firebase-config.js`.
-2. Enable Email/Password and Google providers in Firebase Authentication.
-3. Add your GitHub Pages domain under Authentication → Settings → Authorized domains.
-4. Publish `database.rules.json` to Realtime Database.
-5. Publish `firebase/storage.rules` to Cloud Storage.
-6. In Realtime Database, create a top-level `catalog` object following `content-schema.json`.
-7. Upload PDFs to Storage under the exact `filePath` values.
+## Publishing content
+Put PDFs in Firebase Storage under `materials/...`, then publish their metadata paths in the Realtime Database `catalog` node. Detailed/Short entries should set `protected:true`; worksheets set `protected:false`.
 
-For protected notes use paths such as:
-`content/class10/science/detailed/chemical-reactions.pdf`
+## Security
+Students do not get write access to the catalog or Storage. User profile access is scoped to the signed-in UID.
 
-For worksheets use:
-`content/class10/science/worksheet/chemical-reactions.pdf`
-
-Students are read-only. Catalog and storage writes are denied from the client.
+## GitHub
+Upload the project files so `index.html` is at the repository root. Keep GitHub Pages pointed at the `main` branch root.
