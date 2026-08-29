@@ -16,6 +16,7 @@ let authApi = null;
 let operationRunning = false;
 let appLoadStarted = false;
 let sessionWatchdog = null;
+let observerReady = false;
 
 function showStatus(message = "", type = "") {
   statusBox.textContent = message;
@@ -24,10 +25,10 @@ function showStatus(message = "", type = "") {
 
 function setOperationState(running, label = "") {
   operationRunning = running;
-  loginButton.disabled = running;
-  googleButton.disabled = running;
-  forgotButton.disabled = running;
-  togglePassword.disabled = running;
+  loginButton.disabled = running || !authApi;
+  googleButton.disabled = running || !authApi;
+  forgotButton.disabled = running || !authApi;
+  togglePassword.disabled = running || !authApi;
   loginButton.textContent = running ? label : "Login";
 }
 
@@ -46,6 +47,7 @@ function showLogin(message = "", type = "") {
   authGate.hidden = false;
   retrySession.hidden = true;
   if (message) showStatus(message, type);
+  setOperationState(false);
 }
 
 function showSessionError(message = "We couldn't verify your session. Please retry.") {
@@ -61,19 +63,16 @@ function showSessionError(message = "We couldn't verify your session. Please ret
 function validateLoginInputs() {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
-
   if (!email) throw new Error("Please enter your email address.");
   if (!emailInput.validity.valid) throw new Error("Please enter a valid email address.");
   if (!password) throw new Error("Please enter your password.");
   if (password.length < 6) throw new Error("Password must be at least 6 characters.");
-
   return { email, password };
 }
 
 async function handleLogin(event) {
   event.preventDefault();
   if (operationRunning || !authApi) return;
-
   try {
     const { email, password } = validateLoginInputs();
     setOperationState(true, "PLEASE WAIT...");
@@ -87,27 +86,24 @@ async function handleLogin(event) {
 
 async function handleGoogleLogin() {
   if (operationRunning || !authApi) return;
-
   try {
     setOperationState(true, "PLEASE WAIT...");
     showStatus("");
     await authApi.loginWithGoogle();
   } catch (error) {
-    showStatus(authApi.friendlyAuthError(error), "error");
+    showStatus(authApi?.friendlyAuthError(error) || "Google sign-in failed. Please try again.", "error");
     setOperationState(false);
   }
 }
 
 async function handleForgotPassword() {
   if (operationRunning || !authApi) return;
-
   const email = emailInput.value.trim();
   if (!email || !emailInput.validity.valid) {
     showStatus("Enter your email first, then tap Forgot Password.", "error");
     emailInput.focus();
     return;
   }
-
   try {
     setOperationState(true, "SENDING...");
     showStatus("");
@@ -115,7 +111,7 @@ async function handleForgotPassword() {
     showStatus("Password reset email sent. Check your inbox.", "success");
     setOperationState(false);
   } catch (error) {
-    showStatus(authApi.friendlyAuthError(error), "error");
+    showStatus(authApi?.friendlyAuthError(error) || "Password reset failed. Please try again.", "error");
     setOperationState(false);
   }
 }
@@ -134,7 +130,6 @@ retrySession.addEventListener("click", () => window.location.reload());
 document.addEventListener("click", async event => {
   const logoutButton = event.target.closest("[data-auth-action='logout']");
   if (!logoutButton || operationRunning || !authApi) return;
-
   try {
     await authApi.logout();
   } catch (error) {
@@ -145,45 +140,49 @@ document.addEventListener("click", async event => {
 function startSessionWatchdog() {
   clearTimeout(sessionWatchdog);
   sessionWatchdog = setTimeout(() => {
-    showSessionError("Session check timed out. Please retry. If this keeps happening, verify Firebase Authentication and Authorized Domains.");
-  }, 12000);
+    if (observerReady) return;
+    if (authApi) {
+      // Firebase loaded, but the initial auth state did not arrive. Give the
+      // user a usable recovery path instead of an endless loading screen.
+      showLogin("We couldn't finish checking your session. You can sign in again.", "error");
+    } else {
+      showSessionError("Firebase could not be reached. Please retry. If this keeps happening, check your internet connection and Firebase Authorized Domains.");
+    }
+  }, 6000);
 }
 
 async function bootAuth() {
   startSessionWatchdog();
-
   try {
-    // Dynamic import makes Firebase CDN/config failures recoverable instead of
-    // leaving the user on an infinite loading screen.
-    authApi = await import("./auth.js");
+    // Cache-busting query prevents GitHub Pages/browser caches from keeping an
+    // older authentication module after a deployment.
+    authApi = await import(`./auth.js?v=phase3-auth-fix-20260830`);
+    setOperationState(false);
 
     authApi.startAuthObserver(user => {
+      observerReady = true;
       clearTimeout(sessionWatchdog);
-
       if (!user) {
         showLogin();
-        setOperationState(false);
         return;
       }
-
-      setOperationState(false);
       showStatus("");
       loadApplicationOnce();
     });
 
-    // If Firebase never invokes the observer, the watchdog remains the recovery path.
+    // Observer should fire immediately for the current session. Keep a short
+    // independent safety timer in case the browser's auth persistence hangs.
     startSessionWatchdog();
   } catch (error) {
     console.error("Firebase authentication bootstrap failed:", error);
-    showSessionError("Firebase could not be initialized. Please retry. Check the Firebase configuration and Authorized Domains.");
+    showSessionError("Firebase authentication could not start. Please retry.");
   }
 }
 
 function loadApplicationOnce() {
   if (appLoadStarted) return;
   appLoadStarted = true;
-
-  import("./app.js")
+  import(`./app.js?v=phase3-app-fix-20260830`)
     .then(() => showAuthenticatedApp())
     .catch(error => {
       console.error("Application load error:", error);
