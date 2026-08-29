@@ -10,9 +10,51 @@
   <link rel="stylesheet" href="./assets/css/base.css">
   <link rel="stylesheet" href="./assets/css/components.css">
   <link rel="stylesheet" href="./assets/css/app.css">
+  <link rel="stylesheet" href="./assets/css/auth.css">
 </head>
 <body>
-  <div id="app" class="app-shell">
+  <div id="auth-loading" class="auth-loading" aria-live="polite">
+    <div class="auth-loading-card">
+      <div class="spinner" aria-hidden="true"></div>
+      <strong>Checking your session...</strong>
+    </div>
+  </div>
+
+  <section id="auth-gate" class="auth-gate" hidden>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="./assets/images/logo.png" alt="EZEE VISION CHAMPUA" class="auth-logo">
+        <h1>EZEE VISION CHAMPUA</h1>
+        <p>Student Learning Portal</p>
+      </div>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" autocomplete="email" placeholder="Enter your email" required>
+        </div>
+
+        <div class="field">
+          <label for="login-password">Password</label>
+          <div class="password-row">
+            <input id="login-password" type="password" autocomplete="current-password" placeholder="Enter your password" minlength="6" required>
+            <button id="toggle-password" class="password-toggle" type="button">Show</button>
+          </div>
+        </div>
+
+        <div class="auth-actions">
+          <button id="login-button" class="auth-button primary" type="submit">Login</button>
+          <button id="google-button" class="auth-button google" type="button">Continue with Google</button>
+          <button id="forgot-button" class="auth-link" type="button">Forgot Password?</button>
+        </div>
+      </form>
+
+      <div id="auth-status" class="auth-status" role="status" aria-live="polite"></div>
+      <div class="auth-footer">Student accounts are created by the institute administrator.</div>
+    </div>
+  </section>
+
+  <div id="app" class="app-shell" hidden>
     <header class="topbar">
       <div class="brand">
         <img src="./assets/images/logo.png" alt="EZEE VISION logo" class="brand-logo">
@@ -42,6 +84,6 @@
     </nav>
   </div>
 
-  <script type="module" src="./assets/js/app.js"></script>
+  <script type="module" src="./assets/js/auth-gate.js"></script>
 </body>
 </html>
