@@ -96,3 +96,20 @@
   text-align: center; background: white; border: 1px dashed #ccd6e7;
   border-radius: var(--radius-md); padding: 28px 18px; color: var(--muted);
 }
+
+.hero-action { margin-top: 18px; border: 0; border-radius: 12px; padding: 11px 15px; background: var(--gold); color: var(--blue-950); font-weight: 900; cursor: pointer; box-shadow: 0 8px 18px rgba(0,0,0,.12); }
+.hero-action span { margin-left: 6px; }
+.hero-action:focus-visible, .back-button:focus-visible, .subject-card:focus-visible, .class-card:focus-visible, .logout-button:focus-visible { outline: 3px solid rgba(30,91,198,.25); outline-offset: 2px; }
+.stat-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: var(--blue-100); color: var(--blue-700); font-weight: 900; margin-bottom: 10px; }
+.class-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; }
+.class-badge, .eyebrow { font-size: 9px; font-weight: 900; letter-spacing: .13em; color: var(--blue-600); }
+.card-arrow { margin-top: auto; align-self: flex-end; color: var(--blue-600); font-size: 18px; font-weight: 900; }
+.back-button { width: fit-content; border: 0; background: transparent; color: var(--blue-700); font-weight: 850; padding: 5px 0; cursor: pointer; }
+.subject-grid { display: grid; gap: 12px; }
+.subject-card { width: 100%; display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 12px; text-align: left; border: 1px solid var(--line); background: white; border-radius: var(--radius-md); padding: 16px; box-shadow: var(--shadow-sm); cursor: pointer; }
+.subject-card:hover { border-color: #cbd9f5; box-shadow: var(--shadow-md); }
+.subject-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 13px; background: var(--blue-50); font-size: 22px; }
+.subject-card strong { display: block; color: var(--blue-950); }
+.subject-card small { display: block; color: var(--muted); margin-top: 4px; font-size: 11px; }
+.empty-icon { width: 48px; height: 48px; display: grid; place-items: center; margin: 0 auto 12px; border-radius: 15px; background: var(--blue-100); color: var(--blue-700); font-size: 25px; font-weight: 900; }
+.logout-button { width: 100%; border: 0; border-radius: 14px; padding: 13px 16px; background: var(--blue-900); color: white; font-weight: 850; cursor: pointer; }
