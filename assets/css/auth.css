@@ -76,3 +76,7 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 .auth-loading-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
 .auth-retry { margin-top: 14px; width: 100%; }
+
+/* Phase 3 stability: the loading state is temporary and has an explicit recovery path. */
+.auth-loading-card { min-height: 170px; }
+.auth-retry { margin-top: 14px; }
