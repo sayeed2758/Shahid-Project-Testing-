@@ -1127,13 +1127,16 @@ async function onLogout() {
 
 async function handleAuthenticatedUser(user) {
   state.user = user;
+  try { await user.getIdToken(true); } catch (tokenError) { console.warn("Could not refresh auth token:", tokenError); }
 
   try {
     const profile = await loadStudentProfile(user.uid);
+    const tokenResult = await user.getIdTokenResult(true);
     const assigned = normaliseClassValue(profile?.class);
-    const role = String(profile?.role || "student").toLowerCase();
+    const role = String(profile?.role || tokenResult.claims?.role || "student").toLowerCase();
+    const claimActive = tokenResult.claims?.active !== false;
 
-    if (!profile || !assigned || profile.active === false || role !== "student") {
+    if (!profile || !assigned || profile.active === false || !claimActive || role !== "student") {
       await logout().catch(() => {});
       showView("auth");
       setAuthMessage(

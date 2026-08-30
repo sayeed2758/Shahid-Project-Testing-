@@ -22,7 +22,7 @@ export function observeAuth(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-export async function loginWithPassword(email, password) {
+export async function loginWithEmailAndPassword(email, password) {
   return signInWithEmailAndPassword(auth, email, password);
 }
 
@@ -60,3 +60,5 @@ export function getFriendlyAuthError(error) {
   };
   return messages[code] || "Something went wrong. Please try again.";
 }
+
+export const loginWithPassword = loginWithEmailAndPassword;

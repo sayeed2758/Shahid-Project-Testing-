@@ -80,7 +80,7 @@ export async function loadClassCatalog(classNumber, { force = false } = {}) {
   }
 
   const snapshot = await withTimeout(
-    get(ref(database, `catalog/class-${numericClass}`))
+    get(ref(database, `publishedCatalog/class-${numericClass}`))
   );
 
   const value = snapshot.val() || {};
