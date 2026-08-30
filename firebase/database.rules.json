@@ -6,16 +6,30 @@
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
-        ".write": "auth != null && auth.token.admin === true"
+        ".write": "auth != null && auth.token.admin === true",
+        "displayName": {
+          ".write": "auth != null && auth.uid === $uid && auth.token.role === 'student'",
+          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60"
+        }
       }
     },
 
     "catalog": {
       "$classKey": {
-        ".read": "auth != null && (auth.token.admin === true || root.child('users').child(auth.uid).child('class').val() === $classKey.replace('class-', ''))",
+        ".read": "auth != null && auth.token.admin === true",
         ".write": "auth != null && auth.token.admin === true",
         "$materialId": {
-          ".validate": "newData.hasChildren(['title','class','subject','section','storagePath','fileName','type','active','createdAt','updatedAt'])"
+          ".validate": "newData.hasChildren(['title','class','subject','section','storagePath','fileName','type','active','createdAt','updatedAt']) && newData.child('class').val() == $classKey.replace('class-', '') && (newData.child('subject').val() === 'sst' || newData.child('subject').val() === 'science' || newData.child('subject').val() === 'math' || newData.child('subject').val() === 'english') && (newData.child('section').val() === 'detailed' || newData.child('section').val() === 'short' || newData.child('section').val() === 'worksheet')"
+        }
+      }
+    },
+
+    "publishedCatalog": {
+      "$classKey": {
+        ".read": "auth != null && (auth.token.admin === true || (auth.token.role === 'student' && auth.token.active === true && String(auth.token.class) === $classKey.replace('class-', '')))",
+        ".write": "auth != null && auth.token.admin === true",
+        "$materialId": {
+          ".validate": "newData.hasChildren(['title','class','subject','section','storagePath','fileName','type','active','createdAt','updatedAt']) && newData.child('active').val() === true"
         }
       }
     },
