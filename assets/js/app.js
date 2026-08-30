@@ -586,7 +586,7 @@ async function openMaterialAction(material) {
   }
 
   try {
-    setGlobalStatus(material.section === "worksheet" ? "Opening worksheet securely…" : "Opening protected reader…");
+    setGlobalStatus(material.section === "worksheet" ? "Opening worksheet in app…" : "Opening PDF in app…");
     await readerController.open(material, getStudentWatermark());
   } catch (error) {
     console.error(error);
@@ -792,17 +792,17 @@ async function renderRoute(route) {
               </div>
 
               <div class="detail-info">
-                <strong>${section.id === "worksheet" ? "Protected Worksheet Reader" : "Protected Notes Reader"}</strong>
+                <strong>${section.id === "worksheet" ? "Google Drive PDF Viewer" : "Google Drive PDF Viewer"}</strong>
                 <span>
                   ${section.id === "worksheet"
-                    ? "Worksheets open inside the protected in-app reader. The Drive URL and Google Drive viewer are never exposed to the student."
-                    : "Detailed and short notes open inside the protected in-app reader. The PDF is fetched as bytes and rendered in the application instead of exposing a direct PDF link."}
+                    ? "Worksheets open inside the app in the Google Drive PDF viewer. Download and print stay controlled by the Drive sharing settings."
+                    : "Detailed and short notes open inside the app in the Google Drive PDF viewer. Download and print stay controlled by the Drive sharing settings."}
                 </span>
               </div>
 
               <div class="material-action-row">
                 <button class="primary-button material-action-button" id="openMaterialNowBtn" type="button">
-                  Open Protected Reader
+                  Open PDF in App
                 </button>
               </div>
             </div>
@@ -817,7 +817,7 @@ async function renderRoute(route) {
               saveRecent(state.user.uid, material).catch((error) => console.warn("Recent save failed:", error));
             } finally {
               openMaterialNowBtn.disabled = false;
-              openMaterialNowBtn.textContent = "Open Protected Reader";
+              openMaterialNowBtn.textContent = "Open PDF in App";
             }
           });
         } catch (error) {

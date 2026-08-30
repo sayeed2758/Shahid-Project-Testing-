@@ -430,25 +430,17 @@ function resetUploadForm() {
   el.uploadModeLabel.textContent = "ADD MATERIAL";
   el.uploadBtn.textContent = "Save Material";
   el.publishOnUpload.checked = true;
-  el.driveFileStatus.textContent = state.gatewayHealthy
-    ? "Paste a private Google Drive PDF link, then verify it."
-    : "Drive Gateway is not connected yet.";
-  el.driveFileStatus.dataset.type = state.gatewayHealthy ? "" : "error";
+  el.driveFileStatus.textContent = "Paste a Google Drive PDF link, then check it.";
+  el.driveFileStatus.dataset.type = "";
   updateDriveActionState();
 }
 
 function updateDriveActionState() {
-  const configured = getDriveGatewayStatus();
   const valid = Boolean(state.verifiedDriveId);
-  el.verifyDriveBtn.disabled = !configured;
-  el.uploadBtn.disabled = !configured || !valid;
-  if (!configured) {
-    el.verifyDriveBtn.title = "Configure DRIVE_GATEWAY_URL first.";
-    el.uploadBtn.title = "Configure DRIVE_GATEWAY_URL first.";
-  } else {
-    el.verifyDriveBtn.title = "Verify the selected Drive PDF";
-    el.uploadBtn.title = valid ? "Save the verified material" : "Verify the Drive file first";
-  }
+  el.verifyDriveBtn.disabled = false;
+  el.uploadBtn.disabled = !valid;
+  el.verifyDriveBtn.title = "Check the Google Drive PDF link";
+  el.uploadBtn.title = valid ? "Save this material" : "Check the Drive link first";
 }
 
 function openReplace(material) {
@@ -524,14 +516,16 @@ async function verifyDrive() {
   }
 
   setButtonBusy(el.verifyDriveBtn, true, "Checking…");
-  el.driveFileStatus.textContent = "Checking Drive file permissions…";
+  el.driveFileStatus.textContent = "Checking Drive link…";
   el.driveFileStatus.dataset.type = "loading";
   try {
     const meta = await verifyDriveLink(link);
     state.verifiedDriveId = meta.driveFileId || driveFileId;
-    el.driveFileStatus.textContent = `✓ ${meta.name || "PDF"} • ${fmtSize(meta.size)} • Verified`;
+    el.driveFileStatus.textContent = "✓ Google Drive PDF link accepted • Ready to save";
     el.driveFileStatus.dataset.type = "success";
-    if (!el.uploadTitle.value.trim() && meta.name) el.uploadTitle.value = meta.name.replace(/\.pdf$/i, "");
+    if (!el.uploadTitle.value.trim() && meta.name && meta.name !== "Google Drive PDF") {
+      el.uploadTitle.value = meta.name.replace(/\.pdf$/i, "");
+    }
   } catch (error) {
     console.error(error);
     el.driveFileStatus.textContent = friendly(error);
@@ -551,7 +545,6 @@ async function submitUpload(event) {
   const chapter = el.uploadChapter.value.trim();
   const driveUrl = el.uploadDriveLink.value.trim();
 
-  if (!getDriveGatewayStatus()) return message(el.uploadMessage, "Drive Gateway is not configured. Add its Worker URL in drive-config.js.", "error");
   if (!CLASSES.includes(classNumber)) return message(el.uploadMessage, "Choose Class 6–10.", "error");
   if (!SUBJECTS.some((item) => item.id === subject) || !SECTIONS.some((item) => item.id === section)) return message(el.uploadMessage, "Choose subject and section.", "error");
   if (title.length < 2) return message(el.uploadMessage, "Enter a material title.", "error");
@@ -699,14 +692,6 @@ async function refreshAll({ silent = false } = {}) {
 }
 
 async function checkGatewayHealth() {
-  if (!getDriveGatewayStatus()) {
-    state.gatewayHealthy = false;
-    el.gatewayHealth.textContent = "Gateway not configured";
-    el.gatewayHealth.dataset.type = "error";
-    updateDriveActionState();
-    return;
-  }
-
   try {
     const base = window.__EVC_DRIVE_GATEWAY_URL__ || "";
     const response = await fetch(`${base.replace(/\/$/, "")}/health/`, { cache: "no-store" });
@@ -757,7 +742,7 @@ function bind() {
   el.verifyDriveBtn.addEventListener("click", verifyDrive);
   el.uploadDriveLink.addEventListener("input", () => {
     state.verifiedDriveId = "";
-    el.driveFileStatus.textContent = "Link changed. Verify the new Drive file before saving.";
+    el.driveFileStatus.textContent = "Link changed. Check the new Drive link before saving.";
     el.driveFileStatus.dataset.type = "";
     updateDriveActionState();
   });
