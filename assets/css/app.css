@@ -1450,3 +1450,29 @@ button.class-card:hover {
 @media (min-width: 1040px) {
   .profile-card { padding: 30px; }
 }
+
+/* Google Drive preview mode */
+.reader-paper:has(.reader-drive-frame) {
+  width: min(100%, 1100px);
+  min-height: min(78vh, 900px);
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+}
+.reader-drive-frame {
+  display: block;
+  width: 100%;
+  height: min(78vh, 900px);
+  min-height: 620px;
+  border: 0;
+  background: #fff;
+}
+@media (max-width: 699px) {
+  .reader-paper:has(.reader-drive-frame) {
+    min-height: calc(100vh - 150px);
+  }
+  .reader-drive-frame {
+    height: calc(100vh - 150px);
+    min-height: 560px;
+  }
+}
