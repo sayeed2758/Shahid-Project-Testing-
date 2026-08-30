@@ -1,28 +1,19 @@
-# EZEE VISION CHAMPUA — Simple ID/Password V2
+# Build Report — Simple ID/Password + Google Drive Gateway
 
-## Authentication
-- Production student login is Student ID + password only.
-- Production admin login is Email + Password only.
-- Google login is not present in the production Admin Panel or Student Portal.
-- Admin password-reset button uses Firebase Email/Password reset.
-- Added a one-time `admin-migrate.html` utility for an existing Google-only admin account. It links Email/Password to the same Firebase UID, then attempts to unlink Google. Google can then be disabled again.
+## Completed in this release
 
-## Admin features preserved
-- Dashboard statistics
-- Student create/edit/enable/disable
-- Student credentials dialog + copy button
-- Material catalogue search/filter
-- PDF upload with progress and validation
-- Publish/unpublish
-- Replace PDF
-- Delete material
-- Existing Firebase Realtime Database and Storage paths preserved
+- Admin login simplified to Firebase Email/Password.
+- Google Sign-In removed from production login.
+- Cloud Functions dependency removed from the web application.
+- Student creation uses synthetic student IDs mapped to Firebase Email/Password accounts.
+- Admin refresh flow rewritten so the button is bound after DOM initialization and refreshes students + materials together.
+- Admin layout tightened for Android mobile widths.
+- PDF source changed from Firebase Storage to private Google Drive file IDs.
+- Drive link verification added through the Drive Gateway.
+- Student protected reader now receives PDFs through the gateway rather than Firebase Storage.
+- Worksheet download now also goes through the gateway.
+- Material replace/remove/publish/unpublish flows preserved.
 
-## Important architecture note
-Student account creation still uses a secondary Firebase Auth app so the primary admin session remains signed in. Database writes are made through the primary admin-authenticated Firebase app, preserving the existing security boundary.
+## Required external setup
 
-## Validation performed
-- JavaScript syntax checks passed for all application JS files.
-- JSON syntax checks passed for package, Firebase config and build metadata files.
-- Local relative JS imports were checked for missing targets.
-- Service-worker cache version was bumped to v3 to reduce stale GitHub Pages shell issues.
+The Drive Gateway must be deployed and its URL entered in `assets/js/drive-config.js`. The Worker secret `GOOGLE_SERVICE_ACCOUNT_JSON` must contain a Google Cloud service-account JSON with access to the private Drive folder.
