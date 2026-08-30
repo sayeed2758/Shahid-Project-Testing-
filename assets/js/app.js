@@ -22,6 +22,8 @@ import {
 } from "./catalog.js";
 import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
+import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile } from "./profile.js";
+import { createProtectedReaderController } from "./pdf-reader.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
 const CLASSES = [
@@ -103,7 +105,29 @@ const elements = {
   searchSummary: $("#searchSummary"),
 
   recentList: $("#recentList"),
+  profileForm: $("#profileForm"),
+  profileNameInput: $("#profileNameInput"),
+  profileEmailInput: $("#profileEmailInput"),
+  profileClassInput: $("#profileClassInput"),
+  profileAvatar: $("#profileAvatar"),
+  profileMessage: $("#profileMessage"),
+  profileSaveBtn: $("#profileSaveBtn"),
+  profileRefreshBtn: $("#profileRefreshBtn"),
 
+  readerModal: $("#readerModal"),
+  readerTitle: $("#readerTitle"),
+  readerStatus: $("#readerStatus"),
+  readerCanvas: $("#readerCanvas"),
+  readerWatermark: $("#readerWatermark"),
+  readerPage: $("#readerPage"),
+  readerZoomLabel: $("#readerZoomLabel"),
+  readerPrev: $("#readerPrev"),
+  readerNext: $("#readerNext"),
+  readerZoomOut: $("#readerZoomOut"),
+  readerZoomIn: $("#readerZoomIn"),
+  readerClose: $("#readerClose"),
+  readerRetry: $("#readerRetry"),
+  
   viewClassesBtn: $("#viewClassesBtn"),
   classesBackBtn: $("#classesBackBtn"),
   subjectsBackBtn: $("#subjectsBackBtn"),
@@ -117,6 +141,9 @@ const elements = {
   fallbackHomeBtn: $("#fallbackHomeBtn"),
 
   logoutTopBtn: $("#logoutTopBtn"),
+  topbarAvatar: $("#topbarAvatar"),
+  profileBackBtn: $("#profileBackBtn"),
+  profileLogoutBtn: $("#profileLogoutBtn"),
   mainContent: $("#mainContent"),
   bottomNav: $("#bottomNav"),
   globalStatus: $("#globalStatus"),
@@ -191,7 +218,9 @@ function setRouteVisibility(target) {
     ? target
     : target === "not-found"
       ? "home"
-      : "classes";
+      : target === "profile"
+        ? "home"
+        : "classes";
 
   elements.navItems.forEach((button) => {
     const active = button.dataset.nav === navRoute;
@@ -234,6 +263,7 @@ function parseRoute() {
   }
   if (parts[0] === "search") return { name: "search", query: params.get("q") || "" };
   if (parts[0] === "recent") return { name: "recent" };
+  if (parts[0] === "profile") return { name: "profile" };
 
   return { name: "not-found" };
 }
@@ -456,6 +486,128 @@ function createRecentCard(item) {
   `;
 }
 
+
+let readerController = null;
+let readerBusy = false;
+
+function getStudentWatermark() {
+  const name = getDisplayName(state.user, state.profile);
+  const email = state.user?.email || state.profile?.email || "";
+  return `EZEE VISION CHAMPUA (Shahid Sir) • ${name}${email ? ` • ${email}` : ""}`;
+}
+
+function setReaderBusy(busy) {
+  readerBusy = Boolean(busy);
+  elements.readerRetry.disabled = busy;
+  elements.readerClose.disabled = busy;
+}
+
+function setProfileMessage(message = "", type = "") {
+  elements.profileMessage.textContent = message;
+  elements.profileMessage.className = `inline-message ${type}`.trim();
+}
+
+function populateProfileForm() {
+  const name = getDisplayName(state.user, state.profile);
+  elements.profileNameInput.value = name === "Student" ? "" : name;
+  elements.profileEmailInput.value = state.user?.email || state.profile?.email || "";
+  elements.profileClassInput.value = state.assignedClass ? `Class ${state.assignedClass}` : "Not assigned";
+  const initial = name.trim().charAt(0).toUpperCase() || "S";
+  elements.profileAvatar.textContent = initial;
+}
+
+async function refreshProfileView() {
+  if (!state.user) return;
+  elements.profileRefreshBtn.disabled = true;
+  setProfileMessage("Refreshing profile…", "loading");
+  try {
+    const fresh = await refreshStudentProfile(state.user.uid);
+    const assigned = normaliseClassValue(fresh?.class);
+
+    if (!fresh || !assigned) {
+      throw new Error("PROFILE_NOT_AVAILABLE");
+    }
+
+    state.profile = fresh;
+    state.assignedClass = assigned;
+    populateProfileForm();
+    setProfileMessage("Profile refreshed.", "success");
+  } catch (error) {
+    console.error(error);
+    setProfileMessage(
+      error?.message === "NETWORK_TIMEOUT"
+        ? "Refresh timed out. Please retry."
+        : "Profile could not be refreshed.",
+      "error"
+    );
+  } finally {
+    elements.profileRefreshBtn.disabled = false;
+  }
+}
+
+async function saveProfile(event) {
+  event.preventDefault();
+  if (!state.user || state.isBusy) return;
+
+  const name = elements.profileNameInput.value.trim();
+  if (name.length < 2) {
+    setProfileMessage("Name must contain at least 2 characters.", "error");
+    elements.profileNameInput.focus();
+    return;
+  }
+  if (name.length > 60) {
+    setProfileMessage("Name must be 60 characters or fewer.", "error");
+    elements.profileNameInput.focus();
+    return;
+  }
+
+  state.isBusy = true;
+  elements.profileSaveBtn.disabled = true;
+  elements.profileRefreshBtn.disabled = true;
+  setProfileMessage("Saving profile…", "loading");
+
+  try {
+    const savedName = await updateStudentDisplayName(state.user.uid, name);
+    state.profile = { ...(state.profile || {}), displayName: savedName, updatedAt: Date.now() };
+    populateHome();
+    populateProfileForm();
+    setProfileMessage("Profile saved successfully.", "success");
+  } catch (error) {
+    console.error(error);
+    setProfileMessage(getFriendlyProfileError(error), "error");
+  } finally {
+    elements.profileSaveBtn.disabled = false;
+    elements.profileRefreshBtn.disabled = false;
+    state.isBusy = false;
+  }
+}
+
+async function openMaterialAction(material) {
+  if (!material?.storagePath) {
+    setGlobalStatus("This material is missing its storage path.");
+    setTimeout(() => setGlobalStatus(""), 2200);
+    return;
+  }
+
+  try {
+    if (material.section === "worksheet") {
+      setGlobalStatus("Preparing worksheet download…");
+      await readerController.downloadWorksheet(material);
+      setGlobalStatus("Worksheet download started.");
+    } else {
+      await readerController.open(material, getStudentWatermark());
+    }
+  } catch (error) {
+    console.error(error);
+    const message = String(error?.code || "").includes("storage/unauthorized")
+      ? "You are not authorised to access this material."
+      : "The material could not be opened. Please retry.";
+    setGlobalStatus(message);
+  } finally {
+    setTimeout(() => setGlobalStatus(""), 2600);
+  }
+}
+
 function ensureAssignedClass(classNumber) {
   const numeric = normaliseClassValue(classNumber);
   return numeric && numeric === state.assignedClass;
@@ -486,7 +638,9 @@ async function ensureCatalog(classNumber, { force = false, targetNotice = null }
 }
 
 async function renderHomeData() {
-  elements.welcomeHeading.innerHTML = `${escapeHtml(getDisplayName(state.user, state.profile))} <span aria-hidden="true">👋</span>`;
+  const displayName = getDisplayName(state.user, state.profile);
+  elements.welcomeHeading.innerHTML = `${escapeHtml(displayName)} <span aria-hidden="true">👋</span>`;
+  elements.topbarAvatar.textContent = displayName.trim().charAt(0).toUpperCase() || "S";
   elements.dateLine.textContent = formatToday();
   elements.classStatus.textContent = state.assignedClass
     ? `Your assigned class: Class ${state.assignedClass}`
@@ -647,19 +801,36 @@ async function renderRoute(route) {
                 <div><span>Size</span><strong>${escapeHtml(formatFileSize(material.fileSize))}</strong></div>
                 <div><span>Updated</span><strong>${escapeHtml(formatMaterialDate(material.updatedAt))}</strong></div>
               </div>
+
               <div class="detail-info">
-                <strong>Material selected successfully.</strong>
+                <strong>${section.id === "worksheet" ? "Worksheet download" : "Protected Notes Reader"}</strong>
                 <span>
-                  The protected reader and worksheet download actions are intentionally connected
-                  in Phases 12–13. This page confirms the correct Firebase catalog item without
-                  exposing a public PDF URL.
+                  ${section.id === "worksheet"
+                    ? "Worksheets are downloadable study resources."
+                    : "Detailed and short notes open inside the protected in-app reader. The PDF is fetched as bytes and rendered in the application instead of exposing a direct PDF link."}
                 </span>
+              </div>
+
+              <div class="material-action-row">
+                <button class="primary-button material-action-button" id="openMaterialNowBtn" type="button">
+                  ${section.id === "worksheet" ? "Download Worksheet" : "Open Protected Reader"}
+                </button>
               </div>
             </div>
           `;
 
-          // Recent means the student actually opened a material detail entry.
-          saveRecent(state.user.uid, material).catch((error) => console.warn("Recent save failed:", error));
+          const openMaterialNowBtn = document.querySelector("#openMaterialNowBtn");
+          openMaterialNowBtn.addEventListener("click", async () => {
+            openMaterialNowBtn.disabled = true;
+            openMaterialNowBtn.textContent = section.id === "worksheet" ? "Preparing…" : "Opening…";
+            try {
+              await openMaterialAction(material);
+              saveRecent(state.user.uid, material).catch((error) => console.warn("Recent save failed:", error));
+            } finally {
+              openMaterialNowBtn.disabled = false;
+              openMaterialNowBtn.textContent = section.id === "worksheet" ? "Download Worksheet" : "Open Protected Reader";
+            }
+          });
         } catch (error) {
           console.error(error);
           elements.materialDetailBody.innerHTML = makeErrorState(
@@ -676,6 +847,12 @@ async function renderRoute(route) {
 
       case "recent":
         await renderRecent();
+        break;
+
+      case "profile":
+        setRouteVisibility("profile");
+        populateProfileForm();
+        setProfileMessage("");
         break;
 
       default:
@@ -954,8 +1131,9 @@ async function handleAuthenticatedUser(user) {
   try {
     const profile = await loadStudentProfile(user.uid);
     const assigned = normaliseClassValue(profile?.class);
+    const role = String(profile?.role || "student").toLowerCase();
 
-    if (!profile || !assigned) {
+    if (!profile || !assigned || profile.active === false || role !== "student") {
       await logout().catch(() => {});
       showView("auth");
       setAuthMessage(
@@ -974,7 +1152,7 @@ async function handleAuthenticatedUser(user) {
     renderClassCards();
 
     const current = parseRoute();
-    const safeRoute = ["home", "classes", "search", "recent"].includes(current.name)
+    const safeRoute = ["home", "classes", "search", "recent", "profile"].includes(current.name)
       ? current
       : current.name === "subjects" || current.name === "sections" || current.name === "materials" || current.name === "material-detail"
         ? current
@@ -1049,6 +1227,36 @@ function bindEvents() {
   elements.searchInput.addEventListener("input", onSearchInput);
   elements.searchClearBtn.addEventListener("click", onSearchClear);
 
+  elements.profileForm.addEventListener("submit", saveProfile);
+  elements.profileRefreshBtn.addEventListener("click", refreshProfileView);
+  elements.profileBackBtn.addEventListener("click", () => redirectTo("home"));
+  elements.profileLogoutBtn.addEventListener("click", onLogout);
+
+  // Profile is an explicit app-area action, not a duplicate page.
+  const profileOpenBtn = document.querySelector("#profileOpenBtn");
+  profileOpenBtn.addEventListener("click", () => redirectTo("profile"));
+
+  // One reader controller for the entire SPA.
+  readerController = createProtectedReaderController(
+    {
+      readerModal: elements.readerModal,
+      readerTitle: elements.readerTitle,
+      readerStatus: elements.readerStatus,
+      readerCanvas: elements.readerCanvas,
+      readerWatermark: elements.readerWatermark,
+      readerPage: elements.readerPage,
+      readerZoomLabel: elements.readerZoomLabel,
+      readerPrev: elements.readerPrev,
+      readerNext: elements.readerNext,
+      readerZoomOut: elements.readerZoomOut,
+      readerZoomIn: elements.readerZoomIn,
+      readerClose: elements.readerClose,
+      readerRetry: elements.readerRetry,
+    },
+    { onBusyChange: setReaderBusy }
+  );
+  readerController.bind();
+
   elements.navItems.forEach((button) => {
     button.addEventListener("click", () => redirectTo(button.dataset.nav));
   });
@@ -1070,20 +1278,38 @@ function bindEvents() {
 }
 
 async function bootstrap() {
+  // Bind first so every visible control has a handler even before Firebase state resolves.
   bindEvents();
+  showView("auth");
+  setAuthMessage("Connecting securely…", "loading");
 
   try {
     await configureAuthPersistence();
   } catch (error) {
-    console.warn("Could not configure auth persistence:", error);
+    console.warn("Auth persistence configuration failed:", error);
+    // Persistence is a preference; Firebase can still authenticate with its default.
   }
 
-  observeAuth(async (user) => {
-    if (user) await handleAuthenticatedUser(user);
-    else handleLoggedOut();
-  });
+  try {
+    observeAuth(async (user) => {
+      try {
+        if (user) await handleAuthenticatedUser(user);
+        else handleLoggedOut();
+      } catch (error) {
+        console.error("Auth observer error:", error);
+        state.isBusy = false;
+        showView("auth");
+        setAuthControlsDisabled(false);
+        setAuthMessage("We could not restore your session. Please sign in again.", "error");
+      }
+    });
+  } catch (error) {
+    console.error("Auth observer could not start:", error);
+    showView("auth");
+    setAuthControlsDisabled(false);
+    setAuthMessage("Authentication could not start. Check Firebase configuration and refresh.", "error");
+  }
 
-  // Register the PWA shell after the page is ready. Errors are non-fatal.
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch((error) => {
       console.warn("Service worker registration failed:", error);
@@ -1092,7 +1318,11 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  console.error(error);
+  console.error("Startup error:", error);
   showView("auth");
-  setAuthMessage("Application failed to initialise. Refresh and try again.", "error");
+  setAuthControlsDisabled(false);
+  setAuthMessage(
+    "Startup could not be completed. Check your network/Firebase configuration and retry.",
+    "error"
+  );
 });
