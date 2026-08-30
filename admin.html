@@ -17,21 +17,15 @@
         <img src="./assets/images/logo.png" class="admin-auth-logo" alt="EZEE VISION CHAMPUA logo">
         <p class="eyebrow">ADMINISTRATION</p>
         <h1>Admin Panel</h1>
-        <p class="muted">Secure management for students and learning materials.</p>
+        <p class="muted">Simple ID/password management for students and learning materials.</p>
 
         <form id="adminLoginForm" novalidate>
           <label class="field"><span>Email</span><input id="adminEmail" type="email" autocomplete="username" required placeholder="Admin email"></label>
           <label class="field"><span>Password</span><input id="adminPassword" type="password" autocomplete="current-password" required placeholder="Password"></label>
           <button id="adminLoginBtn" class="primary-button full-width" type="submit">Login as Admin</button>
         </form>
-        <button id="adminGoogleBtn" class="secondary-button full-width admin-google" type="button">Continue with Google</button>
         <button id="adminForgotBtn" class="text-button full-width" type="button">Forgot Password?</button>
         <div id="adminAuthMessage" class="inline-message" role="status" aria-live="polite"></div>
-        <div id="bootstrapBox" class="bootstrap-box" hidden>
-          <strong>Admin access is not activated yet.</strong>
-          <span>This signed-in account matches the configured bootstrap admin email.</span>
-          <button id="bootstrapAdminBtn" class="primary-button full-width" type="button">Activate Admin Access</button>
-        </div>
       </div>
     </section>
 
@@ -73,7 +67,7 @@
           <div class="admin-card-grid">
             <article class="card admin-info-card"><p class="eyebrow">WORKFLOW</p><h2>Student access</h2><p>Admin creates the account and assigns Class 6–10. The student cannot change class from the portal.</p></article>
             <article class="card admin-info-card"><p class="eyebrow">STORAGE</p><h2>100 MB limit</h2><p>PDF uploads are validated before Storage write. Files are made student-readable only when published.</p></article>
-            <article class="card admin-info-card"><p class="eyebrow">SECURITY</p><h2>Server-enforced roles</h2><p>Admin operations use Firebase callable functions and custom claims; student rules remain read-only.</p></article>
+            <article class="card admin-info-card"><p class="eyebrow">SECURITY</p><h2>Simple Firebase rules</h2><p>Your admin email controls the Admin Panel. Students use their own ID/password and can only access their assigned class.</p></article>
           </div>
           <div class="card admin-recent-card">
             <div class="admin-section-head"><div><p class="eyebrow">LATEST</p><h2>Recent materials</h2></div><button id="overviewMaterialsBtn" class="secondary-button" type="button">Open Materials</button></div>
@@ -123,16 +117,16 @@
         <div class="dialog-head"><div><p id="studentDialogEyebrow" class="eyebrow">NEW STUDENT</p><h2 id="studentDialogTitle">Add Student</h2></div><button id="studentDialogClose" class="icon-button" type="button" aria-label="Close">×</button></div>
         <input id="studentUid" type="hidden">
         <label class="field"><span>Student name</span><input id="studentName" type="text" maxlength="60" required placeholder="Full name"></label>
-        <label class="field"><span>Email</span><input id="studentEmail" type="email" required placeholder="student@example.com"></label>
+        <label class="field"><span>Student ID</span><input id="studentEmail" type="text" required placeholder="e.g. EV001" autocapitalize="characters"></label>
         <label class="field"><span>Password</span><input id="studentPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Minimum 6 characters"></label>
         <label class="field"><span>Assigned class</span><select id="studentClass" required><option value="">Choose class</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label>
-        <div id="studentDialogHelp" class="detail-info"><strong>New account</strong><span>The password is sent to Firebase Authentication only; it is not stored in Realtime Database.</span></div>
+        <div id="studentDialogHelp" class="detail-info"><strong>Simple student login</strong><span>Give the student the Student ID and password. No Google account is needed.</span></div>
         <div id="studentDialogMessage" class="inline-message"></div>
         <div class="dialog-actions"><button id="studentDialogCancel" class="outline-button" type="button">Cancel</button><button id="studentDialogSubmit" class="primary-button" type="submit">Create Student</button></div>
       </form>
     </dialog>
 
-    <dialog id="passwordDialog" class="admin-dialog"><form id="passwordForm" method="dialog" class="dialog-card" novalidate><div class="dialog-head"><div><p class="eyebrow">SECURITY</p><h2>Set Student Password</h2></div><button id="passwordDialogClose" class="icon-button" type="button" aria-label="Close">×</button></div><input id="passwordStudentUid" type="hidden"><label class="field"><span>New password</span><input id="newStudentPassword" type="password" minlength="6" maxlength="100" required autocomplete="new-password"></label><div id="passwordDialogMessage" class="inline-message"></div><div class="dialog-actions"><button id="passwordDialogCancel" class="outline-button" type="button">Cancel</button><button class="primary-button" type="submit">Save Password</button></div></form></dialog>
+
 
     <div id="adminGlobalStatus" class="global-status" role="status" aria-live="polite" hidden></div>
   </div>

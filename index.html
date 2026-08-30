@@ -36,8 +36,8 @@
 
           <form id="loginForm" novalidate>
             <label class="field">
-              <span>Email address</span>
-              <input id="emailInput" type="email" autocomplete="username" inputmode="email" placeholder="you@example.com" required>
+              <span>Student ID</span>
+              <input id="emailInput" type="text" autocomplete="username" autocapitalize="characters" placeholder="e.g. EV001" required>
             </label>
 
             <label class="field">
@@ -53,14 +53,6 @@
               <span class="button-loader" aria-hidden="true"></span>
             </button>
           </form>
-
-          <div class="auth-actions">
-            <button id="googleBtn" class="secondary-button full-width" type="button">
-              <span class="google-mark" aria-hidden="true">G</span>
-              <span>Continue with Google</span>
-            </button>
-            <button id="forgotBtn" class="text-button" type="button">Forgot Password?</button>
-          </div>
 
           <div id="authMessage" class="inline-message" role="status" aria-live="polite"></div>
 

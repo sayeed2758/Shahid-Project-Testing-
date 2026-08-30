@@ -20,9 +20,10 @@ Do not place service-account private keys in this repository.
 
 ## Firebase setup required
 
-Enable these Authentication providers in Firebase:
+Enable this Authentication provider in Firebase:
 - Email/Password
-- Google
+
+Google Sign-In is intentionally not used in this simplified version.
 
 Student accounts are intended to be created/administered by the institute. There is no public registration UI.
 
@@ -70,22 +71,18 @@ Enable GitHub Pages from the repository settings using the desired branch/root.
 
 All paths are relative to support a project-site URL.
 
-## Important security note
+## Simplified admin/student access
 
-The supplied Realtime Database rule shown in the original project screenshot was effectively:
+This version intentionally does **not** use Cloud Functions, custom claims, or Google Sign-In, so it can remain on the Firebase Spark plan.
 
-```json
-{
-  "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
-  }
-}
-```
+- Admin login: `creativesayeedd@gmail.com` + its Firebase password.
+- Student login: Student ID + password. The app internally maps the ID to a Firebase email-style account.
+- Admin creates students from **Admin Panel → Students → Add Student**.
+- Student profile data is stored at `users/{uid}`.
+- `studentIndex/{studentId}` prevents duplicate IDs.
+- Admin authorization in the rules is tied to `creativesayeedd@gmail.com`.
 
-That is not a suitable production rule set. The new `firebase/database.rules.json` is a production-oriented template and must be reviewed/deployed deliberately in later phases.
-
-The current repository does not contain admin claim assignment code because secure custom-claim administration must use a trusted Firebase Admin SDK / Cloud Functions environment, not a public GitHub Pages frontend.
+The trade-off is that this is a simpler client-side account-creation architecture rather than the stronger server-side Admin SDK architecture used by the earlier Phase 16–20 version. Do not reuse the old Functions deployment steps from earlier documentation.
 
 ## Phase boundaries
 
@@ -186,64 +183,18 @@ The protected reader improves practical resistance to casual downloading/printin
 Phase 12 uses a pinned PDF.js CDN module (`4.10.38`). If a network policy blocks that CDN, the reader will show a retryable error rather than an indefinite loading state.
 
 
-## Phase 16–20 production setup
+## Simplified deployment
 
-### 1. Deploy Cloud Functions
-
-Cloud Functions are required for secure admin operations. The Admin SDK is server-side only; do not copy service-account credentials into GitHub Pages.
-
-Install the Firebase CLI, then from the project root:
+Deploy only the Realtime Database and Storage rules:
 
 ```bash
-firebase login
-firebase use ezee-vision-champua
-firebase deploy --only functions
 firebase deploy --only database:rules,storage
 ```
 
-During Functions deployment, Firebase will use the `BOOTSTRAP_ADMIN_EMAIL` parameter default of `creativesayeedd@gmail.com`. You may change it before deployment if needed.
+No Cloud Functions deployment is required for this version, so the project does not need the Blaze plan for Functions.
 
-Cloud Functions deployment requires the Firebase Blaze plan.
+Before using the student portal, make sure **Authentication → Sign-in method → Email/Password** is enabled.
 
-### 2. Bootstrap the admin
+### Student credentials
 
-1. Open `admin.html` on the GitHub Pages site.
-2. Sign in with `creativesayeedd@gmail.com`.
-3. If the account has no admin claim yet, use **Activate Admin Access**.
-4. The page forces an ID-token refresh and opens the Admin Dashboard.
-
-### 3. Add students
-
-Admin Panel → Students → Add Student
-
-Enter:
-- Student name
-- Student email
-- Temporary password
-- Assigned class
-
-The backend creates the Firebase Authentication user, sets the student role/class/active claims, and writes the profile record. The raw password is never stored in Realtime Database.
-
-### 4. Upload PDFs
-
-Admin Panel → Upload PDF
-
-Choose class → subject → section → title → PDF → Publish immediately.
-
-Files over 100 MB or non-PDF files are rejected before upload.
-
-### 5. Firebase rules
-
-The production rules are stored in:
-- `firebase/database.rules.json`
-- `firebase/storage.rules`
-
-The student catalog is read from `publishedCatalog`, not the admin master catalog.
-
-### 6. Important security limitation
-
-Protected PDF rendering is practical deterrence, not DRM. Screenshots, screen recording, developer tools and another device's camera cannot be absolutely prevented by a browser application.
-
-### 7. No indefinite buffering
-
-Admin upload uses visible progress. Firebase operations use finite timeouts where the client waits on database/profile/catalog operations. Errors return to a visible retryable state rather than leaving a permanent `PLEASE WAIT` state.
+In Admin Panel → Students → Add Student, enter a simple ID such as `EV001`, a password of at least 6 characters, and the assigned class. Give those two credentials to the student. There is no Google login and no public student registration screen.

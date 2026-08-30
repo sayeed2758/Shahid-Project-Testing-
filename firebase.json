@@ -1,15 +1,4 @@
 {
-  "database": {
-    "rules": "firebase/database.rules.json"
-  },
-  "storage": {
-    "rules": "firebase/storage.rules"
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "runtime": "nodejs22"
-    }
-  ]
+  "database": { "rules": "firebase/database.rules.json" },
+  "storage": { "rules": "firebase/storage.rules" }
 }
