@@ -59,3 +59,7 @@ keeps the 100 MB admin upload-body limit out of the critical upload path. Cloudf
 Free Workers plan has 100,000 requests/day and a 100 MB request-body limit. Google Drive API
 allows files up to 5 TB and resumable uploads for large files, but this app deliberately lets
 Google Drive handle the actual file upload from the admin's normal Drive UI.
+
+
+## Frontend simple viewer mode
+The current portal can operate without the Worker for material saving and opening. In that mode, the Admin stores a Drive file ID from a link and the student app embeds the Google Drive preview URL. The Worker code is retained for compatibility with the earlier protected-stream architecture.
