@@ -83,7 +83,7 @@
             <span class="brand-subtitle">CHAMPUA</span>
           </div>
         </div>
-        <button id="logoutTopBtn" class="outline-button" type="button">Logout</button>
+        <div class="topbar-actions"><button id="profileOpenBtn" class="profile-mini-button" type="button" aria-label="Open profile"><span id="topbarAvatar">S</span></button><button id="logoutTopBtn" class="outline-button" type="button">Logout</button></div>
       </header>
 
       <main id="mainContent" class="main-content" tabindex="-1">
@@ -245,6 +245,53 @@
           <div id="recentList" class="material-list"></div>
         </section>
 
+
+        <section id="profileRoute" class="route" data-route="profile" hidden>
+          <div class="page-heading">
+            <button id="profileBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
+            <div>
+              <p class="eyebrow">ACCOUNT</p>
+              <h1>My Profile</h1>
+              <p class="muted">Manage your student profile.</p>
+            </div>
+          </div>
+
+          <div class="profile-card card">
+            <div id="profileAvatar" class="profile-avatar" aria-hidden="true">S</div>
+
+            <form id="profileForm" novalidate>
+              <label class="field">
+                <span>Display name</span>
+                <input id="profileNameInput" type="text" autocomplete="name" maxlength="60" placeholder="Your name" required>
+              </label>
+
+              <label class="field">
+                <span>Email</span>
+                <input id="profileEmailInput" type="email" readonly aria-readonly="true">
+              </label>
+
+              <label class="field">
+                <span>Assigned class</span>
+                <input id="profileClassInput" type="text" readonly aria-readonly="true">
+              </label>
+
+              <button id="profileSaveBtn" class="primary-button full-width" type="submit">
+                <span class="button-label">Save Profile</span>
+              </button>
+              <button id="profileRefreshBtn" class="secondary-button full-width" type="button">Refresh Profile</button>
+            </form>
+
+            <div id="profileMessage" class="inline-message" role="status" aria-live="polite"></div>
+
+            <div class="detail-info">
+              <strong>Class access is controlled by the institute.</strong>
+              <span>Your assigned class cannot be changed from the student profile.</span>
+            </div>
+
+            <button id="profileLogoutBtn" class="outline-button full-width" type="button">Logout</button>
+          </div>
+        </section>
+
         <section id="notFoundRoute" class="route" data-route="not-found" hidden>
           <div class="empty-state card">
             <div class="empty-icon">!</div>
@@ -272,6 +319,46 @@
     </section>
 
     <div id="globalStatus" class="global-status" role="status" aria-live="polite" hidden></div>
+
+    <div id="readerModal" class="reader-modal" hidden role="dialog" aria-modal="true" aria-labelledby="readerTitle">
+      <div class="reader-shell">
+        <header class="reader-header">
+          <div class="reader-heading">
+            <p class="eyebrow">PROTECTED NOTES</p>
+            <h2 id="readerTitle">Notes</h2>
+          </div>
+          <button id="readerClose" class="reader-control reader-close" type="button" aria-label="Close reader">×</button>
+        </header>
+
+        <div class="reader-toolbar" aria-label="PDF reader controls">
+          <div class="reader-toolbar-group">
+            <button id="readerPrev" class="reader-control" type="button" aria-label="Previous page">‹</button>
+            <span id="readerPage" class="reader-page" aria-live="polite">—</span>
+            <button id="readerNext" class="reader-control" type="button" aria-label="Next page">›</button>
+          </div>
+
+          <div class="reader-toolbar-group">
+            <button id="readerZoomOut" class="reader-control" type="button" aria-label="Zoom out">−</button>
+            <span id="readerZoomLabel" class="reader-page">100%</span>
+            <button id="readerZoomIn" class="reader-control" type="button" aria-label="Zoom in">+</button>
+          </div>
+        </div>
+
+        <div id="readerStatus" class="reader-status" role="status" aria-live="polite"></div>
+
+        <div class="reader-stage">
+          <div class="reader-paper">
+            <canvas id="readerCanvas" aria-label="Protected PDF page"></canvas>
+            <div id="readerWatermark" class="reader-watermark" aria-hidden="true" hidden></div>
+          </div>
+        </div>
+
+        <div class="reader-footer">
+          <button id="readerRetry" class="secondary-button" type="button" hidden>Retry Loading</button>
+          <span>No download or print controls are provided in the protected reader.</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <noscript>
