@@ -1,57 +1,51 @@
-# Phase 16–20 Status — EZEE VISION CHAMPUA
+# Phase 16–20 — Simple Client-Only Administration
 
-## Phase 16 — Admin Authentication / Authorization
-Implemented:
-- Separate `admin.html` panel.
-- Reuses the centralized Firebase auth layer.
-- Admin status comes from Firebase custom claim `admin: true`.
-- First admin bootstrap is restricted server-side to `creativesayeedd@gmail.com`.
-- No frontend-only email check grants admin permission.
-- Admin callable functions enforce `context.auth.token.admin === true` for management operations.
-- Admin can activate the initial claim using the signed-in bootstrap account.
+The production architecture was simplified at the user's request so the application does not require Firebase Cloud Functions / Blaze billing.
+
+## Phase 16 — Admin Authentication
+- Admin uses Firebase Email/Password only.
+- Google Login is removed from the Admin Panel.
+- Authorised admin email is fixed to `creativesayeedd@gmail.com`.
+- There is no Admin bootstrap button or callable function.
+- The Admin Panel checks the authenticated Firebase account email before showing management UI.
 
 ## Phase 17 — Admin Dashboard
-Implemented:
 - Student list with search and Class 6–10/status filters.
-- Add student.
+- Add Student.
 - Edit student name/class.
-- Disable/enable student.
-- Set student password.
-- Dashboard material/student metrics.
-- Recent material overview.
+- Enable / disable student.
+- Material statistics.
+- Recent-material overview.
 - Refresh and logout.
+- No fake password-management control is shown because client-only Firebase cannot securely change another user's password without a trusted backend.
 
-## Phase 18 — Firebase Storage Upload
-Implemented:
-- 100 MB client validation.
-- PDF MIME/extension validation.
+## Phase 18 — Storage Upload
+- PDF-only validation.
+- 100 MB maximum.
 - Upload progress.
-- Safe Storage path generation.
-- Initial Storage object is uploaded with `active=false`.
-- Catalog metadata is written only after successful upload.
-- Database failure triggers Storage cleanup.
-- Publish can then activate the Storage object and published catalog mirror.
+- Structured Storage path.
+- Catalog metadata synchronization.
+- Database failure after Storage upload triggers cleanup of the just-created Storage object.
 
-## Phase 19 — Replace / Delete / Publish / Unpublish
-Implemented:
-- Replace uploads a new file, updates the catalog, then removes the old object where possible.
-- Delete removes Storage object and both catalog mirrors.
-- Publish/unpublish synchronises master catalog, student published catalog and Storage custom metadata.
-- Student catalog reads only `publishedCatalog`.
-- Students cannot write catalog or published catalog records.
+## Phase 19 — Material Management
+- Publish / Unpublish.
+- Replace PDF.
+- Delete PDF.
+- Student-visible `publishedCatalog` mirror.
+- Student application reads published material metadata only.
+- Storage reads require authentication.
 
-## Phase 20 — Security / Performance / Final QA
-Implemented:
-- Class-scoped published catalog.
-- Storage rules require authenticated student + matching class claim + `active=true` metadata.
-- Student accounts carry role/class/active claims.
-- Student startup refreshes Firebase ID token before protected Storage access.
-- PWA never caches Firebase/private PDF traffic.
-- PDF size capped at 100 MB.
-- Retry/error paths are finite and user-visible.
-- Admin backend uses Firebase Functions 2nd gen in `asia-southeast1`.
-- Root Firebase project files included for deliberate rules/functions deployment.
-- Static source QA, Node syntax checks, DOM-control validation and JSON checks are run before packaging.
+## Phase 20 — Security / Stability / QA
+- Realtime Database and Storage writes require the authorised admin email in Firebase Authentication.
+- Student profile/class remains read-only from the student's perspective.
+- Student-created UI is intentionally limited to login; there is no self-registration form.
+- Student IDs map internally to synthetic Firebase Email/Password identities.
+- PWA does not cache Firebase requests or PDFs.
+- Explicit timeouts prevent endless buffering on Firebase metadata operations.
+- Protected reader has retry/error states.
+- Duplicate auth/app screens are avoided.
+- Static JavaScript/JSON/DOM validation is performed before packaging.
 
-### Runtime/deployment dependencies
-Phase 16–20 introduces a secure server-side layer because Admin SDK credentials must never be shipped to the GitHub Pages client. Deploy `functions/` and the Firebase rules with the Firebase CLI before using the Admin Panel in production. Cloud Functions deployment requires the Blaze plan. See README for the exact commands.
+### Important trade-off
+
+This client-only design avoids Cloud Functions and therefore avoids the Functions/Blaze requirement, but it is not equivalent to a server-admin architecture. In particular, student creation is performed through a separate Firebase Auth client instance and the admin's Firebase Auth email is used as the database/storage authorization boundary. Students still cannot enter the app unless an admin-created profile exists with a valid class and `role: student`.
