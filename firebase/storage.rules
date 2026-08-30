@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /study-materials/class-{class}/{subject}/{section}/{fileName} {
+      allow read: if request.auth != null
+        && request.auth.token.class == int(class);
+
+      allow write: if request.auth != null
+        && request.auth.token.admin == true
+        && request.resource != null
+        && request.resource.contentType == 'application/pdf'
+        && request.resource.size <= 100 * 1024 * 1024;
+    }
+  }
+}

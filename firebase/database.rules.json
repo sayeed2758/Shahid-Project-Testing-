@@ -1,6 +1,31 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && auth.token.admin === true",
+
+        "displayName": {
+          ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+        }
+      }
+    },
+
+    "catalog": {
+      "$materialId": {
+        ".read": "auth != null && (auth.token.admin === true || (data.exists() && data.child('active').val() === true && auth.token.class === data.child('class').val()))",
+        ".write": "auth != null && auth.token.admin === true"
+      }
+    },
+
+    "recent": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    }
   }
 }
