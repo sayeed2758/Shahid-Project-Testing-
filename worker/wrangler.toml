@@ -1,0 +1,9 @@
+name = "ezee-vision-drive-gateway"
+main = "src/index.js"
+compatibility_date = "2026-08-30"
+
+[vars]
+APP_ORIGIN = "https://sayeed2758.github.io/Shahid/"
+FIREBASE_PROJECT_ID = "ezee-vision-champua"
+FIREBASE_DATABASE_URL = "https://ezee-vision-champua-default-rtdb.asia-southeast1.firebasedatabase.app"
+ADMIN_EMAIL = "creativesayeedd@gmail.com"
