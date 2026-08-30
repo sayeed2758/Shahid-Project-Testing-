@@ -6,25 +6,25 @@
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
-        ".write": "auth != null && auth.token.admin === true",
-
-        "displayName": {
-          ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
-        }
+        ".write": "auth != null && auth.token.admin === true"
       }
     },
 
     "catalog": {
-      "$materialId": {
-        ".read": "auth != null && (auth.token.admin === true || (data.exists() && data.child('active').val() === true && auth.token.class === data.child('class').val()))",
-        ".write": "auth != null && auth.token.admin === true"
+      "$classKey": {
+        ".read": "auth != null && (auth.token.admin === true || root.child('users').child(auth.uid).child('class').val() === $classKey.replace('class-', ''))",
+        ".write": "auth != null && auth.token.admin === true",
+        "$materialId": {
+          ".validate": "newData.hasChildren(['title','class','subject','section','storagePath','fileName','type','active','createdAt','updatedAt'])"
+        }
       }
     },
 
     "recent": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && auth.uid === $uid",
+        ".indexOn": ["lastOpened"]
       }
     }
   }
