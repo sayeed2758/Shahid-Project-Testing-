@@ -5,6 +5,7 @@ import {
   ADMIN_EMAIL,
   configureAuthPersistence,
   loginWithEmailAndPassword,
+  sendResetEmail,
   logout,
   observeAuth,
   createStudent,
@@ -38,6 +39,7 @@ const el = {
   email: $("#adminEmail"),
   password: $("#adminPassword"),
   loginBtn: $("#adminLoginBtn"),
+  forgotPasswordBtn: $("#adminForgotPasswordBtn"),
   authMessage: $("#adminAuthMessage"),
   logoutBtn: $("#adminLogoutBtn"),
   refreshBtn: $("#adminRefreshBtn"),
@@ -766,6 +768,26 @@ async function submitUpload(event) {
   }
 }
 
+async function forgotPassword() {
+  const email = el.email.value.trim().toLowerCase();
+  if (email !== ADMIN_EMAIL.toLowerCase()) {
+    message(el.authMessage, "Enter the authorised admin email.", "error");
+    return;
+  }
+
+  el.forgotPasswordBtn.disabled = true;
+  message(el.authMessage, "Sending password reset email…", "loading");
+  try {
+    await sendResetEmail(email);
+    message(el.authMessage, "Password reset email sent. Check Inbox, Spam and Promotions.", "success");
+  } catch (error) {
+    console.error(error);
+    message(el.authMessage, friendlyError(error), "error");
+  } finally {
+    el.forgotPasswordBtn.disabled = false;
+  }
+}
+
 async function login(event) {
   event.preventDefault();
 
@@ -826,6 +848,7 @@ async function loadDashboard() {
 
 function bind() {
   el.loginForm.addEventListener("submit", login);
+  el.forgotPasswordBtn.addEventListener("click", forgotPassword);
   el.logoutBtn.addEventListener("click", () => logout().catch((error) => {
     console.error(error);
     message(el.authMessage, friendlyError(error), "error");
