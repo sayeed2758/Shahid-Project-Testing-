@@ -69,3 +69,9 @@ No browser-based system can guarantee that a user cannot screenshot, screen-reco
 ## Drive gateway CORS note
 
 The Cloudflare Worker `APP_ORIGIN` must be the origin only (`https://sayeed2758.github.io`), not the GitHub Pages project path. The project path is handled by the browser application itself.
+
+
+## Final simple viewer polish
+- Student PDF reader embeds Google Drive Preview inside the app.
+- A transparent click shield blocks the Drive external/open control area.
+- Bottom navigation uses one row of four icon-only controls with accessible labels.
