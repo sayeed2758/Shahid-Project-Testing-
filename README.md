@@ -1,104 +1,59 @@
 # EZEE VISION CHAMPUA — Student Learning Portal
 
-Simple ID/Password edition of the coaching institute learning portal.
+Production-oriented GitHub Pages student learning portal for Classes 6–10, using Firebase Authentication + Realtime Database and a private Google Drive content gateway.
 
-## Included
+## Current architecture
 
-### Student portal
-- Student ID + password login
-- Persistent Firebase Authentication session
-- Home dashboard
-- Classes 6–10
-- SST / Science / Math / English
-- Detailed Notes
-- Short Notes
-- Worksheet
-- Firebase-backed material catalog
-- Metadata-only search
-- Recent materials (15)
-- Student profile
-- Protected in-app PDF.js reader for notes
-- Worksheet downloads
-- Mobile-first responsive UI
-- PWA shell
-- Offline notice / finite loading states
-- No Google login in production; a one-time admin migration page is included for existing Google-only admin accounts
+- **Firebase Authentication:** Admin Email/Password + Student synthetic Email/Password identities.
+- **Firebase Realtime Database:** users, student index, catalog, published catalog, recent materials.
+- **Google Drive:** source PDF storage using your existing Drive storage plan.
+- **Cloudflare Worker:** validates Firebase identity, checks class access, verifies Drive files, and streams PDFs without exposing Drive URLs to students.
+- **PDF.js:** renders protected notes inside the application's own reader UI.
+- **GitHub Pages:** hosts only the application shell/static assets.
 
-### Admin panel
-- Firebase Email/Password admin login
-- Fixed authorised admin email: `creativesayeedd@gmail.com`
-- Dashboard metrics
-- Student creation using Student ID + password
-- Assign class 6–10
-- Edit student name/class
-- Enable/disable student
-- Material search/filter
-- PDF upload up to 100 MB
-- Upload progress
-- Publish/unpublish
-- Replace PDF
-- Delete PDF
-- One-time credentials dialog + copy action
-- No Google login in production; a one-time admin migration page is included for existing Google-only admin accounts
-- No Cloud Functions
+## Admin
 
-## Student ID design
+Admin email is configured as `creativesayeedd@gmail.com`.
+The production admin screen uses Email/Password only. There is no Google Sign-In or Cloud Functions dependency in this release.
 
-A Student ID such as:
+## Materials workflow
 
-`EV001`
+1. Put the PDF in a private Google Drive folder.
+2. Share that folder with the Drive Gateway service-account email as Viewer.
+3. Open Admin → Upload PDF.
+4. Choose Class / Subject / Section.
+5. Paste the Drive file link.
+6. Tap **Verify Drive File**.
+7. Tap **Save Material**.
+8. Publish immediately or later.
 
-maps internally to:
+The catalog stores the Drive file ID and metadata. The full Drive URL is not displayed to students.
 
-`ev001@students.ezeevisionchampua.com`
+## Drive Gateway setup
 
-Students never need to know this internal identity.
+See `worker/README.md`. The Worker needs a Google Cloud service account JSON stored as a Cloudflare secret. Never commit the JSON or private key to GitHub.
 
-## Important security boundary
+After deployment, set the Worker URL in `assets/js/drive-config.js`.
 
-Admin writes are allowed by Firebase rules only for the authenticated admin email. Student learning access is controlled by the student's Firebase UID/profile and assigned class.
+Until the Worker URL is configured, the application intentionally shows a clear configuration error rather than a fake upload/read experience.
 
-This is a simpler client-only architecture. It avoids Cloud Functions and therefore avoids the Functions/Blaze dependency, but a trusted backend would be stronger for privileged operations such as administrator password resets.
+## Firebase rules
 
-## Firebase files
+Deploy `firebase/database.rules.json` with:
 
-- `firebase/database.rules.json`
-- `firebase/storage.rules`
-- `firebase.json`
-- `assets/js/firebase-config.js`
+```bash
+firebase deploy --only database:rules
+```
 
-## Setup
-
-Read:
-
-`docs/ADMIN-SETUP.md`
-
-before first use.
-
-Enable Firebase **Email/Password** authentication.
-
-Deploy the included Database and Storage rules deliberately after reviewing them.
+Storage rules are no longer used by this release because PDF binaries are stored in Google Drive.
 
 ## GitHub Pages
 
-Upload this repository's contents to:
+The site uses relative paths and is designed for a project-page deployment such as:
+`https://sayeed2758.github.io/Shahid/`
 
-`https://github.com/sayeed2758/Shahid-Project-Testing-`
+## Security reality
 
-All application paths are relative to support GitHub Pages project URLs.
+The student sees a custom in-app PDF reader, with no Google Drive UI or normal download/print controls. The Worker hides the source Drive URL and performs access checks before streaming.
 
-## PDF storage
-
-GitHub contains only application code/metadata. Study PDFs belong in Firebase Cloud Storage and are uploaded through the Admin Panel.
-
-## Protected reader limitation
-
-The notes reader uses canvas/PDF.js and removes normal download/print controls. It is practical deterrence, not absolute DRM. Web applications cannot make screenshots or recordings technically impossible.
-
-## Institute
-
-EZEE VISION CHAMPUA
-Educational
-Phone / WhatsApp: 9124478453
-Address: Opposite to Swagat Guest House, CHAMPUA Odisha
-Website: soon
+No browser-based system can guarantee that a user cannot screenshot, screen-record, or capture data visible on their device. This release is designed for practical deterrence and access control, not an absolute anti-copy guarantee.

@@ -1,11 +1,11 @@
 {
   "name": "ezee-vision-champua-learning-portal",
   "private": true,
-  "version": "0.2.0-simple-id-password",
-  "description": "EZEE VISION CHAMPUA student learning portal \u2014 Phases 1-5",
+  "version": "0.3.0-drive-gateway",
+  "description": "EZEE VISION CHAMPUA student learning portal with Google Drive content gateway",
   "scripts": {
     "serve": "python -m http.server 8080",
-    "firebase:deploy": "firebase deploy --only database:rules,storage"
+    "firebase:deploy": "firebase deploy --only database:rules"
   },
   "dependencies": {
     "firebase": "12.18.0"

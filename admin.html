@@ -44,7 +44,7 @@
 
       <main class="admin-main">
         <div class="admin-header-copy">
-          <div><p class="eyebrow">EZEE VISION CHAMPUA</p><h1>Management Dashboard</h1><p class="muted">Students, catalog and protected learning files.</p></div>
+          <div><p class="eyebrow">EZEE VISION CHAMPUA</p><h1>Management Dashboard</h1><p class="muted">Students, catalog and protected Google Drive learning files.</p></div>
           <div class="admin-session-pill"><span id="adminSessionEmail">—</span><strong>ADMIN</strong></div>
         </div>
 
@@ -67,7 +67,7 @@
         <section id="adminOverviewTab" class="admin-tab-panel" data-panel="overview">
           <div class="admin-card-grid">
             <article class="card admin-info-card"><p class="eyebrow">WORKFLOW</p><h2>Student access</h2><p>Admin creates the account and assigns Class 6–10. The student cannot change class from the portal.</p></article>
-            <article class="card admin-info-card"><p class="eyebrow">STORAGE</p><h2>100 MB limit</h2><p>PDF uploads are validated before Storage write. Files are made student-readable only when published.</p></article>
+            <article class="card admin-info-card"><p class="eyebrow">STORAGE</p><h2>Google Drive</h2><p>Store PDFs in your Drive. The portal saves the file ID and serves it through the protected Drive Gateway.</p></article>
             <article class="card admin-info-card"><p class="eyebrow">SECURITY</p><h2>Simple Firebase rules</h2><p>Your admin email controls the Admin Panel. Students use their own ID/password and can only access their assigned class.</p></article>
           </div>
           <div class="card admin-recent-card">
@@ -97,17 +97,17 @@
         <section id="adminUploadTab" class="admin-tab-panel" data-panel="upload" hidden>
           <div class="upload-layout">
             <form id="uploadForm" class="card upload-card" novalidate>
-              <div><p class="eyebrow">CONTENT MANAGEMENT</p><h2>Upload study material</h2><p class="muted">Storage + catalog sync is handled as one recoverable operation.</p></div>
+              <div><p class="eyebrow" id="uploadModeLabel">ADD MATERIAL</p><h2>Add learning material</h2><p class="muted">Paste a private Google Drive PDF link. The student never receives the Drive URL.</p></div>
               <div class="form-grid two"><label class="field"><span>Class</span><select id="uploadClass" required><option value="">Choose class</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label><label class="field"><span>Subject</span><select id="uploadSubject" required><option value="">Choose subject</option><option value="sst">SST</option><option value="science">Science</option><option value="math">Math</option><option value="english">English</option></select></label></div>
-              <div class="form-grid two"><label class="field"><span>Section</span><select id="uploadSection" required><option value="">Choose section</option><option value="detailed">Detailed Notes</option><option value="short">Short Notes</option><option value="worksheet">Worksheet</option></select></label><label class="field"><span>Material title</span><input id="uploadTitle" type="text" maxlength="120" required placeholder="e.g. Light – Reflection"></label></div>
-              <label class="field"><span>Chapter / topic (optional)</span><input id="uploadChapter" type="text" maxlength="120" placeholder="e.g. Chapter 10 — Light"></label>
-              <label class="file-drop"><input id="uploadFile" type="file" accept="application/pdf,.pdf" hidden><span class="file-drop-icon">⇧</span><strong id="uploadFileName">Choose PDF file</strong><small id="uploadFileMeta">Maximum 100 MB • PDF only</small><button id="chooseUploadFileBtn" class="secondary-button" type="button">Choose File</button></label>
-              <label class="check-row"><input id="publishOnUpload" type="checkbox" checked><span>Publish immediately after successful sync</span></label>
-              <div id="uploadProgressWrap" class="progress-wrap" hidden><div class="progress-head"><span id="uploadProgressLabel">Uploading…</span><strong id="uploadProgressPercent">0%</strong></div><div class="progress-bar"><span id="uploadProgressBar"></span></div></div>
+              <div class="form-grid two"><label class="field"><span>Section</span><select id="uploadSection" required><option value="">Choose section</option><option value="detailed">Detailed Notes</option><option value="short">Short Notes</option><option value="worksheet">Worksheet</option></select></label><label class="field"><span>Material title</span><input id="uploadTitle" type="text" maxlength="120" required placeholder="e.g. The Rise of Nationalism"></label></div>
+              <label class="field"><span>Chapter / topic (optional)</span><input id="uploadChapter" type="text" maxlength="120" placeholder="e.g. Chapter 1"></label>
+              <label class="field"><span>Private Google Drive PDF link</span><input id="uploadDriveLink" type="url" maxlength="2048" required placeholder="https://drive.google.com/file/d/.../view"></label>
+              <div class="drive-verify-row"><button id="verifyDriveBtn" class="secondary-button" type="button">Verify Drive File</button><span id="driveFileStatus" class="drive-file-status">Paste a link, then verify it.</span></div>
+              <label class="check-row"><input id="publishOnUpload" type="checkbox" checked><span>Publish immediately after saving</span></label>
               <div id="uploadMessage" class="inline-message" role="status" aria-live="polite"></div>
-              <button id="uploadBtn" class="primary-button full-width" type="submit">Upload &amp; Save</button>
+              <button id="uploadBtn" class="primary-button full-width" type="submit">Save Material</button>
             </form>
-            <aside class="card upload-side"><p class="eyebrow">SAFE UPLOAD</p><h2>What happens?</h2><ol><li>PDF type and size are validated.</li><li>File uploads as inactive/private.</li><li>Catalog metadata is saved.</li><li>Publish makes it visible to the assigned class.</li><li>Database failure triggers Storage cleanup.</li></ol></aside>
+            <aside class="card upload-side"><p class="eyebrow">PRIVATE DRIVE FLOW</p><h2>What happens?</h2><ol><li>Keep the PDF private in your Google Drive.</li><li>Paste its Drive link and verify the file.</li><li>The portal saves only the Drive file ID + metadata.</li><li>Publish makes it visible only to the assigned class.</li><li>Students receive the PDF through the protected in-app reader.</li></ol></aside>
           </div>
         </section>
       </main>
