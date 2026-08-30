@@ -653,7 +653,7 @@ button.class-card:hover {
   left: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   min-height: var(--bottom-nav-height);
   padding: 7px 14px calc(7px + env(safe-area-inset-bottom));
   background: rgba(255,255,255,.94);
@@ -663,9 +663,9 @@ button.class-card:hover {
 }
 
 .nav-item {
+  position: relative;
   display: grid;
   place-items: center;
-  gap: 2px;
   border: 0;
   color: #8290a5;
   background: transparent;
@@ -676,8 +676,20 @@ button.class-card:hover {
 }
 
 .nav-icon {
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
+}
+
+.nav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .nav-item.is-active {
@@ -767,6 +779,7 @@ button.class-card:hover {
 
   .bottom-nav {
     width: min(100% - 36px, 700px);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     right: auto;
     left: 50%;
     transform: translateX(-50%);
@@ -1461,11 +1474,27 @@ button.class-card:hover {
 }
 .reader-drive-frame {
   display: block;
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: min(78vh, 900px);
   min-height: 620px;
   border: 0;
   background: #fff;
+}
+
+/* Google Drive renders its own external/open button inside the iframe.
+   This transparent shield blocks taps on that control without covering the PDF. */
+.reader-paper:has(.reader-drive-frame)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 5;
+  width: 78px;
+  height: 78px;
+  pointer-events: auto;
+  background: transparent;
 }
 @media (max-width: 699px) {
   .reader-paper:has(.reader-drive-frame) {
