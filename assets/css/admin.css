@@ -16,3 +16,48 @@
 .admin-dialog{width:min(calc(100% - 24px),520px);padding:0;border:0;border-radius:22px;background:transparent;box-shadow:none}.admin-dialog::backdrop{background:rgba(3,13,32,.60);backdrop-filter:blur(3px)}.dialog-card{padding:22px;border-radius:22px;background:#fff;box-shadow:0 26px 70px rgba(3,13,32,.22)}.dialog-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:14px}.dialog-head h2{margin:0;font-size:20px}.icon-button{width:42px;height:42px;border:1px solid #dfe5ef;border-radius:12px;background:#fff;color:#64738a;cursor:pointer;font-size:22px}.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}.dialog-actions button{padding:0 16px}
 @media(min-width:700px){.admin-auth-view{padding:40px}.admin-stats{grid-template-columns:repeat(3,1fr)}.admin-card-grid{grid-template-columns:repeat(3,1fr)}.toolbar-main{grid-template-columns:2fr repeat(3,1fr)}.form-grid.two{grid-template-columns:1fr 1fr}.upload-layout{grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr)}}
 @media(min-width:1040px){.admin-stats{grid-template-columns:repeat(6,1fr)}.admin-main{padding-top:32px}.admin-toolbar{padding:12px}.admin-table th,.admin-table td{padding:13px 14px}}
+
+.credentials-panel {
+  display: grid;
+  gap: 9px;
+  margin: 16px 0;
+}
+
+.credential-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  min-height: 52px;
+  padding: 11px 13px;
+  border: 1px solid #dde5f0;
+  border-radius: 14px;
+  background: #f6f8fc;
+}
+
+.credential-row span {
+  color: #718098;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.credential-row strong {
+  max-width: 65%;
+  overflow-wrap: anywhere;
+  color: #0b327a;
+  font-family: "Manrope", sans-serif;
+  font-size: 15px;
+  text-align: right;
+}
+
+@media (max-width: 480px) {
+  .credential-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .credential-row strong {
+    max-width: 100%;
+    text-align: left;
+  }
+}
