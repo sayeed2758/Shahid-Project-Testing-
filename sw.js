@@ -1,4 +1,5 @@
-const CACHE_NAME = "ezee-vision-shell-v4";
+const CACHE_NAME = "ezee-vision-shell-simple-v2";
+
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -22,6 +23,8 @@ const APP_SHELL = [
   "./assets/images/icon-512.png",
 ];
 
+const NETWORK_FIRST_EXTENSIONS = new Set([".html", ".js", ".css", ".json"]);
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -42,22 +45,48 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  const request = event.request;
-  const url = new URL(request.url);
-
-  // Never cache PDFs or Firebase/API requests. Private learning content stays network-only.
-  if (
+function isFirebaseOrPrivateAsset(url) {
+  return (
     url.pathname.toLowerCase().endsWith(".pdf") ||
     url.hostname.includes("googleapis.com") ||
     url.hostname.includes("firebaseio.com") ||
     url.hostname.includes("firebasestorage.app") ||
     url.hostname.includes("firebaseapp.com")
+  );
+}
+
+function extensionOf(pathname) {
+  const last = pathname.split("/").pop() || "";
+  const dot = last.lastIndexOf(".");
+  return dot >= 0 ? last.slice(dot).toLowerCase() : "";
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  if (
+    request.method !== "GET" ||
+    url.origin !== self.location.origin ||
+    isFirebaseOrPrivateAsset(url)
   ) {
     return;
   }
 
-  if (request.method !== "GET" || url.origin !== self.location.origin) {
+  const extension = extensionOf(url.pathname);
+
+  if (NETWORK_FIRST_EXTENSIONS.has(extension) || request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
     return;
   }
 

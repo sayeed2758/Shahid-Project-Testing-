@@ -17,15 +17,14 @@
         <img src="./assets/images/logo.png" class="admin-auth-logo" alt="EZEE VISION CHAMPUA logo">
         <p class="eyebrow">ADMINISTRATION</p>
         <h1>Admin Panel</h1>
-        <p class="muted">Simple ID/password management for students and learning materials.</p>
+        <p class="muted">Create student IDs, manage classes and publish learning materials.</p>
 
         <form id="adminLoginForm" novalidate>
-          <label class="field"><span>Email</span><input id="adminEmail" type="email" autocomplete="username" required placeholder="Admin email"></label>
+          <label class="field"><span>Admin Email</span><input id="adminEmail" type="email" autocomplete="username" value="creativesayeedd@gmail.com" readonly aria-readonly="true"></label>
           <label class="field"><span>Password</span><input id="adminPassword" type="password" autocomplete="current-password" required placeholder="Password"></label>
           <button id="adminLoginBtn" class="primary-button full-width" type="submit">Login as Admin</button>
         </form>
-        <button id="adminForgotBtn" class="text-button full-width" type="button">Forgot Password?</button>
-        <div id="adminAuthMessage" class="inline-message" role="status" aria-live="polite"></div>
+                <div id="adminAuthMessage" class="inline-message" role="status" aria-live="polite"></div>
       </div>
     </section>
 
@@ -117,7 +116,7 @@
         <div class="dialog-head"><div><p id="studentDialogEyebrow" class="eyebrow">NEW STUDENT</p><h2 id="studentDialogTitle">Add Student</h2></div><button id="studentDialogClose" class="icon-button" type="button" aria-label="Close">×</button></div>
         <input id="studentUid" type="hidden">
         <label class="field"><span>Student name</span><input id="studentName" type="text" maxlength="60" required placeholder="Full name"></label>
-        <label class="field"><span>Student ID</span><input id="studentEmail" type="text" required placeholder="e.g. EV001" autocapitalize="characters"></label>
+        <label class="field"><span>Student ID</span><input id="studentId" type="text" required placeholder="e.g. EV001" autocapitalize="characters"></label>
         <label class="field"><span>Password</span><input id="studentPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Minimum 6 characters"></label>
         <label class="field"><span>Assigned class</span><select id="studentClass" required><option value="">Choose class</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label>
         <div id="studentDialogHelp" class="detail-info"><strong>Simple student login</strong><span>Give the student the Student ID and password. No Google account is needed.</span></div>
@@ -127,6 +126,45 @@
     </dialog>
 
 
+
+
+    <dialog id="credentialsDialog" class="admin-dialog">
+      <div class="dialog-card">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">STUDENT CREATED</p>
+            <h2>Login details</h2>
+          </div>
+          <button id="credentialsCloseBtn" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+
+        <div class="credentials-panel">
+          <div class="credential-row">
+            <span>Student ID</span>
+            <strong id="createdStudentId">—</strong>
+          </div>
+          <div class="credential-row">
+            <span>Password</span>
+            <strong id="createdStudentPassword">—</strong>
+          </div>
+          <div class="credential-row">
+            <span>Class</span>
+            <strong id="createdStudentClass">—</strong>
+          </div>
+        </div>
+
+        <div class="detail-info">
+          <strong>Save these details now.</strong>
+          <span>The student signs in with only this Student ID and password. The password is not stored in Realtime Database.</span>
+        </div>
+
+        <div class="dialog-actions">
+          <button id="copyCredentialsBtn" class="secondary-button" type="button">Copy Credentials</button>
+          <button id="credentialsDoneBtn" class="primary-button" type="button">Done</button>
+        </div>
+        <div id="credentialsMessage" class="inline-message" role="status" aria-live="polite"></div>
+      </div>
+    </dialog>
 
     <div id="adminGlobalStatus" class="global-status" role="status" aria-live="polite" hidden></div>
   </div>
