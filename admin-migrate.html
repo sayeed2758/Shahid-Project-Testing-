@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08245d">
+  <link rel="icon" type="image/png" href="./assets/images/icon-192.png">
+  <link rel="stylesheet" href="./assets/css/app.css">
+  <link rel="stylesheet" href="./assets/css/admin.css">
+  <title>EZEE VISION CHAMPUA — Admin Setup</title>
+</head>
+<body>
+  <main class="admin-auth-view">
+    <section class="admin-auth-card card">
+      <img src="./assets/images/logo.png" class="admin-auth-logo" alt="EZEE VISION CHAMPUA logo">
+      <p class="eyebrow">ONE-TIME ADMIN SETUP</p>
+      <h1>Secure Admin Access</h1>
+      <p class="muted">Convert the existing Google-based admin account to Email/Password without changing its Firebase UID or database records.</p>
+
+      <div class="bootstrap-box">
+        <strong>Important</strong>
+        <span>Use this page only once. Google Sign-In must be temporarily enabled in Firebase Authentication for this migration. After the password is linked, disable Google again.</span>
+      </div>
+
+      <label class="field"><span>Admin Email</span><input id="migrationEmail" type="email" value="creativesayeedd@gmail.com" readonly></label>
+      <label class="field"><span>New Admin Password</span><input id="migrationPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Minimum 6 characters"></label>
+      <label class="field"><span>Confirm Password</span><input id="migrationPasswordConfirm" type="password" minlength="6" autocomplete="new-password" placeholder="Enter the password again"></label>
+
+      <button id="migrationBtn" class="primary-button full-width" type="button">Connect &amp; Set Admin Password</button>
+      <div id="migrationMessage" class="inline-message" role="status" aria-live="polite"></div>
+
+      <div id="migrationDone" class="detail-info" hidden>
+        <strong>Migration complete.</strong>
+        <span>You can now disable Google Sign-In in Firebase Console and use the normal Admin Panel with Email + Password.</span>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="./assets/js/admin-migrate.js"></script>
+</body>
+</html>

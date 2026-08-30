@@ -22,7 +22,7 @@ Simple ID/Password edition of the coaching institute learning portal.
 - Mobile-first responsive UI
 - PWA shell
 - Offline notice / finite loading states
-- No Google login
+- No Google login in production; a one-time admin migration page is included for existing Google-only admin accounts
 
 ### Admin panel
 - Firebase Email/Password admin login
@@ -39,7 +39,7 @@ Simple ID/Password edition of the coaching institute learning portal.
 - Replace PDF
 - Delete PDF
 - One-time credentials dialog + copy action
-- No Google login
+- No Google login in production; a one-time admin migration page is included for existing Google-only admin accounts
 - No Cloud Functions
 
 ## Student ID design

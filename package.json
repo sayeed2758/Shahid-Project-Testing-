@@ -1,12 +1,11 @@
 {
   "name": "ezee-vision-champua-learning-portal",
   "private": true,
-  "version": "0.1.0-phase-1-5",
+  "version": "0.2.0-simple-id-password",
   "description": "EZEE VISION CHAMPUA student learning portal \u2014 Phases 1-5",
   "scripts": {
     "serve": "python -m http.server 8080",
-    "firebase:deploy": "firebase deploy --only database:rules,storage",
-    "functions:lint": "node --check functions/index.js"
+    "firebase:deploy": "firebase deploy --only database:rules,storage"
   },
   "dependencies": {
     "firebase": "12.18.0"
