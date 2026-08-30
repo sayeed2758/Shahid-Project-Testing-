@@ -17,12 +17,12 @@
         <img src="./assets/images/logo.png" class="admin-auth-logo" alt="EZEE VISION CHAMPUA logo">
         <p class="eyebrow">ADMINISTRATION</p>
         <h1>Admin Panel</h1>
-        <p class="muted">Create student IDs, manage classes and publish learning materials.</p>
-        <p class="auth-note">Admin access uses Firebase Email/Password only. Google Sign-In is not part of the production login.</p>
+        <p class="muted">Create student IDs, assign classes and publish learning materials.</p>
+        <div class="auth-note-card"><span class="status-dot"></span><div><strong>Email + Password Admin Login</strong><small>Google Sign-In is disabled for the production portal.</small></div></div>
 
         <form id="adminLoginForm" novalidate>
           <label class="field"><span>Admin Email</span><input id="adminEmail" type="email" autocomplete="username" value="creativesayeedd@gmail.com" readonly aria-readonly="true"></label>
-          <label class="field"><span>Password</span><input id="adminPassword" type="password" autocomplete="current-password" required placeholder="Password"></label>
+          <label class="field"><span>Password</span><div class="password-wrap"><input id="adminPassword" type="password" autocomplete="current-password" required placeholder="Enter admin password"><button id="toggleAdminPasswordBtn" class="password-toggle admin-password-toggle" type="button" aria-pressed="false">Show</button></div></label>
           <button id="adminLoginBtn" class="primary-button full-width" type="submit">Login as Admin</button>
           <button id="adminForgotPasswordBtn" class="link-button full-width" type="button">Forgot Password?</button>
         </form>
@@ -45,7 +45,7 @@
       <main class="admin-main">
         <div class="admin-header-copy">
           <div><p class="eyebrow">EZEE VISION CHAMPUA</p><h1>Management Dashboard</h1><p class="muted">Students, catalog and protected Google Drive learning files.</p></div>
-          <div class="admin-session-pill"><span id="adminSessionEmail">—</span><strong>ADMIN</strong></div>
+          <div class="admin-session-pill"><span id="adminSessionEmail">—</span><strong>ADMIN</strong><span id="gatewayHealth" class="gateway-health" data-type="loading">Checking gateway…</span></div>
         </div>
 
         <section class="admin-stats" id="adminStats">
@@ -67,8 +67,8 @@
         <section id="adminOverviewTab" class="admin-tab-panel" data-panel="overview">
           <div class="admin-card-grid">
             <article class="card admin-info-card"><p class="eyebrow">WORKFLOW</p><h2>Student access</h2><p>Admin creates the account and assigns Class 6–10. The student cannot change class from the portal.</p></article>
-            <article class="card admin-info-card"><p class="eyebrow">STORAGE</p><h2>Google Drive</h2><p>Store PDFs in your Drive. The portal saves the file ID and serves it through the protected Drive Gateway.</p></article>
-            <article class="card admin-info-card"><p class="eyebrow">SECURITY</p><h2>Simple Firebase rules</h2><p>Your admin email controls the Admin Panel. Students use their own ID/password and can only access their assigned class.</p></article>
+            <article class="card admin-info-card"><p class="eyebrow">STORAGE</p><h2>Private Google Drive</h2><p>Keep your PDFs private in Drive. The portal stores only the Drive file ID and serves content through the protected gateway.</p></article>
+            <article class="card admin-info-card"><p class="eyebrow">SECURITY</p><h2>Controlled access</h2><p>Students use their own ID/password and can only open materials published for their assigned class.</p></article>
           </div>
           <div class="card admin-recent-card">
             <div class="admin-section-head"><div><p class="eyebrow">LATEST</p><h2>Recent materials</h2></div><button id="overviewMaterialsBtn" class="secondary-button" type="button">Open Materials</button></div>
