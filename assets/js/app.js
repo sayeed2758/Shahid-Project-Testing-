@@ -586,13 +586,8 @@ async function openMaterialAction(material) {
   }
 
   try {
-    if (material.section === "worksheet") {
-      setGlobalStatus("Preparing worksheet download…");
-      await readerController.downloadWorksheet(material);
-      setGlobalStatus("Worksheet download started.");
-    } else {
-      await readerController.open(material, getStudentWatermark());
-    }
+    setGlobalStatus(material.section === "worksheet" ? "Opening worksheet securely…" : "Opening protected reader…");
+    await readerController.open(material, getStudentWatermark());
   } catch (error) {
     console.error(error);
     const message = error?.code === "PDF_ACCESS_DENIED" ? "You are not authorised to access this material." : error?.message === "DRIVE_GATEWAY_NOT_CONFIGURED" ? "This portal is not connected to its Drive gateway yet." : "The material could not be opened. Please retry.";
@@ -797,17 +792,17 @@ async function renderRoute(route) {
               </div>
 
               <div class="detail-info">
-                <strong>${section.id === "worksheet" ? "Worksheet download" : "Protected Notes Reader"}</strong>
+                <strong>${section.id === "worksheet" ? "Protected Worksheet Reader" : "Protected Notes Reader"}</strong>
                 <span>
                   ${section.id === "worksheet"
-                    ? "Worksheets are downloadable study resources."
+                    ? "Worksheets open inside the protected in-app reader. The Drive URL and Google Drive viewer are never exposed to the student."
                     : "Detailed and short notes open inside the protected in-app reader. The PDF is fetched as bytes and rendered in the application instead of exposing a direct PDF link."}
                 </span>
               </div>
 
               <div class="material-action-row">
                 <button class="primary-button material-action-button" id="openMaterialNowBtn" type="button">
-                  ${section.id === "worksheet" ? "Download Worksheet" : "Open Protected Reader"}
+                  Open Protected Reader
                 </button>
               </div>
             </div>
@@ -822,7 +817,7 @@ async function renderRoute(route) {
               saveRecent(state.user.uid, material).catch((error) => console.warn("Recent save failed:", error));
             } finally {
               openMaterialNowBtn.disabled = false;
-              openMaterialNowBtn.textContent = section.id === "worksheet" ? "Download Worksheet" : "Open Protected Reader";
+              openMaterialNowBtn.textContent = "Open Protected Reader";
             }
           });
         } catch (error) {
