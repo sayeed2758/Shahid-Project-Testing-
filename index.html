@@ -1,91 +1,227 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#071a46">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08245d">
   <meta name="description" content="EZEE VISION CHAMPUA Student Learning Portal">
-  <title>EZEE VISION CHAMPUA</title>
-  <link rel="icon" type="image/png" href="./assets/images/logo.png">
-  <link rel="stylesheet" href="./assets/css/base.css">
-  <link rel="stylesheet" href="./assets/css/components.css">
+  <meta name="application-name" content="EZEE VISION CHAMPUA">
+  <link rel="icon" type="image/png" href="./assets/images/icon-192.png">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./assets/css/app.css">
-  <link rel="stylesheet" href="./assets/css/auth.css">
+  <title>EZEE VISION CHAMPUA</title>
 </head>
 <body>
-  <div id="auth-loading" class="auth-loading" aria-live="polite">
-    <div class="auth-loading-card">
-      <div class="spinner" aria-hidden="true"></div>
-      <strong>Checking your session...</strong>
-      <p class="auth-loading-hint">Connecting securely…</p>
-      <button id="retry-session" class="auth-button primary auth-retry" type="button" hidden>Retry</button>
-    </div>
-  </div>
-
-  <section id="auth-gate" class="auth-gate" hidden>
-    <div class="auth-card">
-      <div class="auth-brand">
-        <img src="./assets/images/logo.png" alt="EZEE VISION CHAMPUA" class="auth-logo">
-        <h1>EZEE VISION CHAMPUA</h1>
-        <p>Student Learning Portal</p>
-      </div>
-
-      <form id="login-form" class="auth-form" novalidate>
-        <div class="field">
-          <label for="login-email">Email</label>
-          <input id="login-email" type="email" autocomplete="email" placeholder="Enter your email" required>
-        </div>
-
-        <div class="field">
-          <label for="login-password">Password</label>
-          <div class="password-row">
-            <input id="login-password" type="password" autocomplete="current-password" placeholder="Enter your password" minlength="6" required>
-            <button id="toggle-password" class="password-toggle" type="button">Show</button>
+  <div id="app" class="app-root">
+    <!-- Authentication view -->
+    <section id="authView" class="view auth-view" aria-labelledby="loginTitle" hidden>
+      <div class="auth-shell">
+        <div class="brand-lockup">
+          <img class="brand-logo brand-logo-auth" src="./assets/images/logo.png" alt="EZEE VISION CHAMPUA logo">
+          <div>
+            <p class="eyebrow">STUDENT LEARNING PORTAL</p>
+            <h1 id="loginTitle">Learn. Practice. Grow.</h1>
+            <p class="muted">Your study materials, organised for your class.</p>
           </div>
         </div>
 
-        <div class="auth-actions">
-          <button id="login-button" class="auth-button primary" type="submit">Login</button>
-          <button id="google-button" class="auth-button google" type="button">Continue with Google</button>
-          <button id="forgot-button" class="auth-link" type="button">Forgot Password?</button>
-        </div>
-      </form>
+        <div class="auth-card card">
+          <div class="card-heading">
+            <div>
+              <p class="eyebrow">WELCOME BACK</p>
+              <h2>Sign in to continue</h2>
+            </div>
+          </div>
 
-      <div id="auth-status" class="auth-status" role="status" aria-live="polite"></div>
-      <div class="auth-footer">Student accounts are created by the institute administrator.</div>
-    </div>
-  </section>
+          <form id="loginForm" novalidate>
+            <label class="field">
+              <span>Email address</span>
+              <input id="emailInput" type="email" autocomplete="username" inputmode="email" placeholder="you@example.com" required>
+            </label>
 
-  <div id="app" class="app-shell" hidden>
-    <header class="topbar">
-      <div class="brand">
-        <img src="./assets/images/logo.png" alt="EZEE VISION logo" class="brand-logo">
-        <div>
-          <span class="brand-kicker">EZEE VISION</span>
-          <strong>CHAMPUA</strong>
+            <label class="field">
+              <span>Password</span>
+              <div class="password-wrap">
+                <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Enter your password" minlength="6" required>
+                <button id="togglePasswordBtn" class="icon-button password-toggle" type="button" aria-label="Show password">◉</button>
+              </div>
+            </label>
+
+            <button id="loginBtn" class="primary-button full-width" type="submit">
+              <span class="button-label">Login</span>
+              <span class="button-loader" aria-hidden="true"></span>
+            </button>
+          </form>
+
+          <div class="auth-actions">
+            <button id="googleBtn" class="secondary-button full-width" type="button">
+              <span class="google-mark" aria-hidden="true">G</span>
+              <span>Continue with Google</span>
+            </button>
+            <button id="forgotBtn" class="text-button" type="button">Forgot Password?</button>
+          </div>
+
+          <div id="authMessage" class="inline-message" role="status" aria-live="polite"></div>
+
+          <p class="auth-note">
+            Student accounts are created by EZEE VISION CHAMPUA administration.
+          </p>
         </div>
+
+        <footer class="auth-footer">
+          <strong>EZEE VISION CHAMPUA</strong>
+          <span>Educational • Champua, Odisha</span>
+        </footer>
       </div>
-      <button class="icon-button" type="button" data-action="profile" aria-label="Open profile">EV</button>
-    </header>
+    </section>
 
-    <main id="view" class="main-view" tabindex="-1"></main>
+    <!-- Application shell -->
+    <section id="appView" class="view app-view" hidden>
+      <header class="topbar">
+        <div class="topbar-brand">
+          <img class="brand-logo brand-logo-small" src="./assets/images/logo.png" alt="">
+          <div>
+            <span class="brand-title">EZEE VISION</span>
+            <span class="brand-subtitle">CHAMPUA</span>
+          </div>
+        </div>
 
-    <nav class="bottom-nav" aria-label="Main navigation">
-      <button type="button" class="nav-item is-active" data-route="home">
-        <span class="nav-icon">⌂</span><span>Home</span>
-      </button>
-      <button type="button" class="nav-item" data-route="classes">
-        <span class="nav-icon">▦</span><span>Classes</span>
-      </button>
-      <button type="button" class="nav-item" data-route="search">
-        <span class="nav-icon">⌕</span><span>Search</span>
-      </button>
-      <button type="button" class="nav-item" data-route="recent">
-        <span class="nav-icon">◷</span><span>Recent</span>
-      </button>
-    </nav>
+        <button id="logoutTopBtn" class="outline-button" type="button">Logout</button>
+      </header>
+
+      <main id="mainContent" class="main-content" tabindex="-1">
+        <!-- HOME -->
+        <section id="homeRoute" class="route" data-route="home">
+          <div class="hero-card">
+            <div class="hero-copy">
+              <p class="eyebrow">WELCOME BACK</p>
+              <h1 id="welcomeHeading">Knowledge <span aria-hidden="true">👋</span></h1>
+              <p id="dateLine" class="hero-date">Loading today's date…</p>
+              <p id="classStatus" class="hero-status">Checking your assigned class…</p>
+            </div>
+            <div class="hero-emblem" aria-hidden="true">
+              <span>EV</span>
+            </div>
+          </div>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">YOUR LEARNING SPACE</p>
+                <h2>At a glance</h2>
+              </div>
+            </div>
+
+            <div class="stats-grid">
+              <article class="stat-card">
+                <span class="stat-icon">▦</span>
+                <span class="stat-label">Classes</span>
+                <strong class="stat-value">5</strong>
+              </article>
+              <article class="stat-card">
+                <span class="stat-icon">◎</span>
+                <span class="stat-label">Subjects</span>
+                <strong class="stat-value">4</strong>
+              </article>
+              <article class="stat-card">
+                <span class="stat-icon">▤</span>
+                <span class="stat-label">Protected Notes</span>
+                <strong class="stat-value">—</strong>
+              </article>
+              <article class="stat-card">
+                <span class="stat-icon">⇩</span>
+                <span class="stat-label">Worksheets</span>
+                <strong class="stat-value">—</strong>
+              </article>
+            </div>
+            <p class="micro-note">Material totals will appear automatically after the catalog is connected in later phases.</p>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">START HERE</p>
+                <h2>Choose your class</h2>
+              </div>
+              <button id="viewClassesBtn" class="link-button" type="button">View all</button>
+            </div>
+
+            <div id="homeClassGrid" class="class-grid"></div>
+          </section>
+        </section>
+
+        <!-- CLASSES -->
+        <section id="classesRoute" class="route" data-route="classes" hidden>
+          <div class="page-heading">
+            <button id="classesBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
+            <div>
+              <p class="eyebrow">CLASSES 6–10</p>
+              <h1>Choose your class</h1>
+              <p class="muted">Only your assigned class is available.</p>
+            </div>
+          </div>
+
+          <div id="classesNotice" class="callout" hidden></div>
+          <div id="classesGrid" class="classes-full-grid"></div>
+        </section>
+
+        <!-- CLASS SELECTED -->
+        <section id="classSelectedRoute" class="route" data-route="class-selected" hidden>
+          <div class="page-heading">
+            <button id="classSelectedBackBtn" class="back-button" type="button" aria-label="Back to classes">←</button>
+            <div>
+              <p class="eyebrow">CLASS ACCESS</p>
+              <h1 id="selectedClassTitle">Class</h1>
+              <p class="muted">This class is assigned to your account.</p>
+            </div>
+          </div>
+
+          <div class="coming-card card">
+            <div class="coming-icon" aria-hidden="true">✓</div>
+            <h2>Class access confirmed</h2>
+            <p>
+              You can access the learning materials for this class as they are published.
+              Subject and material sections will be connected in the next development phases.
+            </p>
+            <button id="selectedClassHomeBtn" class="primary-button" type="button">Back to Home</button>
+          </div>
+        </section>
+
+        <!-- ROUTE FALLBACK -->
+        <section id="notFoundRoute" class="route" hidden>
+          <div class="empty-state card">
+            <div class="empty-icon" aria-hidden="true">!</div>
+            <h2>Page not found</h2>
+            <p class="muted">The requested view is not available.</p>
+            <button id="fallbackHomeBtn" class="primary-button" type="button">Return Home</button>
+          </div>
+        </section>
+      </main>
+
+      <nav id="bottomNav" class="bottom-nav" aria-label="Primary">
+        <button class="nav-item is-active" data-nav="home" type="button">
+          <span class="nav-icon" aria-hidden="true">⌂</span>
+          <span>Home</span>
+        </button>
+        <button class="nav-item" data-nav="classes" type="button">
+          <span class="nav-icon" aria-hidden="true">▦</span>
+          <span>Classes</span>
+        </button>
+      </nav>
+    </section>
+
+    <div id="globalStatus" class="global-status" role="status" aria-live="polite" hidden></div>
   </div>
 
-  <script type="module" src="./assets/js/auth-gate.js?v=phase3-auth-fix-20260830"></script>
+  <noscript>
+    <div class="noscript">
+      JavaScript is required to use EZEE VISION CHAMPUA.
+    </div>
+  </noscript>
+
+  <script type="module" src="./assets/js/app.js"></script>
 </body>
 </html>
