@@ -26,7 +26,7 @@
         ".read": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         "$materialId": {
-          ".validate": "newData.hasChildren(['title','class','subject','section','storagePath','fileName','type','active','createdAt','updatedAt']) && newData.child('class').val() == $classKey.replace('class-', '') && (newData.child('subject').val() === 'sst' || newData.child('subject').val() === 'science' || newData.child('subject').val() === 'math' || newData.child('subject').val() === 'english') && (newData.child('section').val() === 'detailed' || newData.child('section').val() === 'short' || newData.child('section').val() === 'worksheet')"
+          ".validate": "newData.hasChildren(['title','class','subject','section','fileName','type','active','createdAt','updatedAt']) && (newData.hasChildren(['driveFileId','storageType']) || newData.hasChildren(['storagePath'])) && newData.child('class').val() == $classKey.replace('class-', '') && (newData.child('subject').val() === 'sst' || newData.child('subject').val() === 'science' || newData.child('subject').val() === 'math' || newData.child('subject').val() === 'english') && (newData.child('section').val() === 'detailed' || newData.child('section').val() === 'short' || newData.child('section').val() === 'worksheet')"
         }
       }
     },
@@ -36,7 +36,7 @@
         ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() === true && String(root.child('users').child(auth.uid).child('class').val()) === $classKey.replace('class-', '')))"
         ,".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         "$materialId": {
-          ".validate": "newData.hasChildren(['title','class','subject','section','storagePath','fileName','type','active','createdAt','updatedAt']) && newData.child('active').val() === true"
+          ".validate": "newData.hasChildren(['title','class','subject','section','fileName','type','active','createdAt','updatedAt']) && (newData.hasChildren(['driveFileId','storageType']) || newData.hasChildren(['storagePath'])) && newData.child('active').val() === true"
         }
       }
     },
