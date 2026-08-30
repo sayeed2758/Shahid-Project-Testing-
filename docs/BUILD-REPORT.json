@@ -1,0 +1,10 @@
+{
+  "project": "EZEE VISION CHAMPUA",
+  "phase": "1-5",
+  "firebase_sdk": "12.18.0",
+  "logo_included": true,
+  "files": 18,
+  "basic_checks": "PASS",
+  "errors": [],
+  "note": "Firebase runtime testing requires a browser and a configured Firebase project with auth providers enabled."
+}
