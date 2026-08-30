@@ -1,4 +1,4 @@
-const CACHE_NAME = "ezee-vision-shell-v1";
+const CACHE_NAME = "ezee-vision-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,6 +8,9 @@ const APP_SHELL = [
   "./assets/js/auth.js",
   "./assets/js/firebase-init.js",
   "./assets/js/firebase-config.js",
+  "./assets/js/catalog.js",
+  "./assets/js/search.js",
+  "./assets/js/recent.js",
   "./assets/images/logo.png",
   "./assets/images/icon-192.png",
   "./assets/images/icon-512.png",

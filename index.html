@@ -16,7 +16,7 @@
 </head>
 <body>
   <div id="app" class="app-root">
-    <!-- Authentication view -->
+
     <section id="authView" class="view auth-view" aria-labelledby="loginTitle" hidden>
       <div class="auth-shell">
         <div class="brand-lockup">
@@ -30,10 +30,8 @@
 
         <div class="auth-card card">
           <div class="card-heading">
-            <div>
-              <p class="eyebrow">WELCOME BACK</p>
-              <h2>Sign in to continue</h2>
-            </div>
+            <p class="eyebrow">WELCOME BACK</p>
+            <h2>Sign in to continue</h2>
           </div>
 
           <form id="loginForm" novalidate>
@@ -66,9 +64,7 @@
 
           <div id="authMessage" class="inline-message" role="status" aria-live="polite"></div>
 
-          <p class="auth-note">
-            Student accounts are created by EZEE VISION CHAMPUA administration.
-          </p>
+          <p class="auth-note">Student accounts are created by EZEE VISION CHAMPUA administration.</p>
         </div>
 
         <footer class="auth-footer">
@@ -78,7 +74,6 @@
       </div>
     </section>
 
-    <!-- Application shell -->
     <section id="appView" class="view app-view" hidden>
       <header class="topbar">
         <div class="topbar-brand">
@@ -88,13 +83,12 @@
             <span class="brand-subtitle">CHAMPUA</span>
           </div>
         </div>
-
         <button id="logoutTopBtn" class="outline-button" type="button">Logout</button>
       </header>
 
       <main id="mainContent" class="main-content" tabindex="-1">
-        <!-- HOME -->
-        <section id="homeRoute" class="route" data-route="home">
+
+        <section id="homeRoute" class="route" data-route="home" hidden>
           <div class="hero-card">
             <div class="hero-copy">
               <p class="eyebrow">WELCOME BACK</p>
@@ -102,9 +96,7 @@
               <p id="dateLine" class="hero-date">Loading today's date…</p>
               <p id="classStatus" class="hero-status">Checking your assigned class…</p>
             </div>
-            <div class="hero-emblem" aria-hidden="true">
-              <span>EV</span>
-            </div>
+            <div class="hero-emblem" aria-hidden="true"><span>EV</span></div>
           </div>
 
           <section class="section-block">
@@ -129,15 +121,15 @@
               <article class="stat-card">
                 <span class="stat-icon">▤</span>
                 <span class="stat-label">Protected Notes</span>
-                <strong class="stat-value">—</strong>
+                <strong id="protectedNotesCount" class="stat-value">…</strong>
               </article>
               <article class="stat-card">
                 <span class="stat-icon">⇩</span>
                 <span class="stat-label">Worksheets</span>
-                <strong class="stat-value">—</strong>
+                <strong id="worksheetsCount" class="stat-value">…</strong>
               </article>
             </div>
-            <p class="micro-note">Material totals will appear automatically after the catalog is connected in later phases.</p>
+            <p class="micro-note"><strong id="totalMaterialsCount">…</strong> active materials in your assigned-class catalogue.</p>
           </section>
 
           <section class="section-block">
@@ -148,52 +140,114 @@
               </div>
               <button id="viewClassesBtn" class="link-button" type="button">View all</button>
             </div>
-
             <div id="homeClassGrid" class="class-grid"></div>
           </section>
         </section>
 
-        <!-- CLASSES -->
         <section id="classesRoute" class="route" data-route="classes" hidden>
           <div class="page-heading">
             <button id="classesBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
             <div>
               <p class="eyebrow">CLASSES 6–10</p>
               <h1>Choose your class</h1>
-              <p class="muted">Only your assigned class is available.</p>
+              <p class="muted">Only your assigned class can be opened.</p>
             </div>
           </div>
-
           <div id="classesNotice" class="callout" hidden></div>
           <div id="classesGrid" class="classes-full-grid"></div>
         </section>
 
-        <!-- CLASS SELECTED -->
-        <section id="classSelectedRoute" class="route" data-route="class-selected" hidden>
+        <section id="subjectsRoute" class="route" data-route="subjects" hidden>
           <div class="page-heading">
-            <button id="classSelectedBackBtn" class="back-button" type="button" aria-label="Back to classes">←</button>
+            <button id="subjectsBackBtn" class="back-button" type="button" aria-label="Back to classes">←</button>
             <div>
-              <p class="eyebrow">CLASS ACCESS</p>
+              <p class="eyebrow">YOUR ASSIGNED CLASS</p>
               <h1 id="selectedClassTitle">Class</h1>
-              <p class="muted">This class is assigned to your account.</p>
+              <p class="muted">Choose a subject to continue.</p>
+            </div>
+          </div>
+          <div id="subjectsNotice" class="callout" hidden></div>
+          <div id="subjectsGrid" class="subject-grid"></div>
+        </section>
+
+        <section id="sectionsRoute" class="route" data-route="sections" hidden>
+          <div class="page-heading">
+            <button id="sectionsBackBtn" class="back-button" type="button" aria-label="Back to subject list">←</button>
+            <div>
+              <p class="eyebrow">SUBJECT</p>
+              <h1 id="selectedSubjectTitle">Subject</h1>
+              <p class="muted">Choose the type of learning material.</p>
+            </div>
+          </div>
+          <div id="sectionsNotice" class="callout" hidden></div>
+          <div id="sectionsGrid" class="section-grid"></div>
+        </section>
+
+        <section id="materialsRoute" class="route" data-route="materials" hidden>
+          <div class="page-heading">
+            <button id="materialsBackBtn" class="back-button" type="button" aria-label="Back to sections">←</button>
+            <div>
+              <p class="eyebrow">MATERIALS</p>
+              <h1 id="selectedSectionTitle">Section</h1>
+              <p id="materialsSubjectTitle" class="muted">Subject</p>
+            </div>
+          </div>
+          <div id="materialsNotice" class="callout" hidden></div>
+          <div id="materialsList" class="material-list"></div>
+        </section>
+
+        <section id="materialDetailRoute" class="route" data-route="material-detail" hidden>
+          <div class="page-heading">
+            <button id="materialDetailBackBtn" class="back-button" type="button" aria-label="Back to materials">←</button>
+            <div>
+              <p class="eyebrow">MATERIAL DETAILS</p>
+              <h1 id="selectedMaterialTitle">Material</h1>
+              <p id="materialDetailMeta" class="muted">Loading…</p>
+            </div>
+          </div>
+          <div id="materialDetailBody"></div>
+          <button id="materialDetailHomeBtn" class="secondary-button home-return-button" type="button">Back to Home</button>
+        </section>
+
+        <section id="searchRoute" class="route" data-route="search" hidden>
+          <div class="page-heading">
+            <button id="searchBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
+            <div>
+              <p class="eyebrow">DISCOVER</p>
+              <h1>Search Materials</h1>
+              <p class="muted">Search only within your assigned class.</p>
             </div>
           </div>
 
-          <div class="coming-card card">
-            <div class="coming-icon" aria-hidden="true">✓</div>
-            <h2>Class access confirmed</h2>
-            <p>
-              You can access the learning materials for this class as they are published.
-              Subject and material sections will be connected in the next development phases.
-            </p>
-            <button id="selectedClassHomeBtn" class="primary-button" type="button">Back to Home</button>
+          <div class="search-box card">
+            <label class="search-field">
+              <span aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" autocomplete="off" placeholder="Chapter, title, subject…" aria-label="Search materials">
+              <button id="searchClearBtn" class="icon-button search-clear" type="button" aria-label="Clear search">×</button>
+            </label>
           </div>
+
+          <p id="searchSummary" class="search-summary"></p>
+          <div id="searchNotice" class="callout" hidden></div>
+          <div id="searchResults" class="material-list"></div>
         </section>
 
-        <!-- ROUTE FALLBACK -->
-        <section id="notFoundRoute" class="route" hidden>
+        <section id="recentRoute" class="route" data-route="recent" hidden>
+          <div class="page-heading">
+            <button id="recentBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
+            <div>
+              <p class="eyebrow">YOUR HISTORY</p>
+              <h1>Recent Materials</h1>
+              <p class="muted">Your latest 15 opened materials.</p>
+            </div>
+          </div>
+          <div id="recentNotice" class="callout" hidden></div>
+          <div id="recentList" class="material-list"></div>
+        </section>
+
+        <section id="notFoundRoute" class="route" data-route="not-found" hidden>
           <div class="empty-state card">
-            <div class="empty-icon" aria-hidden="true">!</div>
+            <div class="empty-icon">!</div>
             <h2>Page not found</h2>
             <p class="muted">The requested view is not available.</p>
             <button id="fallbackHomeBtn" class="primary-button" type="button">Return Home</button>
@@ -203,12 +257,16 @@
 
       <nav id="bottomNav" class="bottom-nav" aria-label="Primary">
         <button class="nav-item is-active" data-nav="home" type="button">
-          <span class="nav-icon" aria-hidden="true">⌂</span>
-          <span>Home</span>
+          <span class="nav-icon" aria-hidden="true">⌂</span><span>Home</span>
         </button>
         <button class="nav-item" data-nav="classes" type="button">
-          <span class="nav-icon" aria-hidden="true">▦</span>
-          <span>Classes</span>
+          <span class="nav-icon" aria-hidden="true">▦</span><span>Classes</span>
+        </button>
+        <button class="nav-item" data-nav="search" type="button">
+          <span class="nav-icon" aria-hidden="true">⌕</span><span>Search</span>
+        </button>
+        <button class="nav-item" data-nav="recent" type="button">
+          <span class="nav-icon" aria-hidden="true">◷</span><span>Recent</span>
         </button>
       </nav>
     </section>
@@ -217,9 +275,7 @@
   </div>
 
   <noscript>
-    <div class="noscript">
-      JavaScript is required to use EZEE VISION CHAMPUA.
-    </div>
+    <div class="noscript">JavaScript is required to use EZEE VISION CHAMPUA.</div>
   </noscript>
 
   <script type="module" src="./assets/js/app.js"></script>
