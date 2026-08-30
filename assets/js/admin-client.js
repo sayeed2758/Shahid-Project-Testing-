@@ -1,27 +1,30 @@
 import { auth, database, firebaseApp } from "./firebase-init.js";
+import { firebaseConfig } from "./firebase-config.js";
 import {
   configureAuthPersistence,
   observeAuth,
   loginWithEmailAndPassword,
-  loginWithGoogle,
   sendResetEmail,
   logout,
 } from "./auth.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signOut as secondarySignOut,
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { get, ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import {
   deleteObject,
-  getMetadata,
-  ref as storageRef,
   updateMetadata,
   uploadBytesResumable,
+  ref as storageRef,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js";
 
-const FUNCTIONS_REGION = "asia-southeast1";
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
-const functions = getFunctions(firebaseApp, FUNCTIONS_REGION);
-
-const call = (name) => httpsCallable(functions, name);
+const BOOTSTRAP_EMAIL = "creativesayeedd@gmail.com";
+const STUDENT_EMAIL_DOMAIN = "students.ezeevisionchampua.com";
 
 const SUBJECTS = [
   { id: "sst", label: "SST", icon: "🌍" },
@@ -35,7 +38,6 @@ const SECTIONS = [
   { id: "worksheet", label: "Worksheet" },
 ];
 const CLASSES = [6, 7, 8, 9, 10];
-const BOOTSTRAP_EMAIL = "creativesayeedd@gmail.com";
 
 export { SUBJECTS, SECTIONS, CLASSES, BOOTSTRAP_EMAIL };
 
@@ -47,134 +49,158 @@ async function withTimeout(promise, ms = 20000) {
   return Promise.race([promise, timeout(ms)]);
 }
 
-export async function adminBootstrap() {
-  return call("bootstrapAdmin")({});
+function normaliseStudentId(value) {
+  return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 40);
 }
 
-export async function createStudent(payload) {
-  return call("createStudent")(payload);
+function studentEmailFromId(studentId) {
+  return `${normaliseStudentId(studentId).toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`;
 }
 
-export async function listStudents(pageToken = "") {
-  const result = await call("listStudents")({ pageToken, pageSize: 200 });
-  return result.data;
+export async function createStudent({ displayName, studentId, password, classNumber }) {
+  const name = String(displayName ?? "").trim();
+  const id = normaliseStudentId(studentId);
+  const cls = Number(classNumber);
+  if (name.length < 2 || name.length > 60) throw new Error("INVALID_NAME");
+  if (!id) throw new Error("INVALID_STUDENT_ID");
+  if (String(password ?? "").length < 6) throw new Error("INVALID_PASSWORD");
+  if (!CLASSES.includes(cls)) throw new Error("INVALID_CLASS");
+
+  const existing = await withTimeout(get(ref(database, `studentIndex/${id}`)), 20000);
+  if (existing.exists()) throw new Error("STUDENT_ID_EXISTS");
+
+  const secondaryApp = initializeApp(firebaseConfig, `student-creator-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const secondaryAuth = getAuth(secondaryApp);
+  const email = studentEmailFromId(id);
+  let createdUser = null;
+
+  try {
+    const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    createdUser = credential.user;
+    await updateProfile(createdUser, { displayName: name });
+
+    await withTimeout(update(ref(database), {
+      [`users/${createdUser.uid}`]: {
+        displayName: name,
+        studentId: id,
+        email,
+        role: "student",
+        class: cls,
+        active: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      [`studentIndex/${id}`]: createdUser.uid,
+    }), 20000);
+
+    return { success: true, uid: createdUser.uid, studentId: id, classNumber: cls };
+  } catch (error) {
+    if (error?.code === "auth/email-already-in-use") throw new Error("STUDENT_ID_EXISTS");
+    throw error;
+  } finally {
+    try { await secondarySignOut(secondaryAuth); } catch {}
+    try { await deleteApp(secondaryApp); } catch {}
+  }
 }
 
-export async function updateStudent(payload) {
-  return call("updateStudent")(payload);
+export async function listStudents() {
+  const snapshot = await withTimeout(get(ref(database, "users")), 20000);
+  const root = snapshot.val() || {};
+  const students = Object.entries(root)
+    .filter(([, user]) => user && user.role === "student")
+    .map(([uid, user]) => ({
+      uid,
+      email: user.email || "",
+      studentId: user.studentId || String(user.email || "").split("@")[0].toUpperCase(),
+      displayName: user.displayName || "",
+      class: Number(user.class) || null,
+      active: user.active !== false,
+      disabled: user.active === false,
+      createdAt: user.createdAt || null,
+      lastSignInTime: user.lastSignInTime || null,
+      provider: ["password"],
+    }))
+    .sort((a, b) => String(a.studentId).localeCompare(String(b.studentId)));
+  return { students, pageToken: "" };
 }
 
-export async function setStudentActive(payload) {
-  return call("setStudentActive")(payload);
+export async function updateStudent({ uid, displayName, classNumber }) {
+  const cls = Number(classNumber);
+  if (!uid || String(displayName ?? "").trim().length < 2 || !CLASSES.includes(cls)) throw new Error("INVALID_STUDENT_DATA");
+  const snapshot = await withTimeout(get(ref(database, `users/${uid}`)), 20000);
+  const current = snapshot.val();
+  if (!current || current.role !== "student") throw new Error("STUDENT_NOT_FOUND");
+  const next = { ...current, displayName: String(displayName).trim(), class: cls, updatedAt: Date.now() };
+  await withTimeout(update(ref(database, `users/${uid}`), next), 20000);
+  return { success: true, uid, studentId: next.studentId, classNumber: cls };
 }
 
-export async function setStudentPassword(payload) {
-  return call("setStudentPassword")(payload);
+export async function setStudentActive({ uid, active }) {
+  const snapshot = await withTimeout(get(ref(database, `users/${uid}`)), 20000);
+  const current = snapshot.val();
+  if (!current || current.role !== "student") throw new Error("STUDENT_NOT_FOUND");
+  await withTimeout(update(ref(database, `users/${uid}`), { active: Boolean(active), updatedAt: Date.now() }), 20000);
+  return { success: true, active: Boolean(active) };
 }
 
-export async function getAdminIdentity(forceRefresh = true) {
+export async function getAdminIdentity() {
   const user = auth.currentUser;
   if (!user) return { user: null, admin: false, token: null };
-  const tokenResult = await user.getIdTokenResult(forceRefresh);
-  return { user, admin: tokenResult.claims.admin === true, token: tokenResult.claims };
+  const admin = String(user.email || "").toLowerCase() === BOOTSTRAP_EMAIL.toLowerCase();
+  return { user, admin, token: { admin, role: admin ? "admin" : "" } };
 }
 
 export async function loadAllCatalog() {
   const snapshot = await withTimeout(get(ref(database, "catalog")), 20000);
   const rootValue = snapshot.val() || {};
   const materials = [];
-
   Object.entries(rootValue).forEach(([classKey, node]) => {
     Object.entries(node || {}).forEach(([id, raw]) => {
       if (!raw) return;
       const classNumber = Number(raw.class || String(classKey).replace("class-", ""));
       if (!CLASSES.includes(classNumber)) return;
-      materials.push({
-        id,
-        ...raw,
-        class: classNumber,
-        active: raw.active !== false,
-      });
+      materials.push({ id, ...raw, class: classNumber, active: raw.active !== false });
     });
   });
-
   materials.sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
   return materials;
 }
 
 export async function writePublished(material, publish) {
   const path = `publishedCatalog/class-${material.class}/${material.id}`;
-  const databaseUpdates = {};
-
-  if (publish) {
-    databaseUpdates[path] = { ...material, active: true };
-  } else {
-    databaseUpdates[path] = null;
-  }
-
-  await withTimeout(update(ref(database), databaseUpdates), 20000);
+  const updates = {};
+  updates[path] = publish ? { ...material, active: true } : null;
+  await withTimeout(update(ref(database), updates), 20000);
 }
 
 export async function syncStorageActive(storagePath, active) {
-  const fileRef = storageRef((await import("./firebase-init.js")).storage, storagePath);
-  await withTimeout(updateMetadata(fileRef, {
-    customMetadata: {
-      active: active ? "true" : "false",
-    },
+  const { storage } = await import("./firebase-init.js");
+  await withTimeout(updateMetadata(storageRef(storage, storagePath), {
+    customMetadata: { active: active ? "true" : "false" },
   }), 30000);
 }
 
 export async function uploadMaterial({ file, metadata, publish, onProgress }) {
   if (!(file instanceof File)) throw new Error("FILE_REQUIRED");
-  if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
-    throw new Error("PDF_ONLY");
-  }
+  if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) throw new Error("PDF_ONLY");
   if (file.size <= 0) throw new Error("FILE_EMPTY");
   if (file.size > MAX_FILE_BYTES) throw new Error("FILE_TOO_LARGE");
 
   const { storage } = await import("./firebase-init.js");
   const objectRef = storageRef(storage, metadata.storagePath);
-
-  // Upload disabled/private first. If database sync fails, the object is removed.
   const uploadTask = uploadBytesResumable(objectRef, file, {
     contentType: "application/pdf",
-    customMetadata: {
-      active: "false",
-      title: metadata.title,
-      class: String(metadata.class),
-      subject: metadata.subject,
-      section: metadata.section,
-    },
+    customMetadata: { active: "false", title: metadata.title, class: String(metadata.class), subject: metadata.subject, section: metadata.section },
   });
 
   const snapshot = await new Promise((resolve, reject) => {
-    uploadTask.on(
-      "state_changed",
-      (progress) => onProgress?.({
-        loaded: progress.bytesTransferred,
-        total: progress.totalBytes,
-        percent: progress.totalBytes ? Math.round((progress.bytesTransferred / progress.totalBytes) * 100) : 0,
-      }),
-      reject,
-      () => resolve(uploadTask.snapshot)
-    );
+    uploadTask.on("state_changed", progress => onProgress?.({ loaded: progress.bytesTransferred, total: progress.totalBytes, percent: progress.totalBytes ? Math.round(progress.bytesTransferred / progress.totalBytes * 100) : 0 }), reject, () => resolve(uploadTask.snapshot));
   });
 
-  const record = {
-    ...metadata,
-    fileSize: snapshot.totalBytes,
-    type: "pdf",
-    active: Boolean(publish),
-    createdAt: metadata.createdAt || Date.now(),
-    updatedAt: Date.now(),
-  };
-
+  const record = { ...metadata, fileSize: snapshot.totalBytes, type: "pdf", active: Boolean(publish), createdAt: metadata.createdAt || Date.now(), updatedAt: Date.now() };
   try {
     await withTimeout(update(ref(database, `catalog/class-${record.class}/${record.id}`), record), 20000);
-    if (publish) {
-      await syncStorageActive(record.storagePath, true);
-      await writePublished(record, true);
-    }
+    if (publish) { await syncStorageActive(record.storagePath, true); await writePublished(record, true); }
     return record;
   } catch (error) {
     try { await deleteObject(objectRef); } catch {}
@@ -192,73 +218,23 @@ export async function replaceMaterial(material, file, publishState, onProgress) 
   const stamp = Date.now();
   const newPath = `study-materials/class-${material.class}/${material.subject}/${material.section}/${material.id}-${stamp}.pdf`;
   const newRef = storageRef(storage, newPath);
-
-  const task = uploadBytesResumable(newRef, file, {
-    contentType: "application/pdf",
-    customMetadata: {
-      active: "false",
-      title: String(material.title || ""),
-      class: String(material.class),
-      subject: String(material.subject),
-      section: String(material.section),
-    },
-  });
-
+  const task = uploadBytesResumable(newRef, file, { contentType: "application/pdf", customMetadata: { active: "false", title: String(material.title || ""), class: String(material.class), subject: String(material.subject), section: String(material.section) } });
   const snapshot = await new Promise((resolve, reject) => {
-    task.on(
-      "state_changed",
-      (progress) => onProgress?.({ loaded: progress.bytesTransferred, total: progress.totalBytes, percent: progress.totalBytes ? Math.round(progress.bytesTransferred / progress.totalBytes * 100) : 0 }),
-      reject,
-      () => resolve(task.snapshot)
-    );
+    task.on("state_changed", progress => onProgress?.({ loaded: progress.bytesTransferred, total: progress.totalBytes, percent: progress.totalBytes ? Math.round(progress.bytesTransferred / progress.totalBytes * 100) : 0 }), reject, () => resolve(task.snapshot));
   });
-
-  const updated = {
-    ...material,
-    fileName: file.name,
-    fileSize: snapshot.totalBytes,
-    storagePath: newPath,
-    type: "pdf",
-    active: Boolean(publishState),
-    updatedAt: Date.now(),
-  };
-
+  const updated = { ...material, fileName: file.name, fileSize: snapshot.totalBytes, storagePath: newPath, type: "pdf", active: Boolean(publishState), updatedAt: Date.now() };
   try {
     await withTimeout(update(ref(database, `catalog/class-${updated.class}/${updated.id}`), updated), 20000);
-    if (publishState) {
-      await syncStorageActive(updated.storagePath, true);
-      await writePublished(updated, true);
-    } else {
-      await syncStorageActive(updated.storagePath, false);
-      await writePublished(updated, false);
-    }
-
-    // New record is now authoritative. Old file can be removed safely.
-    if (material.storagePath && material.storagePath !== newPath) {
-      try {
-        await deleteObject(storageRef(storage, material.storagePath));
-      } catch (cleanupError) {
-        console.warn("Old file cleanup failed after successful replacement.", cleanupError);
-      }
-    }
+    await syncStorageActive(updated.storagePath, Boolean(publishState));
+    await writePublished(updated, Boolean(publishState));
+    if (material.storagePath && material.storagePath !== newPath) { try { await deleteObject(storageRef(storage, material.storagePath)); } catch {} }
     return updated;
-  } catch (error) {
-    try { await deleteObject(newRef); } catch {}
-    throw error;
-  }
+  } catch (error) { try { await deleteObject(newRef); } catch {} throw error; }
 }
 
 export async function deleteMaterial(material) {
   const { storage } = await import("./firebase-init.js");
-
-  if (material.storagePath) {
-    try {
-      await withTimeout(deleteObject(storageRef(storage, material.storagePath)), 30000);
-    } catch (error) {
-      if (String(error?.code || "") !== "storage/object-not-found") throw error;
-    }
-  }
-
+  if (material.storagePath) { try { await withTimeout(deleteObject(storageRef(storage, material.storagePath)), 30000); } catch (error) { if (String(error?.code || "") !== "storage/object-not-found") throw error; } }
   const updates = {};
   updates[`catalog/class-${material.class}/${material.id}`] = null;
   updates[`publishedCatalog/class-${material.class}/${material.id}`] = null;
@@ -266,24 +242,14 @@ export async function deleteMaterial(material) {
 }
 
 export async function publishMaterial(material, publish) {
-  const updates = {};
   const updated = { ...material, active: Boolean(publish), updatedAt: Date.now() };
+  const updates = {};
   updates[`catalog/class-${material.class}/${material.id}`] = updated;
   await withTimeout(update(ref(database), updates), 20000);
-  try {
-    await syncStorageActive(updated.storagePath, publish);
-    await writePublished(updated, publish);
-  } catch (error) {
-    // Roll database master record back if storage/publish mirror failed.
-    const rollback = { ...material };
-    await update(ref(database, `catalog/class-${material.class}/${material.id}`), rollback).catch(() => {});
-    throw error;
-  }
+  try { await syncStorageActive(updated.storagePath, publish); await writePublished(updated, publish); }
+  catch (error) { await update(ref(database, `catalog/class-${material.class}/${material.id}`), material).catch(() => {}); throw error; }
   return updated;
 }
 
-export function listenForAuth(callback) {
-  return observeAuth(callback);
-}
-
-export { configureAuthPersistence, loginWithEmailAndPassword, loginWithGoogle, sendResetEmail, logout, auth };
+export function listenForAuth(callback) { return observeAuth(callback); }
+export { configureAuthPersistence, loginWithEmailAndPassword, sendResetEmail, logout, auth };

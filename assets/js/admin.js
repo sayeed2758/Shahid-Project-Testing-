@@ -2,19 +2,15 @@ import {
   SUBJECTS,
   SECTIONS,
   CLASSES,
-  BOOTSTRAP_EMAIL,
   configureAuthPersistence,
   loginWithEmailAndPassword,
-  loginWithGoogle,
   sendResetEmail,
   logout,
   listenForAuth,
-  adminBootstrap,
   createStudent,
   listStudents,
   updateStudent,
   setStudentActive,
-  setStudentPassword,
   getAdminIdentity,
   loadAllCatalog,
   uploadMaterial,
@@ -29,10 +25,8 @@ const state = {
   admin: false,
   students: [],
   materials: [],
-  pageToken: "",
   studentMode: "create",
   selectedStudent: null,
-  selectedPasswordUid: null,
   replacingMaterial: null,
 };
 
@@ -43,11 +37,8 @@ const el = {
   email: $("#adminEmail"),
   password: $("#adminPassword"),
   loginBtn: $("#adminLoginBtn"),
-  googleBtn: $("#adminGoogleBtn"),
   forgotBtn: $("#adminForgotBtn"),
   authMessage: $("#adminAuthMessage"),
-  bootstrapBox: $("#bootstrapBox"),
-  bootstrapBtn: $("#bootstrapAdminBtn"),
   sessionEmail: $("#adminSessionEmail"),
   logoutBtn: $("#adminLogoutBtn"),
   refreshBtn: $("#adminRefreshBtn"),
@@ -62,7 +53,6 @@ const el = {
   materialsMessage: $("#materialsMessage"), materialSearch: $("#materialSearch"), materialClassFilter: $("#materialClassFilter"), materialSubjectFilter: $("#materialSubjectFilter"), materialSectionFilter: $("#materialSectionFilter"), materialsBody: $("#materialsTableBody"), refreshMaterialsBtn: $("#refreshMaterialsBtn"),
   uploadForm: $("#uploadForm"), uploadClass: $("#uploadClass"), uploadSubject: $("#uploadSubject"), uploadSection: $("#uploadSection"), uploadTitle: $("#uploadTitle"), uploadChapter: $("#uploadChapter"), uploadFile: $("#uploadFile"), chooseFile: $("#chooseUploadFileBtn"), uploadFileName: $("#uploadFileName"), uploadFileMeta: $("#uploadFileMeta"), publishOnUpload: $("#publishOnUpload"), uploadProgressWrap: $("#uploadProgressWrap"), uploadProgressLabel: $("#uploadProgressLabel"), uploadProgressPercent: $("#uploadProgressPercent"), uploadProgressBar: $("#uploadProgressBar"), uploadMessage: $("#uploadMessage"), uploadBtn: $("#uploadBtn"),
   studentDialog: $("#studentDialog"), studentForm: $("#studentForm"), studentDialogTitle: $("#studentDialogTitle"), studentDialogEyebrow: $("#studentDialogEyebrow"), studentDialogClose: $("#studentDialogClose"), studentDialogCancel: $("#studentDialogCancel"), studentName: $("#studentName"), studentEmail: $("#studentEmail"), studentPassword: $("#studentPassword"), studentClass: $("#studentClass"), studentUid: $("#studentUid"), studentDialogHelp: $("#studentDialogHelp"), studentDialogMessage: $("#studentDialogMessage"), studentDialogSubmit: $("#studentDialogSubmit"),
-  passwordDialog: $("#passwordDialog"), passwordForm: $("#passwordForm"), passwordStudentUid: $("#passwordStudentUid"), newStudentPassword: $("#newStudentPassword"), passwordDialogClose: $("#passwordDialogClose"), passwordDialogCancel: $("#passwordDialogCancel"), passwordDialogMessage: $("#passwordDialogMessage"),
   globalStatus: $("#adminGlobalStatus"),
 };
 
@@ -89,7 +79,7 @@ function studentFiltered() {
   const cls=el.studentClassFilter.value;
   const st=el.studentStatusFilter.value;
   return state.students.filter(s=>{
-    const matchesQ=!q || [s.displayName,s.email,s.uid].join(" ").toLowerCase().includes(q);
+    const matchesQ=!q || [s.displayName,s.studentId,s.email,s.uid].join(" ").toLowerCase().includes(q);
     const matchesC=cls==="all" || String(s.class||"")===cls;
     const matchesS=st==="all" || (st==="active" ? !s.disabled : s.disabled);
     return matchesQ&&matchesC&&matchesS;
@@ -102,7 +92,7 @@ function renderStudents() {
   el.studentsBody.innerHTML=rows.map(s=>{
     const initial=(s.displayName||s.email||"S").trim().charAt(0).toUpperCase();
     return `<tr>
-      <td><div class="student-cell"><span class="table-avatar">${escapeHtml(initial)}</span><div><strong>${escapeHtml(s.displayName||"Unnamed")}</strong><small>${escapeHtml(s.email)}</small></div></div></td>
+      <td><div class="student-cell"><span class="table-avatar">${escapeHtml(initial)}</span><div><strong>${escapeHtml(s.displayName||"Unnamed")}</strong><small>${escapeHtml(s.studentId || s.email)}</small></div></div></td>
       <td>Class ${Number(s.class)||"—"}</td>
       <td><span class="status-pill ${s.disabled?"disabled":"active"}">${s.disabled?"Disabled":"Active"}</span></td>
       <td>${escapeHtml(fmtDateTime(s.lastSignInTime))}</td>
@@ -135,14 +125,14 @@ function renderMaterials() {
   </tr>`).join("");
 }
 
-async function loadStudents({append=false}={}) {
-  message(el.studentsMessage, append?"Loading more students…":"Loading students…", "loading");
+async function loadStudents() {
+  message(el.studentsMessage,"Loading students…","loading");
   try {
-    const data=await listStudents(append?state.pageToken:"");
-    state.pageToken=data.pageToken||"";
-    if(append) state.students=[...state.students,...(data.students||[])]; else state.students=data.students||[];
+    const data=await listStudents();
+    state.students=data.students||[];
     renderStudents();
     message(el.studentsMessage, `${state.students.length} student${state.students.length===1?"":"s"} loaded.`, "success");
+    renderStats();
   } catch(error) {
     console.error(error); message(el.studentsMessage, friendlyFunctionError(error), "error");
   }
@@ -162,53 +152,78 @@ function renderStats() {
 function friendlyFunctionError(error) {
   const code=error?.code||error?.message||"";
   const map={
-    "functions/permission-denied":"You do not have admin permission for this action.",
-    "functions/invalid-argument":"Please check the form values.",
-    "functions/unauthenticated":"Please sign in again.",
-    "functions/already-exists":"That email is already registered.",
-    "functions/not-found":"The student could not be found.",
+    "PERMISSION_DENIED":"You do not have admin permission for this action.",
+    "INVALID_STUDENT_ID":"Enter a valid Student ID.",
+    "STUDENT_ID_EXISTS":"That Student ID already exists.",
+    "INVALID_PASSWORD":"Password must be at least 6 characters.",
+    "STUDENT_NOT_FOUND":"The student could not be found.",
+    "INVALID_STUDENT_DATA":"Please check the student details.",
     "NETWORK_TIMEOUT":"The request timed out. Please retry.",
   };
   return map[code]||error?.message||"Something went wrong. Please retry.";
 }
 
 function resetStudentDialog() {
-  el.studentForm.reset(); el.studentUid.value=""; el.studentMode="create"; el.studentDialogTitle.textContent="Add Student"; el.studentDialogEyebrow.textContent="NEW STUDENT"; el.studentEmail.readOnly=false; el.studentPassword.required=true; el.studentDialogSubmit.textContent="Create Student"; el.studentDialogHelp.innerHTML="<strong>New account</strong><span>The password is stored by Firebase Authentication, not Realtime Database.</span>"; message(el.studentDialogMessage,"");
+  el.studentForm.reset();
+  el.studentUid.value="";
+  state.studentMode="create";
+  el.studentDialogTitle.textContent="Add Student";
+  el.studentDialogEyebrow.textContent="NEW STUDENT";
+  el.studentEmail.readOnly=false;
+  el.studentPassword.required=true;
+  el.studentPassword.placeholder="Minimum 6 characters";
+  el.studentDialogSubmit.textContent="Create Student";
+  el.studentDialogHelp.innerHTML="<strong>Simple student login</strong><span>Student ID + password only. No Google account is required.</span>";
+  message(el.studentDialogMessage,"");
 }
 
 function openStudentDialog(student=null) {
   resetStudentDialog();
-  if(student){ state.studentMode="edit"; state.selectedStudent=student; el.studentUid.value=student.uid; el.studentName.value=student.displayName||""; el.studentEmail.value=student.email||""; el.studentEmail.readOnly=true; el.studentPassword.required=false; el.studentPassword.placeholder="Leave blank to keep current password"; el.studentClass.value=String(student.class||""); el.studentDialogTitle.textContent="Edit Student"; el.studentDialogEyebrow.textContent="STUDENT ACCOUNT"; el.studentDialogSubmit.textContent="Save Changes"; el.studentDialogHelp.innerHTML="<strong>Account management</strong><span>Change name/class here. Use the Password action to set a new password.</span>"; }
+  if(student){
+    state.studentMode="edit";
+    state.selectedStudent=student;
+    el.studentUid.value=student.uid;
+    el.studentName.value=student.displayName||"";
+    el.studentEmail.value=student.studentId||"";
+    el.studentEmail.readOnly=true;
+    el.studentPassword.required=false;
+    el.studentPassword.value="";
+    el.studentPassword.placeholder="Password is set when the account is created";
+    el.studentClass.value=String(student.class||"");
+    el.studentDialogTitle.textContent="Edit Student";
+    el.studentDialogEyebrow.textContent="STUDENT ACCOUNT";
+    el.studentDialogSubmit.textContent="Save Changes";
+    el.studentDialogHelp.innerHTML="<strong>Account management</strong><span>Student ID stays fixed. Change name or class here.</span>";
+  }
   el.studentDialog.showModal();
 }
 
-async function submitStudent(event){ event.preventDefault();
-  const name=el.studentName.value.trim(), email=el.studentEmail.value.trim(), password=el.studentPassword.value, cls=Number(el.studentClass.value);
-  if(name.length<2){ message(el.studentDialogMessage,"Name must contain at least 2 characters.","error"); return; }
-  if(!/^\\S+@\\S+\\.\\S+$/.test(email)){ message(el.studentDialogMessage,"Enter a valid email address.","error"); return; }
-  if(!Number.isInteger(cls)||!CLASSES.includes(cls)){ message(el.studentDialogMessage,"Choose Class 6–10.","error"); return; }
-  if(state.studentMode==="create" && password.length<6){ message(el.studentDialogMessage,"Password must be at least 6 characters.","error"); return; }
-  el.studentDialogSubmit.disabled=true; message(el.studentDialogMessage,state.studentMode==="create"?"Creating student…":"Saving student…","loading");
+async function submitStudent(event){
+  event.preventDefault();
+  const name=el.studentName.value.trim(), studentId=el.studentEmail.value.trim(), password=el.studentPassword.value, cls=Number(el.studentClass.value);
+  if(name.length<2){message(el.studentDialogMessage,"Name must contain at least 2 characters.","error");return;}
+  if(!/^[A-Za-z0-9_-]{2,40}$/.test(studentId)){message(el.studentDialogMessage,"Student ID can use letters, numbers, _ and - only.","error");return;}
+  if(!Number.isInteger(cls)||!CLASSES.includes(cls)){message(el.studentDialogMessage,"Choose Class 6–10.","error");return;}
+  if(state.studentMode==="create"&&password.length<6){message(el.studentDialogMessage,"Password must be at least 6 characters.","error");return;}
+  el.studentDialogSubmit.disabled=true;
+  message(el.studentDialogMessage,state.studentMode==="create"?"Creating student…":"Saving student…","loading");
   try{
     if(state.studentMode==="create"){
-      const result=await createStudent({displayName:name,email,password,classNumber:cls});
+      const result=await createStudent({displayName:name,studentId,password,classNumber:cls});
       await loadStudents();
       el.studentDialog.close();
-      status(`Student created: ${result.data?.email||email}`); sleepClear(3500);
+      status(`Student created: ${result.studentId}`);sleepClear(3500);
     }else{
-      const result=await updateStudent({uid:el.studentUid.value,displayName:name,classNumber:cls});
+      await updateStudent({uid:el.studentUid.value,displayName:name,classNumber:cls});
       await loadStudents();
       el.studentDialog.close();
-      status(`Student updated: ${result.data?.email||email}`); sleepClear(2800);
+      status(`Student ${studentId} updated.`);sleepClear(2800);
     }
-  }catch(error){ console.error(error); message(el.studentDialogMessage,friendlyFunctionError(error),"error"); }
-  finally{ el.studentDialogSubmit.disabled=false; }
+  }catch(error){console.error(error);message(el.studentDialogMessage,friendlyFunctionError(error),"error");}
+  finally{el.studentDialogSubmit.disabled=false;}
 }
 
-function openPasswordDialog(student){ state.selectedPasswordUid=student.uid; el.passwordStudentUid.value=student.uid; el.newStudentPassword.value=""; message(el.passwordDialogMessage,""); el.passwordDialog.showModal(); }
-async function submitPassword(event){ event.preventDefault(); const password=el.newStudentPassword.value; if(password.length<6){message(el.passwordDialogMessage,"Password must be at least 6 characters.","error");return;} el.passwordDialog.querySelector("button[type=submit]").disabled=true; message(el.passwordDialogMessage,"Updating password…","loading"); try{await setStudentPassword({uid:state.selectedPasswordUid,password});el.passwordDialog.close();status("Student password updated.");sleepClear();}catch(error){console.error(error);message(el.passwordDialogMessage,friendlyFunctionError(error),"error");}finally{el.passwordDialog.querySelector("button[type=submit]").disabled=false;} }
-
-async function toggleStudent(student){ if(!student) return; const next=!student.disabled; if(!confirm(`${next?"Disable":"Enable"} ${student.displayName||student.email}?`)) return; status(next?"Disabling student…":"Enabling student…"); try{await setStudentActive({uid:student.uid,active:!next});await loadStudents();status(next?"Student disabled.":"Student enabled.");sleepClear();}catch(error){console.error(error);status(friendlyFunctionError(error));sleepClear(3200);} }
+async function toggleStudent(student){ if(!student) return; const next=!student.active; if(!confirm(`${next?"Disable":"Enable"} ${student.displayName||student.studentId}?`)) return; status(next?"Disabling student…":"Enabling student…"); try{await setStudentActive({uid:student.uid,active:!next});await loadStudents();status(next?"Student disabled.":"Student enabled.");sleepClear();}catch(error){console.error(error);status(friendlyFunctionError(error));sleepClear(3200);} }
 
 async function materialAction(action,id){ const material=state.materials.find(m=>m.id===id); if(!material)return;
   if(action==="toggle"){
@@ -244,32 +259,64 @@ async function submitUpload(event){event.preventDefault(); const file=el.uploadF
   try{const record=await uploadMaterial({file,metadata,publish:el.publishOnUpload.checked,onProgress:(p)=>{el.uploadProgressBar.style.width=`${p.percent}%`;el.uploadProgressPercent.textContent=`${p.percent}%`;el.uploadProgressLabel.textContent="Uploading PDF…";}});state.materials.unshift(record);renderMaterials();renderStats();message(el.uploadMessage,record.active?"Upload + publish complete.":"Upload complete; material remains unpublished.","success");el.uploadForm.reset();el.uploadFileName.textContent="Choose PDF file";el.uploadFileMeta.textContent="Maximum 100 MB • PDF only";setTimeout(()=>tab("materials"),900);}catch(error){console.error(error);message(el.uploadMessage,friendlyFunctionError(error),"error");}finally{el.uploadBtn.disabled=false;el.chooseFile.disabled=false;setTimeout(()=>{el.uploadProgressWrap.hidden=true;},1200);}
 }
 
-async function becomeAdmin(){el.bootstrapBtn.disabled=true;message(el.authMessage,"Activating admin access…","loading");try{await adminBootstrap();await elCurrentTokenRefresh();showPanel();await loadDashboard();message(el.authMessage,"");}catch(error){console.error(error);message(el.authMessage,friendlyFunctionError(error),"error");}finally{el.bootstrapBtn.disabled=false;}}
-async function elCurrentTokenRefresh(){const {user}=await getAdminIdentity(false);if(user)await user.getIdToken(true);}
-
-async function processAuthUser(user){ state.user=user;if(!user){state.admin=false;showAuth();return;}
+async function processAuthUser(user){
+  state.user=user;
+  if(!user){state.admin=false;showAuth();return;}
   try{
-    const identity=await getAdminIdentity(true);state.admin=identity.admin;el.sessionEmail.textContent=user.email||"";
-    if(!identity.admin){showAuth();el.bootstrapBox.hidden=user.email?.toLowerCase()!==BOOTSTRAP_EMAIL.toLowerCase();message(el.authMessage,el.bootstrapBox.hidden?"This account is not authorised for the Admin Panel.":"Admin access is ready to be activated for this account.","error");return;}
-    showPanel();await loadDashboard();
-  }catch(error){console.error(error);showAuth();message(el.authMessage,"Could not verify admin access. Please sign in again.","error");}
+    const identity=await getAdminIdentity();
+    state.admin=identity.admin;
+    el.sessionEmail.textContent=user.email||"";
+    if(!identity.admin){
+      await logout().catch(()=>{});
+      showAuth();
+      message(el.authMessage,"Only the institute admin account can access this panel.","error");
+      return;
+    }
+    showPanel();
+    await loadDashboard();
+  }catch(error){
+    console.error(error);
+    showAuth();
+    message(el.authMessage,"Could not verify admin access. Please sign in again.","error");
+  }
 }
 
-async function loadDashboard(){message(el.materialsMessage,"");message(el.studentsMessage,"");await Promise.allSettled([loadStudents(),loadMaterials()]);renderStats();}
+async function loadDashboard(){
+  message(el.materialsMessage,"");
+  message(el.studentsMessage,"");
+  await Promise.allSettled([loadStudents(),loadMaterials()]);
+  renderStats();
+}
 
-async function login(event){event.preventDefault();const email=el.email.value.trim(),password=el.password.value;if(!email||!el.email.validity.valid){message(el.authMessage,"Enter a valid email.","error");return;}if(password.length<6){message(el.authMessage,"Enter your password.","error");return;}el.loginBtn.disabled=true;el.googleBtn.disabled=true;el.forgotBtn.disabled=true;message(el.authMessage,"Signing in…","loading");try{await loginWithEmailAndPassword(email,password);}catch(error){console.error(error);message(el.authMessage,friendlyFunctionError(error),"error");}finally{el.loginBtn.disabled=false;el.googleBtn.disabled=false;el.forgotBtn.disabled=false;}}
-async function googleLogin(){el.loginBtn.disabled=true;el.googleBtn.disabled=true;el.forgotBtn.disabled=true;message(el.authMessage,"Opening Google sign-in…","loading");try{await loginWithGoogle();}catch(error){console.error(error);message(el.authMessage,friendlyFunctionError(error),"error");}finally{el.loginBtn.disabled=false;el.googleBtn.disabled=false;el.forgotBtn.disabled=false;}}
-async function forgot(){const email=el.email.value.trim();if(!email||!el.email.validity.valid){message(el.authMessage,"Enter admin email first.","error");return;}el.loginBtn.disabled=true;el.googleBtn.disabled=true;el.forgotBtn.disabled=true;message(el.authMessage,"Sending reset email…","loading");try{await sendResetEmail(email);message(el.authMessage,"Password reset email sent.","success");}catch(error){console.error(error);message(el.authMessage,friendlyFunctionError(error),"error");}finally{el.loginBtn.disabled=false;el.googleBtn.disabled=false;el.forgotBtn.disabled=false;}}
+async function login(event){
+  event.preventDefault();
+  const email=el.email.value.trim(),password=el.password.value;
+  if(!email||!el.email.validity.valid){message(el.authMessage,"Enter your admin email.","error");return;}
+  if(password.length<6){message(el.authMessage,"Enter your password.","error");return;}
+  el.loginBtn.disabled=true;el.forgotBtn.disabled=true;
+  message(el.authMessage,"Signing in…","loading");
+  try{await loginWithEmailAndPassword(email,password);}catch(error){console.error(error);message(el.authMessage,friendlyFunctionError(error),"error");}
+  finally{el.loginBtn.disabled=false;el.forgotBtn.disabled=false;}
+}
+
+async function forgot(){
+  const email=el.email.value.trim();
+  if(!email||!el.email.validity.valid){message(el.authMessage,"Enter admin email first.","error");return;}
+  el.loginBtn.disabled=true;el.forgotBtn.disabled=true;
+  message(el.authMessage,"Sending reset email…","loading");
+  try{await sendResetEmail(email);message(el.authMessage,"Password reset email sent.","success");}
+  catch(error){console.error(error);message(el.authMessage,friendlyFunctionError(error),"error");}
+  finally{el.loginBtn.disabled=false;el.forgotBtn.disabled=false;}
+}
 
 function bind(){
-  el.loginForm.addEventListener("submit",login);el.googleBtn.addEventListener("click",googleLogin);el.forgotBtn.addEventListener("click",forgot);el.bootstrapBtn.addEventListener("click",becomeAdmin);el.logoutBtn.addEventListener("click",()=>logout().catch(console.error));el.refreshBtn.addEventListener("click",loadDashboard);
+  el.loginForm.addEventListener("submit",login);el.forgotBtn.addEventListener("click",forgot);el.logoutBtn.addEventListener("click",()=>logout().catch(console.error));el.refreshBtn.addEventListener("click",loadDashboard);
   el.tabs.forEach(b=>b.addEventListener("click",()=>tab(b.dataset.adminTab)));el.overviewMaterialsBtn.addEventListener("click",()=>tab("materials"));
   el.addStudentBtn.addEventListener("click",()=>openStudentDialog());el.studentForm.addEventListener("submit",submitStudent);el.studentDialogClose.addEventListener("click",()=>el.studentDialog.close());el.studentDialogCancel.addEventListener("click",()=>el.studentDialog.close());
-  el.passwordForm.addEventListener("submit",submitPassword);el.passwordDialogClose.addEventListener("click",()=>el.passwordDialog.close());el.passwordDialogCancel.addEventListener("click",()=>el.passwordDialog.close());
   [el.studentSearch,el.studentClassFilter,el.studentStatusFilter].forEach(x=>x.addEventListener("input",renderStudents));
   [el.materialSearch,el.materialClassFilter,el.materialSubjectFilter,el.materialSectionFilter].forEach(x=>x.addEventListener("input",renderMaterials));el.refreshMaterialsBtn.addEventListener("click",loadMaterials);
   el.chooseFile.addEventListener("click",()=>el.uploadFile.click());el.uploadFile.addEventListener("change",fileSelected);el.uploadForm.addEventListener("submit",submitUpload);
-  el.studentsBody.addEventListener("click",e=>{const b=e.target.closest("[data-student-action]");if(!b)return;const s=state.students.find(x=>x.uid===b.dataset.uid);if(!s)return;const a=b.dataset.studentAction;if(a==="edit")openStudentDialog(s);if(a==="password")openPasswordDialog(s);if(a==="toggle")toggleStudent(s);});
+  el.studentsBody.addEventListener("click",e=>{const b=e.target.closest("[data-student-action]");if(!b)return;const s=state.students.find(x=>x.uid===b.dataset.uid);if(!s)return;const a=b.dataset.studentAction;if(a==="edit")openStudentDialog(s);if(a==="toggle")toggleStudent(s);});
   el.materialsBody.addEventListener("click",e=>{const b=e.target.closest("[data-material-action]");if(b)materialAction(b.dataset.materialAction,b.dataset.id);});
 }
 

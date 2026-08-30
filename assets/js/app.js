@@ -3,8 +3,6 @@ import {
   configureAuthPersistence,
   observeAuth,
   loginWithPassword,
-  loginWithGoogle,
-  sendResetEmail,
   logout,
   loadStudentProfile,
   getFriendlyAuthError,
@@ -57,8 +55,6 @@ const elements = {
   passwordInput: $("#passwordInput"),
   togglePasswordBtn: $("#togglePasswordBtn"),
   loginBtn: $("#loginBtn"),
-  googleBtn: $("#googleBtn"),
-  forgotBtn: $("#forgotBtn"),
   authMessage: $("#authMessage"),
 
   welcomeHeading: $("#welcomeHeading"),
@@ -178,7 +174,7 @@ function setButtonBusy(button, busy, busyLabel) {
 }
 
 function setAuthControlsDisabled(disabled) {
-  [elements.emailInput, elements.passwordInput, elements.loginBtn, elements.googleBtn, elements.forgotBtn]
+  [elements.emailInput, elements.passwordInput, elements.loginBtn]
     .forEach((el) => { el.disabled = disabled; });
 }
 
@@ -1036,8 +1032,8 @@ async function onLoginSubmit(event) {
   const email = elements.emailInput.value.trim();
   const password = elements.passwordInput.value;
 
-  if (!email || !elements.emailInput.validity.valid) {
-    setAuthMessage("Please enter a valid email address.", "error");
+  if (!email) {
+    setAuthMessage("Enter your Student ID.", "error");
     elements.emailInput.focus();
     return;
   }
@@ -1054,55 +1050,13 @@ async function onLoginSubmit(event) {
   setAuthMessage("Signing in…", "loading");
 
   try {
-    await loginWithPassword(email, password);
+    const loginId = email.includes("@") ? email : `${email.toLowerCase()}@students.ezeevisionchampua.com`;
+    await loginWithPassword(loginId, password);
   } catch (error) {
     console.error(error);
     setAuthMessage(getFriendlyAuthError(error), "error");
     setAuthControlsDisabled(false);
     setButtonBusy(elements.loginBtn, false);
-    state.isBusy = false;
-  }
-}
-
-async function onGoogleLogin() {
-  if (state.isBusy) return;
-  state.isBusy = true;
-  setAuthControlsDisabled(true);
-  setAuthMessage("Opening Google sign-in…", "loading");
-
-  try {
-    await loginWithGoogle();
-  } catch (error) {
-    console.error(error);
-    setAuthMessage(getFriendlyAuthError(error), "error");
-    setAuthControlsDisabled(false);
-    state.isBusy = false;
-  }
-}
-
-async function onForgotPassword() {
-  if (state.isBusy) return;
-
-  const email = elements.emailInput.value.trim();
-
-  if (!email || !elements.emailInput.validity.valid) {
-    setAuthMessage("Enter your email first, then tap Forgot Password.", "error");
-    elements.emailInput.focus();
-    return;
-  }
-
-  state.isBusy = true;
-  setAuthControlsDisabled(true);
-  setAuthMessage("Sending password reset email…", "loading");
-
-  try {
-    await sendResetEmail(email);
-    setAuthMessage("Password reset email sent. Check your inbox.", "success");
-  } catch (error) {
-    console.error(error);
-    setAuthMessage(getFriendlyAuthError(error), "error");
-  } finally {
-    setAuthControlsDisabled(false);
     state.isBusy = false;
   }
 }
@@ -1195,8 +1149,6 @@ function handleLoggedOut() {
 
 function bindEvents() {
   elements.loginForm.addEventListener("submit", onLoginSubmit);
-  elements.googleBtn.addEventListener("click", onGoogleLogin);
-  elements.forgotBtn.addEventListener("click", onForgotPassword);
   elements.logoutTopBtn.addEventListener("click", onLogout);
 
   elements.togglePasswordBtn.addEventListener("click", () => {
