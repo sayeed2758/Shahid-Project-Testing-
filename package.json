@@ -4,7 +4,9 @@
   "version": "0.1.0-phase-1-5",
   "description": "EZEE VISION CHAMPUA student learning portal \u2014 Phases 1-5",
   "scripts": {
-    "serve": "python -m http.server 8080"
+    "serve": "python -m http.server 8080",
+    "firebase:deploy": "firebase deploy --only functions,database:rules,storage",
+    "functions:lint": "node --check functions/index.js"
   },
   "dependencies": {
     "firebase": "12.18.0"

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08245d">
+  <meta name="description" content="EZEE VISION CHAMPUA Admin Panel">
+  <link rel="icon" type="image/png" href="./assets/images/icon-192.png">
+  <link rel="stylesheet" href="./assets/css/app.css">
+  <link rel="stylesheet" href="./assets/css/admin.css">
+  <title>EZEE VISION CHAMPUA — Admin</title>
+</head>
+<body>
+  <div id="adminApp" class="admin-root">
+    <section id="adminAuthView" class="admin-auth-view">
+      <div class="admin-auth-card card">
+        <img src="./assets/images/logo.png" class="admin-auth-logo" alt="EZEE VISION CHAMPUA logo">
+        <p class="eyebrow">ADMINISTRATION</p>
+        <h1>Admin Panel</h1>
+        <p class="muted">Secure management for students and learning materials.</p>
+
+        <form id="adminLoginForm" novalidate>
+          <label class="field"><span>Email</span><input id="adminEmail" type="email" autocomplete="username" required placeholder="Admin email"></label>
+          <label class="field"><span>Password</span><input id="adminPassword" type="password" autocomplete="current-password" required placeholder="Password"></label>
+          <button id="adminLoginBtn" class="primary-button full-width" type="submit">Login as Admin</button>
+        </form>
+        <button id="adminGoogleBtn" class="secondary-button full-width admin-google" type="button">Continue with Google</button>
+        <button id="adminForgotBtn" class="text-button full-width" type="button">Forgot Password?</button>
+        <div id="adminAuthMessage" class="inline-message" role="status" aria-live="polite"></div>
+        <div id="bootstrapBox" class="bootstrap-box" hidden>
+          <strong>Admin access is not activated yet.</strong>
+          <span>This signed-in account matches the configured bootstrap admin email.</span>
+          <button id="bootstrapAdminBtn" class="primary-button full-width" type="button">Activate Admin Access</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="adminPanelView" hidden>
+      <header class="admin-topbar">
+        <div class="topbar-brand">
+          <img src="./assets/images/logo.png" class="brand-logo-small" alt="">
+          <div><span class="brand-title">EZEE VISION</span><span class="brand-subtitle">ADMIN PANEL</span></div>
+        </div>
+        <div class="topbar-actions">
+          <button id="adminRefreshBtn" class="outline-button" type="button">Refresh</button>
+          <button id="adminLogoutBtn" class="outline-button" type="button">Logout</button>
+        </div>
+      </header>
+
+      <main class="admin-main">
+        <div class="admin-header-copy">
+          <div><p class="eyebrow">EZEE VISION CHAMPUA</p><h1>Management Dashboard</h1><p class="muted">Students, catalog and protected learning files.</p></div>
+          <div class="admin-session-pill"><span id="adminSessionEmail">—</span><strong>ADMIN</strong></div>
+        </div>
+
+        <section class="admin-stats" id="adminStats">
+          <article class="admin-stat card"><span>Students</span><strong id="statStudents">—</strong></article>
+          <article class="admin-stat card"><span>Total Materials</span><strong id="statMaterials">—</strong></article>
+          <article class="admin-stat card"><span>Protected Notes</span><strong id="statNotes">—</strong></article>
+          <article class="admin-stat card"><span>Worksheets</span><strong id="statWorksheets">—</strong></article>
+          <article class="admin-stat card"><span>Published</span><strong id="statPublished">—</strong></article>
+          <article class="admin-stat card"><span>Storage Listed</span><strong id="statStorage">—</strong></article>
+        </section>
+
+        <nav class="admin-tabs" aria-label="Admin sections">
+          <button class="admin-tab is-active" data-admin-tab="overview" type="button">Overview</button>
+          <button class="admin-tab" data-admin-tab="students" type="button">Students</button>
+          <button class="admin-tab" data-admin-tab="materials" type="button">Materials</button>
+          <button class="admin-tab" data-admin-tab="upload" type="button">Upload PDF</button>
+        </nav>
+
+        <section id="adminOverviewTab" class="admin-tab-panel" data-panel="overview">
+          <div class="admin-card-grid">
+            <article class="card admin-info-card"><p class="eyebrow">WORKFLOW</p><h2>Student access</h2><p>Admin creates the account and assigns Class 6–10. The student cannot change class from the portal.</p></article>
+            <article class="card admin-info-card"><p class="eyebrow">STORAGE</p><h2>100 MB limit</h2><p>PDF uploads are validated before Storage write. Files are made student-readable only when published.</p></article>
+            <article class="card admin-info-card"><p class="eyebrow">SECURITY</p><h2>Server-enforced roles</h2><p>Admin operations use Firebase callable functions and custom claims; student rules remain read-only.</p></article>
+          </div>
+          <div class="card admin-recent-card">
+            <div class="admin-section-head"><div><p class="eyebrow">LATEST</p><h2>Recent materials</h2></div><button id="overviewMaterialsBtn" class="secondary-button" type="button">Open Materials</button></div>
+            <div id="overviewRecentMaterials" class="mini-list"></div>
+          </div>
+        </section>
+
+        <section id="adminStudentsTab" class="admin-tab-panel" data-panel="students" hidden>
+          <div class="admin-toolbar card">
+            <div class="toolbar-main"><input id="studentSearch" type="search" placeholder="Search name, email or UID…" aria-label="Search students"><select id="studentClassFilter"><option value="all">All Classes</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select><select id="studentStatusFilter"><option value="all">All Status</option><option value="active">Active</option><option value="disabled">Disabled</option></select></div>
+            <button id="addStudentBtn" class="primary-button" type="button">+ Add Student</button>
+          </div>
+          <div id="studentsMessage" class="inline-message" role="status" aria-live="polite"></div>
+          <div class="table-wrap card"><table class="admin-table"><thead><tr><th>Student</th><th>Class</th><th>Status</th><th>Last sign-in</th><th>Actions</th></tr></thead><tbody id="studentsTableBody"></tbody></table></div>
+        </section>
+
+        <section id="adminMaterialsTab" class="admin-tab-panel" data-panel="materials" hidden>
+          <div class="admin-toolbar card">
+            <div class="toolbar-main"><input id="materialSearch" type="search" placeholder="Search title, chapter or filename…" aria-label="Search materials"><select id="materialClassFilter"><option value="all">All Classes</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select><select id="materialSubjectFilter"><option value="all">All Subjects</option><option value="sst">SST</option><option value="science">Science</option><option value="math">Math</option><option value="english">English</option></select><select id="materialSectionFilter"><option value="all">All Sections</option><option value="detailed">Detailed Notes</option><option value="short">Short Notes</option><option value="worksheet">Worksheet</option></select></div>
+            <button id="refreshMaterialsBtn" class="secondary-button" type="button">Refresh</button>
+          </div>
+          <div id="materialsMessage" class="inline-message" role="status" aria-live="polite"></div>
+          <div class="table-wrap card"><table class="admin-table"><thead><tr><th>Material</th><th>Class</th><th>Section</th><th>Size</th><th>Status</th><th>Actions</th></tr></thead><tbody id="materialsTableBody"></tbody></table></div>
+        </section>
+
+        <section id="adminUploadTab" class="admin-tab-panel" data-panel="upload" hidden>
+          <div class="upload-layout">
+            <form id="uploadForm" class="card upload-card" novalidate>
+              <div><p class="eyebrow">CONTENT MANAGEMENT</p><h2>Upload study material</h2><p class="muted">Storage + catalog sync is handled as one recoverable operation.</p></div>
+              <div class="form-grid two"><label class="field"><span>Class</span><select id="uploadClass" required><option value="">Choose class</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label><label class="field"><span>Subject</span><select id="uploadSubject" required><option value="">Choose subject</option><option value="sst">SST</option><option value="science">Science</option><option value="math">Math</option><option value="english">English</option></select></label></div>
+              <div class="form-grid two"><label class="field"><span>Section</span><select id="uploadSection" required><option value="">Choose section</option><option value="detailed">Detailed Notes</option><option value="short">Short Notes</option><option value="worksheet">Worksheet</option></select></label><label class="field"><span>Material title</span><input id="uploadTitle" type="text" maxlength="120" required placeholder="e.g. Light – Reflection"></label></div>
+              <label class="field"><span>Chapter / topic (optional)</span><input id="uploadChapter" type="text" maxlength="120" placeholder="e.g. Chapter 10 — Light"></label>
+              <label class="file-drop"><input id="uploadFile" type="file" accept="application/pdf,.pdf" hidden><span class="file-drop-icon">⇧</span><strong id="uploadFileName">Choose PDF file</strong><small id="uploadFileMeta">Maximum 100 MB • PDF only</small><button id="chooseUploadFileBtn" class="secondary-button" type="button">Choose File</button></label>
+              <label class="check-row"><input id="publishOnUpload" type="checkbox" checked><span>Publish immediately after successful sync</span></label>
+              <div id="uploadProgressWrap" class="progress-wrap" hidden><div class="progress-head"><span id="uploadProgressLabel">Uploading…</span><strong id="uploadProgressPercent">0%</strong></div><div class="progress-bar"><span id="uploadProgressBar"></span></div></div>
+              <div id="uploadMessage" class="inline-message" role="status" aria-live="polite"></div>
+              <button id="uploadBtn" class="primary-button full-width" type="submit">Upload &amp; Save</button>
+            </form>
+            <aside class="card upload-side"><p class="eyebrow">SAFE UPLOAD</p><h2>What happens?</h2><ol><li>PDF type and size are validated.</li><li>File uploads as inactive/private.</li><li>Catalog metadata is saved.</li><li>Publish makes it visible to the assigned class.</li><li>Database failure triggers Storage cleanup.</li></ol></aside>
+          </div>
+        </section>
+      </main>
+    </section>
+
+    <dialog id="studentDialog" class="admin-dialog">
+      <form id="studentForm" method="dialog" class="dialog-card" novalidate>
+        <div class="dialog-head"><div><p id="studentDialogEyebrow" class="eyebrow">NEW STUDENT</p><h2 id="studentDialogTitle">Add Student</h2></div><button id="studentDialogClose" class="icon-button" type="button" aria-label="Close">×</button></div>
+        <input id="studentUid" type="hidden">
+        <label class="field"><span>Student name</span><input id="studentName" type="text" maxlength="60" required placeholder="Full name"></label>
+        <label class="field"><span>Email</span><input id="studentEmail" type="email" required placeholder="student@example.com"></label>
+        <label class="field"><span>Password</span><input id="studentPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Minimum 6 characters"></label>
+        <label class="field"><span>Assigned class</span><select id="studentClass" required><option value="">Choose class</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label>
+        <div id="studentDialogHelp" class="detail-info"><strong>New account</strong><span>The password is sent to Firebase Authentication only; it is not stored in Realtime Database.</span></div>
+        <div id="studentDialogMessage" class="inline-message"></div>
+        <div class="dialog-actions"><button id="studentDialogCancel" class="outline-button" type="button">Cancel</button><button id="studentDialogSubmit" class="primary-button" type="submit">Create Student</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="passwordDialog" class="admin-dialog"><form id="passwordForm" method="dialog" class="dialog-card" novalidate><div class="dialog-head"><div><p class="eyebrow">SECURITY</p><h2>Set Student Password</h2></div><button id="passwordDialogClose" class="icon-button" type="button" aria-label="Close">×</button></div><input id="passwordStudentUid" type="hidden"><label class="field"><span>New password</span><input id="newStudentPassword" type="password" minlength="6" maxlength="100" required autocomplete="new-password"></label><div id="passwordDialogMessage" class="inline-message"></div><div class="dialog-actions"><button id="passwordDialogCancel" class="outline-button" type="button">Cancel</button><button class="primary-button" type="submit">Save Password</button></div></form></dialog>
+
+    <div id="adminGlobalStatus" class="global-status" role="status" aria-live="polite" hidden></div>
+  </div>
+  <script type="module" src="./assets/js/admin.js"></script>
+</body>
+</html>
