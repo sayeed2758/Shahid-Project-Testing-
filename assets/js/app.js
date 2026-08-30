@@ -2,7 +2,7 @@ import { database } from "./firebase-init.js";
 import {
   configureAuthPersistence,
   observeAuth,
-  loginWithPassword,
+  loginWithStudentId,
   logout,
   loadStudentProfile,
   getFriendlyAuthError,
@@ -103,7 +103,7 @@ const elements = {
   recentList: $("#recentList"),
   profileForm: $("#profileForm"),
   profileNameInput: $("#profileNameInput"),
-  profileEmailInput: $("#profileEmailInput"),
+  profileStudentIdInput: $("#profileStudentIdInput"),
   profileClassInput: $("#profileClassInput"),
   profileAvatar: $("#profileAvatar"),
   profileMessage: $("#profileMessage"),
@@ -506,7 +506,7 @@ function setProfileMessage(message = "", type = "") {
 function populateProfileForm() {
   const name = getDisplayName(state.user, state.profile);
   elements.profileNameInput.value = name === "Student" ? "" : name;
-  elements.profileEmailInput.value = state.user?.email || state.profile?.email || "";
+  elements.profileStudentIdInput.value = state.profile?.studentId || "";
   elements.profileClassInput.value = state.assignedClass ? `Class ${state.assignedClass}` : "Not assigned";
   const initial = name.trim().charAt(0).toUpperCase() || "S";
   elements.profileAvatar.textContent = initial;
@@ -1029,10 +1029,10 @@ async function onLoginSubmit(event) {
   event.preventDefault();
   if (state.isBusy) return;
 
-  const email = elements.emailInput.value.trim();
+  const studentId = elements.emailInput.value.trim().toUpperCase();
   const password = elements.passwordInput.value;
 
-  if (!email) {
+  if (!studentId) {
     setAuthMessage("Enter your Student ID.", "error");
     elements.emailInput.focus();
     return;
@@ -1050,8 +1050,7 @@ async function onLoginSubmit(event) {
   setAuthMessage("Signing in…", "loading");
 
   try {
-    const loginId = email.includes("@") ? email : `${email.toLowerCase()}@students.ezeevisionchampua.com`;
-    await loginWithPassword(loginId, password);
+    await loginWithStudentId(studentId, password);
   } catch (error) {
     console.error(error);
     setAuthMessage(getFriendlyAuthError(error), "error");
@@ -1081,16 +1080,12 @@ async function onLogout() {
 
 async function handleAuthenticatedUser(user) {
   state.user = user;
-  try { await user.getIdToken(true); } catch (tokenError) { console.warn("Could not refresh auth token:", tokenError); }
-
   try {
     const profile = await loadStudentProfile(user.uid);
-    const tokenResult = await user.getIdTokenResult(true);
     const assigned = normaliseClassValue(profile?.class);
-    const role = String(profile?.role || tokenResult.claims?.role || "student").toLowerCase();
-    const claimActive = tokenResult.claims?.active !== false;
+    const role = String(profile?.role || "student").toLowerCase();
 
-    if (!profile || !assigned || profile.active === false || !claimActive || role !== "student") {
+    if (!profile || !assigned || profile.active === false || role !== "student") {
       await logout().catch(() => {});
       showView("auth");
       setAuthMessage(

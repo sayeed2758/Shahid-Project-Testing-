@@ -2,11 +2,11 @@ import {
   SUBJECTS,
   SECTIONS,
   CLASSES,
+  ADMIN_EMAIL,
   configureAuthPersistence,
   loginWithEmailAndPassword,
-  sendResetEmail,
   logout,
-  listenForAuth,
+  observeAuth,
   createStudent,
   listStudents,
   updateStudent,
@@ -19,7 +19,8 @@ import {
   publishMaterial,
 } from "./admin-client.js";
 
-const $ = (s) => document.querySelector(s);
+const $ = (selector) => document.querySelector(selector);
+
 const state = {
   user: null,
   admin: false,
@@ -37,292 +38,862 @@ const el = {
   email: $("#adminEmail"),
   password: $("#adminPassword"),
   loginBtn: $("#adminLoginBtn"),
-  forgotBtn: $("#adminForgotBtn"),
   authMessage: $("#adminAuthMessage"),
-  sessionEmail: $("#adminSessionEmail"),
   logoutBtn: $("#adminLogoutBtn"),
   refreshBtn: $("#adminRefreshBtn"),
   tabs: [...document.querySelectorAll(".admin-tab")],
   panels: [...document.querySelectorAll(".admin-tab-panel")],
-  statStudents: $("#statStudents"), statMaterials: $("#statMaterials"), statNotes: $("#statNotes"), statWorksheets: $("#statWorksheets"), statPublished: $("#statPublished"), statStorage: $("#statStorage"),
+
+  statStudents: $("#statStudents"),
+  statMaterials: $("#statMaterials"),
+  statNotes: $("#statNotes"),
+  statWorksheets: $("#statWorksheets"),
+  statPublished: $("#statPublished"),
+  statStorage: $("#statStorage"),
   overviewRecentMaterials: $("#overviewRecentMaterials"),
   overviewMaterialsBtn: $("#overviewMaterialsBtn"),
+
   studentsMessage: $("#studentsMessage"),
-  studentSearch: $("#studentSearch"), studentClassFilter: $("#studentClassFilter"), studentStatusFilter: $("#studentStatusFilter"),
-  studentsBody: $("#studentsTableBody"), addStudentBtn: $("#addStudentBtn"),
-  materialsMessage: $("#materialsMessage"), materialSearch: $("#materialSearch"), materialClassFilter: $("#materialClassFilter"), materialSubjectFilter: $("#materialSubjectFilter"), materialSectionFilter: $("#materialSectionFilter"), materialsBody: $("#materialsTableBody"), refreshMaterialsBtn: $("#refreshMaterialsBtn"),
-  uploadForm: $("#uploadForm"), uploadClass: $("#uploadClass"), uploadSubject: $("#uploadSubject"), uploadSection: $("#uploadSection"), uploadTitle: $("#uploadTitle"), uploadChapter: $("#uploadChapter"), uploadFile: $("#uploadFile"), chooseFile: $("#chooseUploadFileBtn"), uploadFileName: $("#uploadFileName"), uploadFileMeta: $("#uploadFileMeta"), publishOnUpload: $("#publishOnUpload"), uploadProgressWrap: $("#uploadProgressWrap"), uploadProgressLabel: $("#uploadProgressLabel"), uploadProgressPercent: $("#uploadProgressPercent"), uploadProgressBar: $("#uploadProgressBar"), uploadMessage: $("#uploadMessage"), uploadBtn: $("#uploadBtn"),
-  studentDialog: $("#studentDialog"), studentForm: $("#studentForm"), studentDialogTitle: $("#studentDialogTitle"), studentDialogEyebrow: $("#studentDialogEyebrow"), studentDialogClose: $("#studentDialogClose"), studentDialogCancel: $("#studentDialogCancel"), studentName: $("#studentName"), studentEmail: $("#studentEmail"), studentPassword: $("#studentPassword"), studentClass: $("#studentClass"), studentUid: $("#studentUid"), studentDialogHelp: $("#studentDialogHelp"), studentDialogMessage: $("#studentDialogMessage"), studentDialogSubmit: $("#studentDialogSubmit"),
+  studentSearch: $("#studentSearch"),
+  studentClassFilter: $("#studentClassFilter"),
+  studentStatusFilter: $("#studentStatusFilter"),
+  studentsBody: $("#studentsTableBody"),
+  addStudentBtn: $("#addStudentBtn"),
+
+  materialsMessage: $("#materialsMessage"),
+  materialSearch: $("#materialSearch"),
+  materialClassFilter: $("#materialClassFilter"),
+  materialSubjectFilter: $("#materialSubjectFilter"),
+  materialSectionFilter: $("#materialSectionFilter"),
+  materialsBody: $("#materialsTableBody"),
+  refreshMaterialsBtn: $("#refreshMaterialsBtn"),
+
+  uploadForm: $("#uploadForm"),
+  uploadClass: $("#uploadClass"),
+  uploadSubject: $("#uploadSubject"),
+  uploadSection: $("#uploadSection"),
+  uploadTitle: $("#uploadTitle"),
+  uploadChapter: $("#uploadChapter"),
+  uploadFile: $("#uploadFile"),
+  chooseFile: $("#chooseUploadFileBtn"),
+  uploadFileName: $("#uploadFileName"),
+  uploadFileMeta: $("#uploadFileMeta"),
+  publishOnUpload: $("#publishOnUpload"),
+  uploadProgressWrap: $("#uploadProgressWrap"),
+  uploadProgressLabel: $("#uploadProgressLabel"),
+  uploadProgressPercent: $("#uploadProgressPercent"),
+  uploadProgressBar: $("#uploadProgressBar"),
+  uploadMessage: $("#uploadMessage"),
+  uploadBtn: $("#uploadBtn"),
+
+  studentDialog: $("#studentDialog"),
+  studentForm: $("#studentForm"),
+  studentDialogTitle: $("#studentDialogTitle"),
+  studentDialogEyebrow: $("#studentDialogEyebrow"),
+  studentDialogClose: $("#studentDialogClose"),
+  studentDialogCancel: $("#studentDialogCancel"),
+  studentName: $("#studentName"),
+  studentId: $("#studentId"),
+  studentPassword: $("#studentPassword"),
+  studentClass: $("#studentClass"),
+  studentUid: $("#studentUid"),
+  studentDialogHelp: $("#studentDialogHelp"),
+  studentDialogMessage: $("#studentDialogMessage"),
+  studentDialogSubmit: $("#studentDialogSubmit"),
+
   globalStatus: $("#adminGlobalStatus"),
+  sessionEmail: $("#adminSessionEmail"),
+
+  credentialsDialog: $("#credentialsDialog"),
+  createdStudentId: $("#createdStudentId"),
+  createdStudentPassword: $("#createdStudentPassword"),
+  createdStudentClass: $("#createdStudentClass"),
+  copyCredentialsBtn: $("#copyCredentialsBtn"),
+  credentialsCloseBtn: $("#credentialsCloseBtn"),
+  credentialsDoneBtn: $("#credentialsDoneBtn"),
+  credentialsMessage: $("#credentialsMessage"),
 };
 
-function message(target, text = "", type = "") { target.textContent = text; target.className = `inline-message ${type}`.trim(); }
-function status(text = "") { el.globalStatus.textContent = text; el.globalStatus.hidden = !text; }
-function sleepClear(ms = 2200) { setTimeout(() => status(""), ms); }
-function escapeHtml(value) { return String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
-function fmtSize(bytes) { const n=Number(bytes)||0; if(n<1024*1024) return `${Math.max(1,Math.round(n/1024))} KB`; return `${(n/1024/1024).toFixed(1)} MB`; }
-function fmtDate(v) { if(!v) return "—"; const d=new Date(v); return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-IN",{day:"2-digit",month:"short",year:"numeric"}).format(d); }
-function fmtDateTime(v) { if(!v) return "Never"; const d=new Date(v); return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-IN",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(d); }
+function message(target, text = "", type = "") {
+  target.textContent = text;
+  target.className = `inline-message ${type}`.trim();
+}
 
-function showAuth() { el.authView.hidden=false; el.panel.hidden=true; }
-function showPanel() { el.authView.hidden=true; el.panel.hidden=false; }
+function status(text = "") {
+  el.globalStatus.textContent = text;
+  el.globalStatus.hidden = !text;
+}
+
+function clearStatus(ms = 2200) {
+  window.setTimeout(() => status(""), ms);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function fmtSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function fmtDateTime(value) {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function friendlyError(error) {
+  const messageText = String(error?.message || "");
+  const code = String(error?.code || "");
+  const map = {
+    INVALID_NAME: "Enter a student name (2–60 characters).",
+    INVALID_STUDENT_ID: "Use a valid Student ID, e.g. EV001.",
+    INVALID_PASSWORD: "Password must be 6–100 characters.",
+    INVALID_CLASS: "Choose Class 6–10.",
+    STUDENT_ID_EXISTS: "That Student ID is already in use.",
+    STUDENT_NOT_FOUND: "Student account not found.",
+    INVALID_STUDENT_DATA: "Please check the student details.",
+    STUDENT_SYNC_FAILED: "Account creation reached Authentication but database sync failed. Do not give these credentials to the student; check Firebase and retry.",
+    FILE_REQUIRED: "Choose a PDF file.",
+    PDF_ONLY: "Only PDF files are allowed.",
+    FILE_EMPTY: "The selected PDF is empty.",
+    FILE_TOO_LARGE: "PDF must be 100 MB or smaller.",
+    UPLOAD_TIMEOUT: "Upload stalled for too long. Check your connection and retry.",
+    NETWORK_TIMEOUT: "The request timed out. Please check your connection and retry.",
+    "auth/invalid-credential": "Admin email or password is incorrect.",
+    "auth/too-many-requests": "Too many attempts. Please wait and try again.",
+    "auth/network-request-failed": "Network error. Please check your connection.",
+    "auth/user-disabled": "This admin account is disabled.",
+    "auth/operation-not-allowed": "Email/Password sign-in is not enabled in Firebase.",
+  };
+  return map[messageText] || map[code] || "Something went wrong. Please try again.";
+}
+
+function showAuth() {
+  el.authView.hidden = false;
+  el.panel.hidden = true;
+}
+
+function showPanel() {
+  el.authView.hidden = true;
+  el.panel.hidden = false;
+}
 
 function tab(name) {
-  el.tabs.forEach(b=>b.classList.toggle("is-active", b.dataset.adminTab===name));
-  el.panels.forEach(p=>p.hidden=p.dataset.panel!==name);
-  if(name === "students") loadStudents();
-  if(name === "materials") loadMaterials();
+  el.tabs.forEach((button) => {
+    const active = button.dataset.adminTab === name;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  });
+
+  el.panels.forEach((panel) => {
+    panel.hidden = panel.dataset.panel !== name;
+  });
+
+  if (name === "students") loadStudents();
+  if (name === "materials") loadMaterials();
+}
+
+function renderStats() {
+  const materials = state.materials;
+  el.statStudents.textContent = String(state.students.length);
+  el.statMaterials.textContent = String(materials.length);
+  el.statNotes.textContent = String(materials.filter((x) => x.section !== "worksheet").length);
+  el.statWorksheets.textContent = String(materials.filter((x) => x.section === "worksheet").length);
+  el.statPublished.textContent = String(materials.filter((x) => x.active).length);
+
+  const bytes = materials.reduce((sum, item) => sum + Number(item.fileSize || 0), 0);
+  el.statStorage.textContent = bytes ? fmtSize(bytes) : "0 KB";
+
+  const latest = materials.slice(0, 6);
+  el.overviewRecentMaterials.innerHTML = latest.length
+    ? latest.map((item) => `
+        <div class="mini-list-row">
+          <span>
+            <strong>${escapeHtml(item.title || "Untitled")}</strong>
+            <small>Class ${Number(item.class)} • ${escapeHtml(item.subject)} • ${escapeHtml(item.section)}</small>
+          </span>
+          <b>${item.active ? "Published" : "Unpublished"}</b>
+        </div>
+      `).join("")
+    : `<div class="table-empty">No materials uploaded yet.</div>`;
 }
 
 function studentFiltered() {
-  const q=el.studentSearch.value.trim().toLowerCase();
-  const cls=el.studentClassFilter.value;
-  const st=el.studentStatusFilter.value;
-  return state.students.filter(s=>{
-    const matchesQ=!q || [s.displayName,s.studentId,s.email,s.uid].join(" ").toLowerCase().includes(q);
-    const matchesC=cls==="all" || String(s.class||"")===cls;
-    const matchesS=st==="all" || (st==="active" ? !s.disabled : s.disabled);
-    return matchesQ&&matchesC&&matchesS;
+  const query = el.studentSearch.value.trim().toLowerCase();
+  const classFilter = el.studentClassFilter.value;
+  const statusFilter = el.studentStatusFilter.value;
+
+  return state.students.filter((student) => {
+    const matchesQuery =
+      !query ||
+      [student.displayName, student.studentId, student.uid]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+
+    const matchesClass =
+      classFilter === "all" || String(student.class || "") === classFilter;
+
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && !student.disabled) ||
+      (statusFilter === "disabled" && student.disabled);
+
+    return matchesQuery && matchesClass && matchesStatus;
   });
 }
 
 function renderStudents() {
-  const rows=studentFiltered();
-  if(!rows.length){ el.studentsBody.innerHTML=`<tr><td colspan="5"><div class="table-empty">No students match this filter.</div></td></tr>`; return; }
-  el.studentsBody.innerHTML=rows.map(s=>{
-    const initial=(s.displayName||s.email||"S").trim().charAt(0).toUpperCase();
-    return `<tr>
-      <td><div class="student-cell"><span class="table-avatar">${escapeHtml(initial)}</span><div><strong>${escapeHtml(s.displayName||"Unnamed")}</strong><small>${escapeHtml(s.studentId || s.email)}</small></div></div></td>
-      <td>Class ${Number(s.class)||"—"}</td>
-      <td><span class="status-pill ${s.disabled?"disabled":"active"}">${s.disabled?"Disabled":"Active"}</span></td>
-      <td>${escapeHtml(fmtDateTime(s.lastSignInTime))}</td>
-      <td><div class="row-actions">
-        <button class="mini-action" data-student-action="edit" data-uid="${escapeHtml(s.uid)}" type="button">Edit</button>
-        <button class="mini-action" data-student-action="password" data-uid="${escapeHtml(s.uid)}" type="button">Password</button>
-        <button class="mini-action ${s.disabled?"success":"danger"}" data-student-action="toggle" data-uid="${escapeHtml(s.uid)}" type="button">${s.disabled?"Enable":"Disable"}</button>
-      </div></td>
-    </tr>`;
+  const rows = studentFiltered();
+
+  if (!rows.length) {
+    el.studentsBody.innerHTML = `<tr><td colspan="5"><div class="table-empty">No students match this filter.</div></td></tr>`;
+    return;
+  }
+
+  el.studentsBody.innerHTML = rows.map((student) => {
+    const initial = (student.displayName || student.studentId || "S").trim().charAt(0).toUpperCase();
+    return `
+      <tr>
+        <td>
+          <div class="student-cell">
+            <span class="table-avatar">${escapeHtml(initial)}</span>
+            <div>
+              <strong>${escapeHtml(student.displayName || "Unnamed")}</strong>
+              <small>ID: ${escapeHtml(student.studentId)}</small>
+            </div>
+          </div>
+        </td>
+        <td>Class ${Number(student.class) || "—"}</td>
+        <td><span class="status-pill ${student.disabled ? "disabled" : "active"}">${student.disabled ? "Disabled" : "Active"}</span></td>
+        <td>${escapeHtml(fmtDateTime(student.lastSignInTime))}</td>
+        <td>
+          <div class="row-actions">
+            <button class="mini-action" data-student-action="edit" data-uid="${escapeHtml(student.uid)}" type="button">Edit</button>
+            <button class="mini-action ${student.disabled ? "success" : "danger"}"
+              data-student-action="toggle" data-uid="${escapeHtml(student.uid)}" type="button">
+              ${student.disabled ? "Enable" : "Disable"}
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
   }).join("");
 }
 
 function materialFiltered() {
-  const q=el.materialSearch.value.trim().toLowerCase(); const cls=el.materialClassFilter.value; const sub=el.materialSubjectFilter.value; const sec=el.materialSectionFilter.value;
-  return state.materials.filter(m=>{
-    const qok=!q || [m.title,m.chapter,m.fileName,m.subject,m.section].join(" ").toLowerCase().includes(q);
-    return qok&&(cls==="all"||String(m.class)===cls)&&(sub==="all"||m.subject===sub)&&(sec==="all"||m.section===sec);
+  const query = el.materialSearch.value.trim().toLowerCase();
+  const classFilter = el.materialClassFilter.value;
+  const subjectFilter = el.materialSubjectFilter.value;
+  const sectionFilter = el.materialSectionFilter.value;
+
+  return state.materials.filter((material) => {
+    const queryOk =
+      !query ||
+      [material.title, material.chapter, material.fileName, material.subject, material.section]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+
+    return queryOk &&
+      (classFilter === "all" || String(material.class) === classFilter) &&
+      (subjectFilter === "all" || material.subject === subjectFilter) &&
+      (sectionFilter === "all" || material.section === sectionFilter);
   });
 }
 
 function renderMaterials() {
-  const rows=materialFiltered();
-  if(!rows.length){ el.materialsBody.innerHTML=`<tr><td colspan="6"><div class="table-empty">No materials match this filter.</div></td></tr>`; return; }
-  const subjectLabel=Object.fromEntries(SUBJECTS.map(x=>[x.id,x.label])); const sectionLabel=Object.fromEntries(SECTIONS.map(x=>[x.id,x.label]));
-  el.materialsBody.innerHTML=rows.map(m=>`<tr>
-    <td><div><strong>${escapeHtml(m.title||"Untitled")}</strong><small>${escapeHtml(m.fileName||"PDF")}${m.chapter?` • ${escapeHtml(m.chapter)}`:""}</small></div></td>
-    <td>Class ${Number(m.class)}</td><td>${escapeHtml(sectionLabel[m.section]||m.section)}<small>${escapeHtml(subjectLabel[m.subject]||m.subject)}</small></td>
-    <td>${escapeHtml(fmtSize(m.fileSize))}</td><td><span class="status-pill ${m.active?"active":"disabled"}">${m.active?"Published":"Unpublished"}</span></td>
-    <td><div class="row-actions"><button class="mini-action" data-material-action="toggle" data-id="${escapeHtml(m.id)}" type="button">${m.active?"Unpublish":"Publish"}</button><button class="mini-action" data-material-action="replace" data-id="${escapeHtml(m.id)}" type="button">Replace</button><button class="mini-action danger" data-material-action="delete" data-id="${escapeHtml(m.id)}" type="button">Delete</button></div></td>
-  </tr>`).join("");
+  const rows = materialFiltered();
+
+  if (!rows.length) {
+    el.materialsBody.innerHTML = `<tr><td colspan="6"><div class="table-empty">No materials match this filter.</div></td></tr>`;
+    return;
+  }
+
+  const subjectLabels = Object.fromEntries(SUBJECTS.map((x) => [x.id, x.label]));
+  const sectionLabels = Object.fromEntries(SECTIONS.map((x) => [x.id, x.label]));
+
+  el.materialsBody.innerHTML = rows.map((material) => `
+    <tr>
+      <td>
+        <div>
+          <strong>${escapeHtml(material.title || "Untitled")}</strong>
+          <small>${escapeHtml(material.fileName || "PDF")}${material.chapter ? ` • ${escapeHtml(material.chapter)}` : ""}</small>
+        </div>
+      </td>
+      <td>Class ${Number(material.class)}</td>
+      <td>${escapeHtml(sectionLabels[material.section] || material.section)}<small>${escapeHtml(subjectLabels[material.subject] || material.subject)}</small></td>
+      <td>${escapeHtml(fmtSize(material.fileSize))}</td>
+      <td><span class="status-pill ${material.active ? "active" : "disabled"}">${material.active ? "Published" : "Unpublished"}</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="mini-action" data-material-action="toggle" data-id="${escapeHtml(material.id)}" type="button">${material.active ? "Unpublish" : "Publish"}</button>
+          <button class="mini-action" data-material-action="replace" data-id="${escapeHtml(material.id)}" type="button">Replace</button>
+          <button class="mini-action danger" data-material-action="delete" data-id="${escapeHtml(material.id)}" type="button">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
 }
 
 async function loadStudents() {
-  message(el.studentsMessage,"Loading students…","loading");
+  message(el.studentsMessage, "Loading students…", "loading");
   try {
-    const data=await listStudents();
-    state.students=data.students||[];
+    const result = await listStudents();
+    state.students = result.students || [];
     renderStudents();
-    message(el.studentsMessage, `${state.students.length} student${state.students.length===1?"":"s"} loaded.`, "success");
     renderStats();
-  } catch(error) {
-    console.error(error); message(el.studentsMessage, friendlyFunctionError(error), "error");
+    message(el.studentsMessage, `${state.students.length} student${state.students.length === 1 ? "" : "s"} loaded.`, "success");
+  } catch (error) {
+    console.error(error);
+    message(el.studentsMessage, friendlyError(error), "error");
   }
 }
 
 async function loadMaterials() {
-  message(el.materialsMessage,"Loading catalog…","loading");
-  try { state.materials=await loadAllCatalog(); renderMaterials(); message(el.materialsMessage,`${state.materials.length} material${state.materials.length===1?"":"s"} loaded.` ,"success"); renderStats(); } catch(error){ console.error(error); message(el.materialsMessage,"Catalog could not be loaded. Check your admin access and retry.","error"); }
+  message(el.materialsMessage, "Loading catalog…", "loading");
+  try {
+    state.materials = await loadAllCatalog();
+    renderMaterials();
+    renderStats();
+    message(el.materialsMessage, `${state.materials.length} material${state.materials.length === 1 ? "" : "s"} loaded.`, "success");
+  } catch (error) {
+    console.error(error);
+    message(el.materialsMessage, friendlyError(error), "error");
+  }
 }
 
-function renderStats() {
-  const m=state.materials; el.statMaterials.textContent=m.length; el.statNotes.textContent=m.filter(x=>x.section!=="worksheet").length; el.statWorksheets.textContent=m.filter(x=>x.section==="worksheet").length; el.statPublished.textContent=m.filter(x=>x.active).length; el.statStorage.textContent=m.reduce((n,x)=>n+Number(x.fileSize||0),0)>0?fmtSize(m.reduce((n,x)=>n+Number(x.fileSize||0),0)):"0 KB";
-  el.statStudents.textContent=state.students.length||"—";
-  const latest=m.slice(0,6); el.overviewRecentMaterials.innerHTML=latest.length?latest.map(x=>`<div class="mini-list-row"><span><strong>${escapeHtml(x.title||"Untitled")}</strong><small>Class ${Number(x.class)} • ${escapeHtml(x.subject)} • ${escapeHtml(x.section)}</small></span><b>${x.active?"Published":"Unpublished"}</b></div>`).join(""):`<div class="table-empty">No materials uploaded yet.</div>`;
+function openCredentialsDialog({ studentId, password, classNumber }) {
+  el.createdStudentId.textContent = studentId;
+  el.createdStudentPassword.textContent = password;
+  el.createdStudentClass.textContent = `Class ${classNumber}`;
+  message(el.credentialsMessage, "");
+  if (typeof el.credentialsDialog.showModal === "function") el.credentialsDialog.showModal();
+  else el.credentialsDialog.hidden = false;
 }
 
-function friendlyFunctionError(error) {
-  const code=error?.code||error?.message||"";
-  const map={
-    "PERMISSION_DENIED":"You do not have admin permission for this action.",
-    "INVALID_STUDENT_ID":"Enter a valid Student ID.",
-    "STUDENT_ID_EXISTS":"That Student ID already exists.",
-    "INVALID_PASSWORD":"Password must be at least 6 characters.",
-    "STUDENT_NOT_FOUND":"The student could not be found.",
-    "INVALID_STUDENT_DATA":"Please check the student details.",
-    "NETWORK_TIMEOUT":"The request timed out. Please retry.",
-  };
-  return map[code]||error?.message||"Something went wrong. Please retry.";
+async function copyCredentials() {
+  const text = [
+    "EZEE VISION CHAMPUA — Student Login",
+    `Student ID: ${el.createdStudentId.textContent}`,
+    `Password: ${el.createdStudentPassword.textContent}`,
+    `Class: ${el.createdStudentClass.textContent}`,
+  ].join("\n");
+
+  try {
+    await navigator.clipboard.writeText(text);
+    message(el.credentialsMessage, "Credentials copied to clipboard.", "success");
+  } catch (error) {
+    console.error(error);
+    message(el.credentialsMessage, "Clipboard permission was unavailable. Copy the details manually.", "error");
+  }
 }
 
 function resetStudentDialog() {
   el.studentForm.reset();
-  el.studentUid.value="";
-  state.studentMode="create";
-  el.studentDialogTitle.textContent="Add Student";
-  el.studentDialogEyebrow.textContent="NEW STUDENT";
-  el.studentEmail.readOnly=false;
-  el.studentPassword.required=true;
-  el.studentPassword.placeholder="Minimum 6 characters";
-  el.studentDialogSubmit.textContent="Create Student";
-  el.studentDialogHelp.innerHTML="<strong>Simple student login</strong><span>Student ID + password only. No Google account is required.</span>";
-  message(el.studentDialogMessage,"");
+  el.studentUid.value = "";
+  state.studentMode = "create";
+  state.selectedStudent = null;
+  el.studentDialogTitle.textContent = "Add Student";
+  el.studentDialogEyebrow.textContent = "NEW STUDENT";
+  el.studentId.readOnly = false;
+  el.studentPassword.required = true;
+  el.studentPassword.placeholder = "Minimum 6 characters";
+  el.studentDialogSubmit.textContent = "Create Student";
+  el.studentDialogHelp.innerHTML = `
+    <strong>Simple student login</strong>
+    <span>Give the student only the Student ID and password. No Google account or email is needed.</span>
+  `;
+  message(el.studentDialogMessage, "");
 }
 
-function openStudentDialog(student=null) {
+function openStudentDialog(student = null) {
   resetStudentDialog();
-  if(student){
-    state.studentMode="edit";
-    state.selectedStudent=student;
-    el.studentUid.value=student.uid;
-    el.studentName.value=student.displayName||"";
-    el.studentEmail.value=student.studentId||"";
-    el.studentEmail.readOnly=true;
-    el.studentPassword.required=false;
-    el.studentPassword.value="";
-    el.studentPassword.placeholder="Password is set when the account is created";
-    el.studentClass.value=String(student.class||"");
-    el.studentDialogTitle.textContent="Edit Student";
-    el.studentDialogEyebrow.textContent="STUDENT ACCOUNT";
-    el.studentDialogSubmit.textContent="Save Changes";
-    el.studentDialogHelp.innerHTML="<strong>Account management</strong><span>Student ID stays fixed. Change name or class here.</span>";
+
+  if (student) {
+    state.studentMode = "edit";
+    state.selectedStudent = student;
+    el.studentUid.value = student.uid;
+    el.studentName.value = student.displayName || "";
+    el.studentId.value = student.studentId || "";
+    el.studentId.readOnly = true;
+    el.studentPassword.required = false;
+    el.studentPassword.placeholder = "Password changes are not available in client-only mode";
+    el.studentClass.value = String(student.class || "");
+    el.studentDialogTitle.textContent = "Edit Student";
+    el.studentDialogEyebrow.textContent = "STUDENT ACCOUNT";
+    el.studentDialogSubmit.textContent = "Save Changes";
+    el.studentDialogHelp.innerHTML = `
+      <strong>Account management</strong>
+      <span>Change the student's name or assigned class. Existing password is preserved.</span>
+    `;
   }
-  el.studentDialog.showModal();
+
+  if (typeof el.studentDialog.showModal === "function") el.studentDialog.showModal();
+  else el.studentDialog.hidden = false;
 }
 
-async function submitStudent(event){
+async function submitStudent(event) {
   event.preventDefault();
-  const name=el.studentName.value.trim(), studentId=el.studentEmail.value.trim(), password=el.studentPassword.value, cls=Number(el.studentClass.value);
-  if(name.length<2){message(el.studentDialogMessage,"Name must contain at least 2 characters.","error");return;}
-  if(!/^[A-Za-z0-9_-]{2,40}$/.test(studentId)){message(el.studentDialogMessage,"Student ID can use letters, numbers, _ and - only.","error");return;}
-  if(!Number.isInteger(cls)||!CLASSES.includes(cls)){message(el.studentDialogMessage,"Choose Class 6–10.","error");return;}
-  if(state.studentMode==="create"&&password.length<6){message(el.studentDialogMessage,"Password must be at least 6 characters.","error");return;}
-  el.studentDialogSubmit.disabled=true;
-  message(el.studentDialogMessage,state.studentMode==="create"?"Creating student…":"Saving student…","loading");
-  try{
-    if(state.studentMode==="create"){
-      const result=await createStudent({displayName:name,studentId,password,classNumber:cls});
+
+  const name = el.studentName.value.trim();
+  const studentId = el.studentId.value.trim().toUpperCase();
+  const password = el.studentPassword.value;
+  const classNumber = Number(el.studentClass.value);
+
+  if (name.length < 2 || name.length > 60) {
+    message(el.studentDialogMessage, "Name must contain 2–60 characters.", "error");
+    return;
+  }
+  if (!/^[A-Z0-9_-]{2,40}$/.test(studentId)) {
+    message(el.studentDialogMessage, "Use 2–40 letters/numbers, '-' or '_'.", "error");
+    return;
+  }
+  if (!Number.isInteger(classNumber) || !CLASSES.includes(classNumber)) {
+    message(el.studentDialogMessage, "Choose Class 6–10.", "error");
+    return;
+  }
+
+  if (state.studentMode === "create" && (password.length < 6 || password.length > 100)) {
+    message(el.studentDialogMessage, "Password must be 6–100 characters.", "error");
+    return;
+  }
+
+  el.studentDialogSubmit.disabled = true;
+  message(
+    el.studentDialogMessage,
+    state.studentMode === "create" ? "Creating student…" : "Saving student…",
+    "loading"
+  );
+
+  try {
+    if (state.studentMode === "create") {
+      const result = await createStudent({
+        displayName: name,
+        studentId,
+        password,
+        classNumber,
+      });
+
       await loadStudents();
       el.studentDialog.close();
-      status(`Student created: ${result.studentId}`);sleepClear(3500);
-    }else{
-      await updateStudent({uid:el.studentUid.value,displayName:name,classNumber:cls});
+      openCredentialsDialog({
+        studentId: result.studentId,
+        password,
+        classNumber,
+      });
+      status(`Student created: ${result.studentId}`);
+      clearStatus(3500);
+    } else {
+      const result = await updateStudent({
+        uid: el.studentUid.value,
+        displayName: name,
+        classNumber,
+      });
+
       await loadStudents();
       el.studentDialog.close();
-      status(`Student ${studentId} updated.`);sleepClear(2800);
+      status(`Student ${result.studentId || studentId} updated.`);
+      clearStatus(2800);
     }
-  }catch(error){console.error(error);message(el.studentDialogMessage,friendlyFunctionError(error),"error");}
-  finally{el.studentDialogSubmit.disabled=false;}
-}
-
-async function toggleStudent(student){ if(!student) return; const next=!student.active; if(!confirm(`${next?"Disable":"Enable"} ${student.displayName||student.studentId}?`)) return; status(next?"Disabling student…":"Enabling student…"); try{await setStudentActive({uid:student.uid,active:!next});await loadStudents();status(next?"Student disabled.":"Student enabled.");sleepClear();}catch(error){console.error(error);status(friendlyFunctionError(error));sleepClear(3200);} }
-
-async function materialAction(action,id){ const material=state.materials.find(m=>m.id===id); if(!material)return;
-  if(action==="toggle"){
-    const target=!material.active; if(!confirm(`${target?"Publish":"Unpublish"} “${material.title}"?`))return; status(target?"Publishing material…":"Unpublishing material…"); try{const updated=await publishMaterial(material,target); Object.assign(material,updated);renderMaterials();renderStats();status(target?"Material published.":"Material unpublished.");sleepClear();}catch(error){console.error(error);status(friendlyFunctionError(error));sleepClear(3200);} return;
-  }
-  if(action==="delete"){
-    if(!confirm(`Delete “${material.title}" permanently? This deletes the Storage file and catalog record.`))return; status("Deleting material…"); try{await deleteMaterial(material);state.materials=state.materials.filter(x=>x.id!==material.id);renderMaterials();renderStats();status("Material deleted successfully.");sleepClear();}catch(error){console.error(error);status(friendlyFunctionError(error));sleepClear(3200);} return;
-  }
-  if(action==="replace"){
-    state.replacingMaterial=material; replacementInput.click();
-  }
-}
-
-const replacementInput=document.createElement("input"); replacementInput.type="file"; replacementInput.accept="application/pdf,.pdf"; replacementInput.hidden=true; document.body.appendChild(replacementInput);
-replacementInput.addEventListener("change",async()=>{const file=replacementInput.files?.[0],material=state.replacingMaterial;replacementInput.value="";if(!file||!material)return; status("Replacing PDF… 0%"); try{const updated=await replaceMaterial(material,file,material.active,(p)=>status(`Replacing PDF… ${p.percent}%`));state.materials=state.materials.map(x=>x.id===updated.id?updated:x);renderMaterials();renderStats();status("PDF replaced successfully.");sleepClear(3200);}catch(error){console.error(error);status(friendlyFunctionError(error));sleepClear(3200);}finally{state.replacingMaterial=null;}});
-
-function fileSelected(){const file=el.uploadFile.files?.[0];if(!file){el.uploadFileName.textContent="Choose PDF file";el.uploadFileMeta.textContent="Maximum 100 MB • PDF only";return;}el.uploadFileName.textContent=file.name;el.uploadFileMeta.textContent=`${fmtSize(file.size)} • PDF`;
-  if(file.type!=="application/pdf"||!file.name.toLowerCase().endsWith(".pdf")){el.uploadFileName.textContent="Invalid file type";message(el.uploadMessage,"Please select a PDF file.","error");}
-  else if(file.size>100*1024*1024){message(el.uploadMessage,"PDF exceeds the 100 MB limit.","error");}
-  else message(el.uploadMessage,"File ready to upload.","success");
-}
-
-async function submitUpload(event){event.preventDefault(); const file=el.uploadFile.files?.[0];const cls=Number(el.uploadClass.value),subject=el.uploadSubject.value,section=el.uploadSection.value,title=el.uploadTitle.value.trim(),chapter=el.uploadChapter.value.trim();
-  if(!CLASSES.includes(cls)||!SUBJECTS.some(x=>x.id===subject)||!SECTIONS.some(x=>x.id===section)){message(el.uploadMessage,"Choose class, subject and section.","error");return;}
-  if(title.length<2){message(el.uploadMessage,"Enter a material title.","error");return;}
-  if(!file||file.type!=="application/pdf"||!file.name.toLowerCase().endsWith(".pdf")){message(el.uploadMessage,"Choose a valid PDF.","error");return;}
-  if(file.size<=0||file.size>100*1024*1024){message(el.uploadMessage,"PDF must be larger than 0 and no more than 100 MB.","error");return;}
-  const id=crypto.randomUUID?crypto.randomUUID():`m-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const cleanFilename=file.name.replace(/[^a-zA-Z0-9._-]/g,"-").slice(-160);
-  const storagePath=`study-materials/class-${cls}/${subject}/${section}/${id}.pdf`;
-  const metadata={id,title,chapter,class:cls,subject,section,storagePath,fileName:cleanFilename,type:"pdf",active:false,createdAt:Date.now(),updatedAt:Date.now()};
-  el.uploadBtn.disabled=true;el.chooseFile.disabled=true;el.uploadProgressWrap.hidden=false;el.uploadProgressBar.style.width="0%";el.uploadProgressLabel.textContent="Uploading…";el.uploadProgressPercent.textContent="0%";message(el.uploadMessage,"Starting upload…","loading");
-  try{const record=await uploadMaterial({file,metadata,publish:el.publishOnUpload.checked,onProgress:(p)=>{el.uploadProgressBar.style.width=`${p.percent}%`;el.uploadProgressPercent.textContent=`${p.percent}%`;el.uploadProgressLabel.textContent="Uploading PDF…";}});state.materials.unshift(record);renderMaterials();renderStats();message(el.uploadMessage,record.active?"Upload + publish complete.":"Upload complete; material remains unpublished.","success");el.uploadForm.reset();el.uploadFileName.textContent="Choose PDF file";el.uploadFileMeta.textContent="Maximum 100 MB • PDF only";setTimeout(()=>tab("materials"),900);}catch(error){console.error(error);message(el.uploadMessage,friendlyFunctionError(error),"error");}finally{el.uploadBtn.disabled=false;el.chooseFile.disabled=false;setTimeout(()=>{el.uploadProgressWrap.hidden=true;},1200);}
-}
-
-async function processAuthUser(user){
-  state.user=user;
-  if(!user){state.admin=false;showAuth();return;}
-  try{
-    const identity=await getAdminIdentity();
-    state.admin=identity.admin;
-    el.sessionEmail.textContent=user.email||"";
-    if(!identity.admin){
-      await logout().catch(()=>{});
-      showAuth();
-      message(el.authMessage,"Only the institute admin account can access this panel.","error");
-      return;
-    }
-    showPanel();
-    await loadDashboard();
-  }catch(error){
+  } catch (error) {
     console.error(error);
-    showAuth();
-    message(el.authMessage,"Could not verify admin access. Please sign in again.","error");
+    message(el.studentDialogMessage, friendlyError(error), "error");
+  } finally {
+    el.studentDialogSubmit.disabled = false;
   }
 }
 
-async function loadDashboard(){
-  message(el.materialsMessage,"");
-  message(el.studentsMessage,"");
-  await Promise.allSettled([loadStudents(),loadMaterials()]);
+async function toggleStudent(student) {
+  if (!student) return;
+
+  const makeActive = student.disabled;
+  const question = makeActive
+    ? `Enable ${student.displayName || student.studentId}?`
+    : `Disable ${student.displayName || student.studentId}?`;
+
+  if (!window.confirm(question)) return;
+
+  status(makeActive ? "Enabling student…" : "Disabling student…");
+
+  try {
+    await setStudentActive({ uid: student.uid, active: makeActive });
+    await loadStudents();
+    status(makeActive ? "Student enabled." : "Student disabled.");
+    clearStatus();
+  } catch (error) {
+    console.error(error);
+    status(friendlyError(error));
+    clearStatus(3200);
+  }
+}
+
+async function materialAction(action, id) {
+  const material = state.materials.find((item) => item.id === id);
+  if (!material) return;
+
+  if (action === "toggle") {
+    const target = !material.active;
+    if (!window.confirm(`${target ? "Publish" : "Unpublish"} “${material.title}”?`)) return;
+
+    status(target ? "Publishing material…" : "Unpublishing material…");
+
+    try {
+      const updated = await publishMaterial(material, target);
+      Object.assign(material, updated);
+      renderMaterials();
+      renderStats();
+      status(target ? "Material published." : "Material unpublished.");
+      clearStatus();
+    } catch (error) {
+      console.error(error);
+      status(friendlyError(error));
+      clearStatus(3200);
+    }
+    return;
+  }
+
+  if (action === "delete") {
+    if (!window.confirm(`Delete “${material.title}” permanently?`)) return;
+
+    status("Deleting material…");
+    try {
+      await deleteMaterial(material);
+      state.materials = state.materials.filter((item) => item.id !== material.id);
+      renderMaterials();
+      renderStats();
+      status("Material deleted successfully.");
+      clearStatus(3000);
+    } catch (error) {
+      console.error(error);
+      status(friendlyError(error));
+      clearStatus(3200);
+    }
+    return;
+  }
+
+  if (action === "replace") {
+    state.replacingMaterial = material;
+    replacementInput.value = "";
+    replacementInput.click();
+  }
+}
+
+const replacementInput = document.createElement("input");
+replacementInput.type = "file";
+replacementInput.accept = "application/pdf,.pdf";
+replacementInput.hidden = true;
+document.body.appendChild(replacementInput);
+
+replacementInput.addEventListener("change", async () => {
+  const file = replacementInput.files?.[0];
+  const material = state.replacingMaterial;
+  replacementInput.value = "";
+
+  if (!file || !material) {
+    state.replacingMaterial = null;
+    return;
+  }
+
+  if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
+    status("Only PDF files are allowed.");
+    clearStatus(2500);
+    state.replacingMaterial = null;
+    return;
+  }
+
+  if (file.size <= 0 || file.size > 100 * 1024 * 1024) {
+    status("PDF must be larger than 0 and no more than 100 MB.");
+    clearStatus(2500);
+    state.replacingMaterial = null;
+    return;
+  }
+
+  status("Replacing PDF… 0%");
+
+  try {
+    const updated = await replaceMaterial(
+      material,
+      file,
+      material.active,
+      (progress) => status(`Replacing PDF… ${progress.percent}%`)
+    );
+
+    state.materials = state.materials.map((item) =>
+      item.id === updated.id ? updated : item
+    );
+    renderMaterials();
+    renderStats();
+    status("PDF replaced successfully.");
+    clearStatus(3000);
+  } catch (error) {
+    console.error(error);
+    status(friendlyError(error));
+    clearStatus(3200);
+  } finally {
+    state.replacingMaterial = null;
+  }
+});
+
+function fileSelected() {
+  const file = el.uploadFile.files?.[0];
+
+  if (!file) {
+    el.uploadFileName.textContent = "Choose PDF file";
+    el.uploadFileMeta.textContent = "Maximum 100 MB • PDF only";
+    return;
+  }
+
+  el.uploadFileName.textContent = file.name;
+  el.uploadFileMeta.textContent = `${fmtSize(file.size)} • PDF`;
+
+  if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
+    message(el.uploadMessage, "Please select a PDF file.", "error");
+  } else if (file.size <= 0 || file.size > 100 * 1024 * 1024) {
+    message(el.uploadMessage, "PDF must be larger than 0 and no more than 100 MB.", "error");
+  } else {
+    message(el.uploadMessage, "File ready to upload.", "success");
+  }
+}
+
+async function submitUpload(event) {
+  event.preventDefault();
+
+  const file = el.uploadFile.files?.[0];
+  const classNumber = Number(el.uploadClass.value);
+  const subject = el.uploadSubject.value;
+  const section = el.uploadSection.value;
+  const title = el.uploadTitle.value.trim();
+  const chapter = el.uploadChapter.value.trim();
+
+  if (!CLASSES.includes(classNumber) || !SUBJECTS.some((x) => x.id === subject) || !SECTIONS.some((x) => x.id === section)) {
+    message(el.uploadMessage, "Choose class, subject and section.", "error");
+    return;
+  }
+
+  if (title.length < 2 || title.length > 120) {
+    message(el.uploadMessage, "Enter a title between 2 and 120 characters.", "error");
+    return;
+  }
+
+  if (!file || file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
+    message(el.uploadMessage, "Choose a valid PDF.", "error");
+    return;
+  }
+
+  if (file.size <= 0 || file.size > 100 * 1024 * 1024) {
+    message(el.uploadMessage, "PDF must be larger than 0 and no more than 100 MB.", "error");
+    return;
+  }
+
+  const id = crypto.randomUUID
+    ? crypto.randomUUID()
+    : `m-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  const cleanFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-160);
+  const storagePath = `study-materials/class-${classNumber}/${subject}/${section}/${id}.pdf`;
+
+  const metadata = {
+    id,
+    title,
+    chapter,
+    class: classNumber,
+    subject,
+    section,
+    storagePath,
+    fileName: cleanFilename,
+    type: "pdf",
+    active: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  el.uploadBtn.disabled = true;
+  el.chooseFile.disabled = true;
+  el.uploadProgressWrap.hidden = false;
+  el.uploadProgressBar.style.width = "0%";
+  el.uploadProgressLabel.textContent = "Uploading PDF…";
+  el.uploadProgressPercent.textContent = "0%";
+  message(el.uploadMessage, "Starting upload…", "loading");
+
+  try {
+    const record = await uploadMaterial({
+      file,
+      metadata,
+      publish: el.publishOnUpload.checked,
+      onProgress: (progress) => {
+        el.uploadProgressBar.style.width = `${progress.percent}%`;
+        el.uploadProgressLabel.textContent = "Uploading PDF…";
+        el.uploadProgressPercent.textContent = `${progress.percent}%`;
+      },
+    });
+
+    state.materials.unshift(record);
+    renderMaterials();
+    renderStats();
+    message(
+      el.uploadMessage,
+      record.active ? "Upload + publish complete." : "Upload complete; material remains unpublished.",
+      "success"
+    );
+
+    el.uploadForm.reset();
+    el.uploadFileName.textContent = "Choose PDF file";
+    el.uploadFileMeta.textContent = "Maximum 100 MB • PDF only";
+    window.setTimeout(() => tab("materials"), 700);
+  } catch (error) {
+    console.error(error);
+    message(el.uploadMessage, friendlyError(error), "error");
+  } finally {
+    el.uploadBtn.disabled = false;
+    el.chooseFile.disabled = false;
+    window.setTimeout(() => { el.uploadProgressWrap.hidden = true; }, 1000);
+  }
+}
+
+async function login(event) {
+  event.preventDefault();
+
+  const email = el.email.value.trim().toLowerCase();
+  const password = el.password.value;
+
+  if (email !== ADMIN_EMAIL.toLowerCase()) {
+    message(el.authMessage, "This Admin Panel is reserved for the authorised admin account.", "error");
+    return;
+  }
+
+  if (password.length < 6) {
+    message(el.authMessage, "Enter the admin password.", "error");
+    return;
+  }
+
+  el.loginBtn.disabled = true;
+  message(el.authMessage, "Signing in securely…", "loading");
+
+  try {
+    await loginWithEmailAndPassword(email, password);
+  } catch (error) {
+    console.error(error);
+    message(el.authMessage, friendlyError(error), "error");
+  } finally {
+    el.loginBtn.disabled = false;
+  }
+}
+
+async function processAuthUser(user) {
+  state.user = user;
+
+  if (!user) {
+    state.admin = false;
+    showAuth();
+    return;
+  }
+
+  if (String(user.email || "").toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+    await logout().catch(() => {});
+    showAuth();
+    message(el.authMessage, "This account is not authorised for the Admin Panel.", "error");
+    return;
+  }
+
+  state.admin = true;
+  el.sessionEmail.textContent = ADMIN_EMAIL;
+  showPanel();
+  await loadDashboard();
+}
+
+async function loadDashboard() {
+  message(el.studentsMessage, "");
+  message(el.materialsMessage, "");
+  await Promise.allSettled([loadStudents(), loadMaterials()]);
   renderStats();
 }
 
-async function login(event){
-  event.preventDefault();
-  const email=el.email.value.trim(),password=el.password.value;
-  if(!email||!el.email.validity.valid){message(el.authMessage,"Enter your admin email.","error");return;}
-  if(password.length<6){message(el.authMessage,"Enter your password.","error");return;}
-  el.loginBtn.disabled=true;el.forgotBtn.disabled=true;
-  message(el.authMessage,"Signing in…","loading");
-  try{await loginWithEmailAndPassword(email,password);}catch(error){console.error(error);message(el.authMessage,friendlyFunctionError(error),"error");}
-  finally{el.loginBtn.disabled=false;el.forgotBtn.disabled=false;}
+function bind() {
+  el.loginForm.addEventListener("submit", login);
+  el.logoutBtn.addEventListener("click", () => logout().catch((error) => {
+    console.error(error);
+    message(el.authMessage, friendlyError(error), "error");
+  }));
+  el.refreshBtn.addEventListener("click", loadDashboard);
+
+  el.tabs.forEach((button) => {
+    button.addEventListener("click", () => tab(button.dataset.adminTab));
+  });
+
+  el.overviewMaterialsBtn.addEventListener("click", () => tab("materials"));
+  el.addStudentBtn.addEventListener("click", () => openStudentDialog());
+
+  el.studentForm.addEventListener("submit", submitStudent);
+  el.studentDialogClose.addEventListener("click", () => el.studentDialog.close());
+  el.studentDialogCancel.addEventListener("click", () => el.studentDialog.close());
+
+  el.credentialsCloseBtn.addEventListener("click", () => el.credentialsDialog.close());
+  el.credentialsDoneBtn.addEventListener("click", () => el.credentialsDialog.close());
+  el.copyCredentialsBtn.addEventListener("click", copyCredentials);
+
+  [el.studentSearch, el.studentClassFilter, el.studentStatusFilter]
+    .forEach((control) => control.addEventListener("input", renderStudents));
+
+  [el.materialSearch, el.materialClassFilter, el.materialSubjectFilter, el.materialSectionFilter]
+    .forEach((control) => control.addEventListener("input", renderMaterials));
+
+  el.refreshMaterialsBtn.addEventListener("click", loadMaterials);
+
+  el.chooseFile.addEventListener("click", () => el.uploadFile.click());
+  el.uploadFile.addEventListener("change", fileSelected);
+  el.uploadForm.addEventListener("submit", submitUpload);
+
+  el.studentsBody.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-student-action]");
+    if (!button) return;
+
+    const student = state.students.find((item) => item.uid === button.dataset.uid);
+    if (!student) return;
+
+    if (button.dataset.studentAction === "edit") openStudentDialog(student);
+    if (button.dataset.studentAction === "toggle") toggleStudent(student);
+  });
+
+  el.materialsBody.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-material-action]");
+    if (!button) return;
+    materialAction(button.dataset.materialAction, button.dataset.id);
+  });
+
+  observeAuth(processAuthUser);
 }
 
-async function forgot(){
-  const email=el.email.value.trim();
-  if(!email||!el.email.validity.valid){message(el.authMessage,"Enter admin email first.","error");return;}
-  el.loginBtn.disabled=true;el.forgotBtn.disabled=true;
-  message(el.authMessage,"Sending reset email…","loading");
-  try{await sendResetEmail(email);message(el.authMessage,"Password reset email sent.","success");}
-  catch(error){console.error(error);message(el.authMessage,friendlyFunctionError(error),"error");}
-  finally{el.loginBtn.disabled=false;el.forgotBtn.disabled=false;}
+async function bootstrap() {
+  showAuth();
+  el.email.value = ADMIN_EMAIL;
+
+  try {
+    await configureAuthPersistence();
+    bind();
+  } catch (error) {
+    console.error(error);
+    message(el.authMessage, "Admin application could not initialise. Check Firebase configuration.", "error");
+  }
 }
 
-function bind(){
-  el.loginForm.addEventListener("submit",login);el.forgotBtn.addEventListener("click",forgot);el.logoutBtn.addEventListener("click",()=>logout().catch(console.error));el.refreshBtn.addEventListener("click",loadDashboard);
-  el.tabs.forEach(b=>b.addEventListener("click",()=>tab(b.dataset.adminTab)));el.overviewMaterialsBtn.addEventListener("click",()=>tab("materials"));
-  el.addStudentBtn.addEventListener("click",()=>openStudentDialog());el.studentForm.addEventListener("submit",submitStudent);el.studentDialogClose.addEventListener("click",()=>el.studentDialog.close());el.studentDialogCancel.addEventListener("click",()=>el.studentDialog.close());
-  [el.studentSearch,el.studentClassFilter,el.studentStatusFilter].forEach(x=>x.addEventListener("input",renderStudents));
-  [el.materialSearch,el.materialClassFilter,el.materialSubjectFilter,el.materialSectionFilter].forEach(x=>x.addEventListener("input",renderMaterials));el.refreshMaterialsBtn.addEventListener("click",loadMaterials);
-  el.chooseFile.addEventListener("click",()=>el.uploadFile.click());el.uploadFile.addEventListener("change",fileSelected);el.uploadForm.addEventListener("submit",submitUpload);
-  el.studentsBody.addEventListener("click",e=>{const b=e.target.closest("[data-student-action]");if(!b)return;const s=state.students.find(x=>x.uid===b.dataset.uid);if(!s)return;const a=b.dataset.studentAction;if(a==="edit")openStudentDialog(s);if(a==="toggle")toggleStudent(s);});
-  el.materialsBody.addEventListener("click",e=>{const b=e.target.closest("[data-material-action]");if(b)materialAction(b.dataset.materialAction,b.dataset.id);});
-}
-
-(async function bootstrap(){
-  bind();showAuth();
-  try{await configureAuthPersistence();}catch(error){console.warn(error);}
-  listenForAuth(async user=>{await processAuthUser(user);});
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
-})();
+bootstrap().catch((error) => {
+  console.error(error);
+  showAuth();
+  message(el.authMessage, "Admin application failed to initialise. Refresh and try again.", "error");
+});
