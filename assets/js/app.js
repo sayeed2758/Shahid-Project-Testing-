@@ -579,8 +579,8 @@ async function saveProfile(event) {
 }
 
 async function openMaterialAction(material) {
-  if (!material?.storagePath) {
-    setGlobalStatus("This material is missing its storage path.");
+  if (!material?.driveFileId && !material?.storagePath) {
+    setGlobalStatus("This material has no readable source file.");
     setTimeout(() => setGlobalStatus(""), 2200);
     return;
   }
@@ -595,9 +595,7 @@ async function openMaterialAction(material) {
     }
   } catch (error) {
     console.error(error);
-    const message = String(error?.code || "").includes("storage/unauthorized")
-      ? "You are not authorised to access this material."
-      : "The material could not be opened. Please retry.";
+    const message = error?.code === "PDF_ACCESS_DENIED" ? "You are not authorised to access this material." : error?.message === "DRIVE_GATEWAY_NOT_CONFIGURED" ? "This portal is not connected to its Drive gateway yet." : "The material could not be opened. Please retry.";
     setGlobalStatus(message);
   } finally {
     setTimeout(() => setGlobalStatus(""), 2600);
