@@ -363,7 +363,12 @@
           </div>
 
           <div class="profile-card card">
-            <div id="profileAvatar" class="profile-avatar" aria-hidden="true">S</div>
+            <div class="profile-photo-area">
+              <div id="profileAvatar" class="profile-avatar" aria-hidden="true">S</div>
+              <input id="profilePhotoInput" type="file" accept="image/*" hidden>
+              <button id="profilePhotoBtn" class="secondary-button profile-photo-button" type="button">Change Photo</button>
+              <small class="profile-photo-hint">Use a clear photo. It will be fitted inside the square.</small>
+            </div>
 
             <form id="profileForm" novalidate>
               <label class="field">
