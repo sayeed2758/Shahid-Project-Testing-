@@ -22,7 +22,6 @@ import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
 import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
-import { loadPracticeSets, getPracticeSet, savePracticeAttempt, formatDuration, normaliseAnswer } from "./practice.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
 const CLASSES = [
@@ -35,6 +34,26 @@ const CLASSES = [
 
 const SUBJECT_BY_ID = Object.fromEntries(SUBJECTS.map((item) => [item.id, item]));
 const SECTION_BY_ID = Object.fromEntries(SECTIONS.map((item) => [item.id, item]));
+
+// Practice is loaded lazily so a practice-module/network issue can never blank the main app.
+let practiceApiPromise = null;
+function loadPracticeApi() {
+  if (!practiceApiPromise) {
+    practiceApiPromise = import("./practice.js");
+  }
+  return practiceApiPromise;
+}
+
+function formatDuration(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function normaliseAnswer(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
 
 const state = {
   user: null,
@@ -610,6 +629,7 @@ async function submitPractice(autoSubmitted = false) {
   `;
   document.querySelector("#practiceBackResultBtn")?.addEventListener("click", () => redirectTo(`practice/${quiz.class}/${encodeURIComponent(quiz.subject)}`));
   try {
+    const { savePracticeAttempt } = await loadPracticeApi();
     await savePracticeAttempt({ uid: state.user.uid, classNumber: quiz.class, subjectId: quiz.subject, quizId: quiz.id, score, totalPoints, percentage, correct, incorrect, unanswered, timeTakenSeconds: used });
   } catch (error) {
     console.warn("Practice attempt could not be saved", error);
@@ -625,6 +645,7 @@ async function renderPractice(route) {
   elements.practiceSubjectTitle.textContent = `${subject.icon} ${subject.label} Practice`;
   elements.practiceList.innerHTML = makeLoadingState("Loading practice tests…");
   try {
+    const { loadPracticeSets } = await loadPracticeApi();
     const quizzes = await loadPracticeSets(state.assignedClass, subject.id);
     elements.practiceList.innerHTML = quizzes.length ? quizzes.map((quiz) => createPracticeCard(quiz, state.assignedClass, subject.id)).join("") : makeEmptyState("No practice tests yet", "Your teacher will publish timed practice questions here.");
   } catch (error) {
@@ -643,6 +664,7 @@ async function renderPracticeQuiz(route) {
   elements.practiceQuizMeta.textContent = "";
   elements.practiceQuizBody.innerHTML = makeLoadingState("Loading questions…");
   try {
+    const { getPracticeSet } = await loadPracticeApi();
     const quiz = await getPracticeSet(state.assignedClass, subject.id, route.quizId);
     if (!quiz) {
       elements.practiceQuizBody.innerHTML = makeErrorState("This practice test is unavailable or has been unpublished.", "practice-quiz");
