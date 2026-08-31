@@ -154,6 +154,34 @@
             <p class="micro-note"><strong id="totalMaterialsCount">…</strong> active materials in your assigned-class catalogue.</p>
           </section>
 
+
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">LATEST UPDATES</p>
+                <h2>Announcements</h2>
+              </div>
+              <button class="link-button" type="button" data-action="open-notifications">View notifications</button>
+            </div>
+            <div id="homeAnnouncements" class="feature-list"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">YOUR ALERTS</p>
+                <h2>Notifications</h2>
+              </div>
+              <button class="link-button" type="button" data-action="open-notifications">View all</button>
+            </div>
+            <div id="homeNotifications" class="feature-list"></div>
+          </section>
+
+          <section class="section-block">
+            <div id="homeFeatureActions" class="feature-action-grid"></div>
+          </section>
+
           <section class="section-block">
             <div class="section-heading">
               <div>
@@ -203,6 +231,7 @@
           </div>
           <div id="sectionsNotice" class="callout" hidden></div>
           <div id="sectionsGrid" class="section-grid"></div>
+          <div id="practiceShortcut" class="practice-shortcut-wrap" aria-label="Practice"></div>
         </section>
 
         <section id="materialsRoute" class="route" data-route="materials" hidden>
@@ -252,6 +281,46 @@
           <p id="searchSummary" class="search-summary"></p>
           <div id="searchNotice" class="callout" hidden></div>
           <div id="searchResults" class="material-list"></div>
+        </section>
+
+        <section id="notificationsRoute" class="route" data-route="notifications" hidden>
+          <div class="page-heading">
+            <button id="notificationsBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
+            <div><p class="eyebrow">ALERTS</p><h1>Notifications</h1><p class="muted">Announcements and updates for your account.</p></div>
+          </div>
+          <div id="notificationsContent"></div>
+        </section>
+
+        <section id="practiceRoute" class="route" data-route="practice" hidden>
+          <div class="page-heading">
+            <button id="practiceBackBtn" class="back-button" type="button" aria-label="Back to subject">←</button>
+            <div><p class="eyebrow">PRACTICE</p><h1 id="practicePageTitle">Practice</h1><p class="muted">Practice questions with a timer and instant score.</p></div>
+          </div>
+          <div id="practiceContent"></div>
+        </section>
+
+        <section id="practiceTestRoute" class="route" data-route="practice-test" hidden>
+          <div class="page-heading">
+            <button id="practiceTestBackBtn" class="back-button" type="button" aria-label="Back to practice">←</button>
+            <div><p class="eyebrow">PRACTICE TEST</p><h1>Test</h1><p class="muted">Answer the questions before the timer ends.</p></div>
+          </div>
+          <div id="practiceTestContent"></div>
+        </section>
+
+        <section id="performanceRoute" class="route" data-route="performance" hidden>
+          <div class="page-heading">
+            <button id="performanceBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
+            <div><p class="eyebrow">YOUR RESULTS</p><h1>My Performance</h1><p class="muted">Your practice scores and attempt history.</p></div>
+          </div>
+          <div id="performanceContent"></div>
+        </section>
+
+        <section id="plannerRoute" class="route" data-route="planner" hidden>
+          <div class="page-heading">
+            <button id="plannerBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
+            <div><p class="eyebrow">PLAN AHEAD</p><h1>Study Planner</h1><p class="muted">Keep your study tasks in one place.</p></div>
+          </div>
+          <div id="plannerContent"></div>
         </section>
 
         <section id="contactRoute" class="route" data-route="contact" hidden>
