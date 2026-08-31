@@ -32,3 +32,200 @@
   .upload-layout{display:block}.upload-card,.upload-side{padding:16px}.upload-side{margin-top:12px}.drive-verify-row{display:grid;grid-template-columns:1fr;align-items:stretch}.drive-verify-row button{width:100%}.drive-file-status{min-width:0;width:100%}
   .dialog-card{padding:18px}.dialog-actions{flex-direction:column-reverse}.dialog-actions button{width:100%;min-height:44px}.credential-row{align-items:flex-start;flex-direction:column;gap:4px}.credential-row strong{max-width:100%;text-align:left}.global-status{right:10px;left:10px;bottom:10px;text-align:center}
 }
+
+/* =========================================================
+   PREMIUM ADMIN UI POLISH — visual-only enhancement
+   Existing structure, events and functionality unchanged.
+   ========================================================= */
+.admin-root {
+  --admin-ui-shadow: 0 10px 26px rgba(11,35,80,.08);
+  --admin-ui-lift: 0 16px 34px rgba(8,36,93,.13);
+}
+
+.admin-topbar {
+  box-shadow: 0 6px 24px rgba(8,36,93,.06);
+}
+
+.admin-auth-card,
+.admin-stat,
+.admin-info-card,
+.admin-recent-card,
+.upload-card,
+.upload-side,
+.admin-toolbar,
+.dialog-card,
+.detail-info,
+.credentials-panel,
+.auth-note-card {
+  transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+}
+
+.admin-stat:hover,
+.admin-info-card:hover,
+.admin-recent-card:hover,
+.upload-card:hover,
+.upload-side:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--admin-ui-lift);
+}
+
+.admin-stat,
+.admin-info-card,
+.admin-recent-card,
+.upload-card,
+.upload-side,
+.admin-toolbar {
+  background-image: linear-gradient(145deg, rgba(255,255,255,.99), rgba(247,250,255,.98));
+}
+
+.primary-button,
+.secondary-button,
+.outline-button,
+.mini-action,
+.admin-tab,
+.icon-button,
+.retry-button {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  will-change: transform;
+}
+
+.mini-action {
+  box-shadow: 0 4px 0 rgba(11,35,80,.08), 0 8px 16px rgba(11,35,80,.06);
+  transition: transform .14s cubic-bezier(.2,.8,.2,1), box-shadow .14s ease, background-color .14s ease, border-color .14s ease;
+}
+
+.mini-action:hover {
+  transform: translateY(-2px);
+  background: #fff;
+  border-color: #c9d8ee;
+  box-shadow: 0 8px 18px rgba(11,35,80,.10);
+}
+
+.mini-action:active {
+  transform: translateY(2px) scale(.985);
+  box-shadow: 0 2px 5px rgba(11,35,80,.08);
+}
+
+.admin-tab {
+  transition: transform .14s cubic-bezier(.2,.8,.2,1), box-shadow .14s ease, background-color .14s ease, color .14s ease;
+}
+
+.admin-tab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(11,35,80,.09);
+}
+
+.admin-tab:active {
+  transform: translateY(2px) scale(.985);
+}
+
+.admin-tab.is-active {
+  box-shadow: 0 6px 0 rgba(5,28,72,.18), 0 12px 24px rgba(12,52,125,.18);
+}
+
+.admin-topbar .outline-button,
+.dialog-actions .secondary-button,
+.dialog-actions .primary-button {
+  box-shadow: 0 5px 0 rgba(11,35,80,.08), 0 10px 20px rgba(11,35,80,.08);
+}
+
+.admin-topbar .outline-button:hover,
+.dialog-actions .secondary-button:hover,
+.dialog-actions .primary-button:hover {
+  transform: translateY(-2px);
+}
+
+.admin-topbar .outline-button:active,
+.dialog-actions .secondary-button:active,
+.dialog-actions .primary-button:active {
+  transform: translateY(2px) scale(.985);
+}
+
+.admin-auth-card .primary-button,
+.upload-card .primary-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-auth-card .primary-button::after,
+.upload-card .primary-button::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.15) 50%, transparent 70%);
+  transform: translateX(-120%);
+  opacity: 0;
+  transition: transform .45s ease, opacity .18s ease;
+}
+
+.admin-auth-card .primary-button:hover::after,
+.upload-card .primary-button:hover::after {
+  opacity: 1;
+  transform: translateX(120%);
+}
+
+.admin-toolbar input,
+.admin-toolbar select,
+.upload-card input,
+.upload-card select,
+.dialog-card input,
+.dialog-card select {
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease, transform .16s ease;
+}
+
+.admin-toolbar input:focus,
+.admin-toolbar select:focus,
+.upload-card input:focus,
+.upload-card select:focus,
+.dialog-card input:focus,
+.dialog-card select:focus {
+  transform: translateY(-1px);
+}
+
+.status-pill,
+.admin-session-pill,
+.auth-note-card,
+.progress-wrap {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
+}
+
+.table-wrap {
+  border-radius: 18px;
+}
+
+.admin-table tbody tr {
+  transition: background-color .14s ease;
+}
+
+.admin-table tbody tr:hover {
+  background: #f8fbff;
+}
+
+@media (max-width: 699px) {
+  .admin-topbar {
+    box-shadow: 0 5px 20px rgba(8,36,93,.07);
+  }
+
+  .admin-topbar .outline-button {
+    min-height: 44px;
+  }
+
+  .admin-stat,
+  .admin-info-card,
+  .admin-recent-card,
+  .upload-card,
+  .upload-side {
+    box-shadow: 0 9px 22px rgba(11,35,80,.07);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-auth-card .primary-button::after,
+  .upload-card .primary-button::after {
+    display: none;
+  }
+}
