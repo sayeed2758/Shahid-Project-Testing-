@@ -20,7 +20,7 @@ import {
 } from "./catalog.js";
 import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
-import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount } from "./profile.js";
+import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount, uploadStudentPhoto } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
@@ -123,6 +123,8 @@ const elements = {
   profileStudentIdInput: $("#profileStudentIdInput"),
   profileClassInput: $("#profileClassInput"),
   profileAvatar: $("#profileAvatar"),
+  profilePhotoInput: $("#profilePhotoInput"),
+  profilePhotoBtn: $("#profilePhotoBtn"),
   profileMessage: $("#profileMessage"),
   profileSaveBtn: $("#profileSaveBtn"),
   profileRefreshBtn: $("#profileRefreshBtn"),
@@ -561,7 +563,14 @@ function populateProfileForm() {
   elements.profileStudentIdInput.value = state.profile?.studentId || "";
   elements.profileClassInput.value = state.assignedClass ? `Class ${state.assignedClass}` : "Not assigned";
   const initial = name.trim().charAt(0).toUpperCase() || "S";
-  elements.profileAvatar.textContent = initial;
+  const photoURL = String(state.profile?.photoURL || state.user?.photoURL || "").trim();
+  if (photoURL) {
+    elements.profileAvatar.innerHTML = `<img src="${escapeHtml(photoURL)}" alt="Student photo" loading="lazy">`;
+    elements.profileAvatar.classList.add("has-photo");
+  } else {
+    elements.profileAvatar.textContent = initial;
+    elements.profileAvatar.classList.remove("has-photo");
+  }
 }
 
 async function refreshProfileView() {
@@ -590,6 +599,42 @@ async function refreshProfileView() {
     );
   } finally {
     elements.profileRefreshBtn.disabled = false;
+  }
+}
+
+async function changeProfilePhoto() {
+  if (!state.user || state.isBusy || !elements.profilePhotoInput) return;
+  elements.profilePhotoInput.click();
+}
+
+async function onProfilePhotoSelected(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file || !state.user || state.isBusy) return;
+  state.isBusy = true;
+  elements.profilePhotoBtn.disabled = true;
+  elements.profileSaveBtn.disabled = true;
+  elements.profileRefreshBtn.disabled = true;
+  setProfileMessage("Uploading photo…", "loading");
+  try {
+    const photoURL = await uploadStudentPhoto(state.user.uid, file);
+    state.profile = { ...(state.profile || {}), photoURL, updatedAt: Date.now() };
+    populateProfileForm();
+    setProfileMessage("Profile photo saved successfully.", "success");
+  } catch (error) {
+    console.error(error);
+    const messages = {
+      PROFILE_PHOTO_TYPE: "Please choose an image file.",
+      PROFILE_PHOTO_TOO_LARGE: "Photo is too large. Please choose an image under 8 MB.",
+      PROFILE_PHOTO_INVALID: "This photo could not be processed. Please choose another image.",
+      PROFILE_AUTH_REQUIRED: "Your session is no longer valid. Please sign in again.",
+    };
+    setProfileMessage(messages[error?.message] || "Photo could not be saved. Please try again.", "error");
+  } finally {
+    elements.profilePhotoBtn.disabled = false;
+    elements.profileSaveBtn.disabled = false;
+    elements.profileRefreshBtn.disabled = false;
+    state.isBusy = false;
   }
 }
 
@@ -1490,6 +1535,8 @@ function bindEvents() {
   });
 
   on(elements.profileForm, "submit", saveProfile);
+  on(elements.profilePhotoBtn, "click", changeProfilePhoto);
+  on(elements.profilePhotoInput, "change", onProfilePhotoSelected);
   on(elements.profileRefreshBtn, "click", refreshProfileView);
   on(elements.profileDeleteBtn, "click", onDeleteAccount);
   on(elements.profileBackBtn, "click", () => redirectTo("home"));

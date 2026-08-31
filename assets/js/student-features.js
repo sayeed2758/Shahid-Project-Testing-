@@ -239,10 +239,11 @@ export async function renderAnnouncements(el){
 export async function renderNotificationsRoute({rootEl}){
   await loadNotifications();
   const unread=unreadNotifications();
+  const enabled=areNotificationsEnabled();
   rootEl.innerHTML=`
     <div class="feature-toolbar"><div><p class="eyebrow">ALERTS</p><h2>Notifications</h2></div>
       <div class="feature-toolbar-actions">
-        <button class="secondary-button" data-feature-action="enable-notifications">Enable</button>
+        <button class="secondary-button" data-feature-action="enable-notifications" ${enabled?"disabled":""}>${enabled?"Enabled":"Enable"}</button>
         ${unread.length?`<button class="outline-button" data-feature-action="mark-all-read">Mark all read</button>`:""}
       </div>
     </div>
@@ -251,9 +252,33 @@ export async function renderNotificationsRoute({rootEl}){
         <article class="notification-card ${n.read===true?"is-read":""}">
           <div class="notification-icon">${n.type==="announcement"?"📢":n.type==="practice"?"📝":"🆕"}</div>
           <div class="notification-copy"><strong>${escapeHtml(n.title||"Notification")}</strong><p>${escapeHtml(n.message||"")}</p><small>${escapeHtml(dateText(n.createdAt))}</small></div>
-          ${n.read===true?`<span class="notification-read">Read</span>`:`<button class="mini-action" data-feature-action="read-notification" data-id="${escapeHtml(n.id)}">Mark read</button>`}
+          ${n.read===true?`<span class="notification-read">Read</span>`:`<button class="mini-action notification-read-btn" type="button" data-feature-action="read-notification" data-id="${escapeHtml(n.id)}">Mark as read</button>`}
         </article>`).join(""):`<div class="feature-empty">You have no notifications yet.</div>`}
     </div>`;
+  rootEl.querySelectorAll('[data-feature-action="read-notification"]').forEach((button)=>button.addEventListener("click", async (event)=>{
+    event.preventDefault();
+    event.stopPropagation();
+    if(button.disabled) return;
+    button.disabled=true;
+    try { await markNotificationRead(button.dataset.id); await renderNotificationsRoute({rootEl}); }
+    catch (error) { console.error("Notification read failed", error); button.disabled=false; alert("Could not mark this notification as read. Please retry."); }
+  }));
+  rootEl.querySelectorAll('[data-feature-action="mark-all-read"]').forEach((button)=>button.addEventListener("click", async (event)=>{
+    event.preventDefault();
+    event.stopPropagation();
+    if(button.disabled) return;
+    button.disabled=true;
+    try { await markAllNotificationsRead(); await renderNotificationsRoute({rootEl}); }
+    catch (error) { console.error("Mark all read failed", error); button.disabled=false; alert("Could not mark notifications as read. Please retry."); }
+  }));
+  rootEl.querySelectorAll('[data-feature-action="enable-notifications"]').forEach((button)=>button.addEventListener("click", async (event)=>{
+    event.preventDefault();
+    event.stopPropagation();
+    if(button.disabled) return;
+    button.disabled=true;
+    try { await enableNotifications(); await renderNotificationsRoute({rootEl}); }
+    catch (error) { button.disabled=false; alert(error.message==="NOTIFICATION_UNSUPPORTED"?"This browser does not support notifications.":error.message==="NOTIFICATION_DENIED"?"Notification permission was not granted. Please allow notifications in browser settings.":"Notifications could not be enabled. Please try again."); }
+  }));
 }
 
 export async function renderPerformance({rootEl}){
@@ -264,25 +289,19 @@ export async function renderPerformance({rootEl}){
   const best=totalAttempts?Math.max(...attempts.map(a=>Number(a.percentage||0))):0;
   const passed=attempts.filter(a=>Number(a.percentage||0)>=40).length;
   rootEl.innerHTML=`
+    <div class="feature-toolbar"><div><p class="eyebrow">YOUR RESULTS</p><h2>My Performance</h2><p class="muted">Practice test results saved to your student account.</p></div></div>
     <div class="performance-grid">
       <div class="perf-stat card"><span>Total Attempts</span><strong>${totalAttempts}</strong></div>
       <div class="perf-stat card"><span>Average Score</span><strong>${avg}%</strong></div>
       <div class="perf-stat card"><span>Best Score</span><strong>${best}%</strong></div>
       <div class="perf-stat card"><span>Passing Attempts</span><strong>${passed}</strong></div>
     </div>
-    <section class="card performance-table" aria-labelledby="attemptHistoryTitle">
-      <div class="performance-table-head">
-        <div><p class="eyebrow">HISTORY</p><h3 id="attemptHistoryTitle">Attempt History</h3></div>
-      </div>
-      ${attempts.length?`<div class="perf-list">${attempts.slice(0,30).map((a,index)=>`
-        <article class="perf-row">
-          <div class="perf-attempt-main">
-            <span class="perf-attempt-number">${index+1}</span>
-            <div class="perf-attempt-copy"><strong>${escapeHtml(a.title||"Practice Test")}</strong><small>${escapeHtml(subjectLabel(a.subject)||"Practice")} • ${escapeHtml(dateText(a.submittedAt))}</small></div>
-          </div>
-          <div class="perf-score"><strong>${Number(a.score||0)}/${Number(a.total||0)}</strong><span>${Number(a.percentage||0)}%</span></div>
-        </article>`).join("")}</div>`:`<div class="feature-empty">Complete a practice test and your results will appear here.</div>`}
-    </section>`;
+    <div class="card performance-table">
+      <div class="feature-toolbar"><div><h3>Attempt History</h3></div></div>
+      ${attempts.length?`<div class="perf-list">${attempts.slice(0,30).map(a=>`
+        <article class="perf-row"><div><strong>${escapeHtml(a.title||"Practice Test")}</strong><small>${escapeHtml(subjectLabel(a.subject))} • ${escapeHtml(dateText(a.submittedAt))}</small></div>
+          <div class="perf-score"><strong>${Number(a.score||0)}/${Number(a.total||0)}</strong><span>${Number(a.percentage||0)}%</span></div></article>`).join("")}</div>`:`<div class="feature-empty">Complete a practice test and your results will appear here.</div>`}
+    </div>`;
 }
 
 export async function renderPlanner({rootEl}){
@@ -322,7 +341,7 @@ export async function renderPlanner({rootEl}){
 }
 
 export async function renderPracticeList({rootEl,classNumber,subjectId}){
-  rootEl.innerHTML=`<div class="practice-intro"><p class="practice-intro-copy">Answer the questions, beat the timer and get your score instantly.</p></div><div id="practiceListInner"><div class="feature-empty">Loading practice tests…</div></div>`;
+  rootEl.innerHTML=`<div class="feature-toolbar"><div><p class="eyebrow">PRACTICE</p><h2>${escapeHtml(subjectLabel(subjectId))} Practice</h2><p class="muted">Answer questions, beat the timer and get your score instantly.</p></div></div><div id="practiceListInner">${`<div class="feature-empty">Loading practice tests…</div>`}</div>`;
   try{
     const tests=await loadPracticeTests(classNumber,subjectId);
     const inner=rootEl.querySelector("#practiceListInner");
@@ -361,12 +380,14 @@ export async function renderPracticeTest({rootEl,classNumber,subjectId,testId,go
 }
 function renderQuestion(q,i){
   const type=q.type||"mcq";
+  const marks=Number(q.marks||1);
+  const meta=`<div class="practice-question-head"><span class="practice-q-number">Q${i+1}</span><span class="practice-q-marks">${marks} mark${marks===1?"":"s"}</span></div>`;
   if(type==="mcq"){
     const opts=Array.isArray(q.options)?q.options:[];
-    return `<fieldset class="practice-question card"><legend><span>Q${i+1}</span> ${escapeHtml(q.prompt||"Question")}${Number(q.marks||1)>1?` <small>${Number(q.marks||1)} marks</small>`:""}</legend>${opts.map((o,j)=>`<label class="answer-option"><input type="radio" name="q-${i}" value="${escapeHtml(String(j))}"><span>${escapeHtml(o)}</span></label>`).join("")}</fieldset>`;
+    return `<fieldset class="practice-question card"><legend>${meta}<span class="practice-prompt">${escapeHtml(q.prompt||"Question")}</span></legend><div class="answer-options">${opts.map((o,j)=>`<label class="answer-option"><input type="radio" name="q-${i}" value="${escapeHtml(String(j))}"><span class="answer-option-text"><b>${String.fromCharCode(65+j)}</b>${escapeHtml(o)}</span></label>`).join("")}</div></fieldset>`;
   }
-  if(type==="truefalse") return `<fieldset class="practice-question card"><legend><span>Q${i+1}</span> ${escapeHtml(q.prompt||"Question")}</legend><label class="answer-option"><input type="radio" name="q-${i}" value="true"><span>True</span></label><label class="answer-option"><input type="radio" name="q-${i}" value="false"><span>False</span></label></fieldset>`;
-  return `<label class="practice-question card"><span class="question-label"><b>Q${i+1}</b> ${escapeHtml(q.prompt||"Question")}</span><input class="practice-text-answer" data-q-index="${i}" type="text" autocomplete="off" placeholder="Type your answer"></label>`;
+  if(type==="truefalse") return `<fieldset class="practice-question card"><legend>${meta}<span class="practice-prompt">${escapeHtml(q.prompt||"Question")}</span></legend><div class="answer-options"><label class="answer-option"><input type="radio" name="q-${i}" value="true"><span class="answer-option-text">True</span></label><label class="answer-option"><input type="radio" name="q-${i}" value="false"><span class="answer-option-text">False</span></label></div></fieldset>`;
+  return `<div class="practice-question card"><div class="practice-question-head"><span class="practice-q-number">Q${i+1}</span><span class="practice-q-marks">${marks} mark${marks===1?"":"s"}</span></div><div class="practice-prompt">${escapeHtml(q.prompt||"Question")}</div><input class="practice-text-answer" data-q-index="${i}" type="text" autocomplete="off" placeholder="Type your answer"></div>`;
 }
 function collectAnswers(rootEl){
   const answers={};
