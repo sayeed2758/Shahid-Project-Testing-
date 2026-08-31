@@ -264,19 +264,25 @@ export async function renderPerformance({rootEl}){
   const best=totalAttempts?Math.max(...attempts.map(a=>Number(a.percentage||0))):0;
   const passed=attempts.filter(a=>Number(a.percentage||0)>=40).length;
   rootEl.innerHTML=`
-    <div class="feature-toolbar"><div><p class="eyebrow">YOUR RESULTS</p><h2>My Performance</h2><p class="muted">Practice test results saved to your student account.</p></div></div>
     <div class="performance-grid">
       <div class="perf-stat card"><span>Total Attempts</span><strong>${totalAttempts}</strong></div>
       <div class="perf-stat card"><span>Average Score</span><strong>${avg}%</strong></div>
       <div class="perf-stat card"><span>Best Score</span><strong>${best}%</strong></div>
       <div class="perf-stat card"><span>Passing Attempts</span><strong>${passed}</strong></div>
     </div>
-    <div class="card performance-table">
-      <div class="feature-toolbar"><div><h3>Attempt History</h3></div></div>
-      ${attempts.length?`<div class="perf-list">${attempts.slice(0,30).map(a=>`
-        <article class="perf-row"><div><strong>${escapeHtml(a.title||"Practice Test")}</strong><small>${escapeHtml(subjectLabel(a.subject))} • ${escapeHtml(dateText(a.submittedAt))}</small></div>
-          <div class="perf-score"><strong>${Number(a.score||0)}/${Number(a.total||0)}</strong><span>${Number(a.percentage||0)}%</span></div></article>`).join("")}</div>`:`<div class="feature-empty">Complete a practice test and your results will appear here.</div>`}
-    </div>`;
+    <section class="card performance-table" aria-labelledby="attemptHistoryTitle">
+      <div class="performance-table-head">
+        <div><p class="eyebrow">HISTORY</p><h3 id="attemptHistoryTitle">Attempt History</h3></div>
+      </div>
+      ${attempts.length?`<div class="perf-list">${attempts.slice(0,30).map((a,index)=>`
+        <article class="perf-row">
+          <div class="perf-attempt-main">
+            <span class="perf-attempt-number">${index+1}</span>
+            <div class="perf-attempt-copy"><strong>${escapeHtml(a.title||"Practice Test")}</strong><small>${escapeHtml(subjectLabel(a.subject)||"Practice")} • ${escapeHtml(dateText(a.submittedAt))}</small></div>
+          </div>
+          <div class="perf-score"><strong>${Number(a.score||0)}/${Number(a.total||0)}</strong><span>${Number(a.percentage||0)}%</span></div>
+        </article>`).join("")}</div>`:`<div class="feature-empty">Complete a practice test and your results will appear here.</div>`}
+    </section>`;
 }
 
 export async function renderPlanner({rootEl}){
@@ -316,7 +322,7 @@ export async function renderPlanner({rootEl}){
 }
 
 export async function renderPracticeList({rootEl,classNumber,subjectId}){
-  rootEl.innerHTML=`<div class="feature-toolbar"><div><p class="eyebrow">PRACTICE</p><h2>${escapeHtml(subjectLabel(subjectId))} Practice</h2><p class="muted">Answer questions, beat the timer and get your score instantly.</p></div></div><div id="practiceListInner">${`<div class="feature-empty">Loading practice tests…</div>`}</div>`;
+  rootEl.innerHTML=`<div class="practice-intro"><p class="practice-intro-copy">Answer the questions, beat the timer and get your score instantly.</p></div><div id="practiceListInner"><div class="feature-empty">Loading practice tests…</div></div>`;
   try{
     const tests=await loadPracticeTests(classNumber,subjectId);
     const inner=rootEl.querySelector("#practiceListInner");
