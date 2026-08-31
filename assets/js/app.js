@@ -22,6 +22,7 @@ import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
 import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
+import { loadPracticeSets, getPracticeSet, savePracticeAttempt, formatDuration, normaliseAnswer } from "./practice.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
 const CLASSES = [
@@ -43,6 +44,12 @@ const state = {
   catalogLoadedFor: null,
   recent: [],
   isBusy: false,
+  practiceQuiz: null,
+  practiceAnswers: {},
+  practiceTimerId: null,
+  practiceStartedAt: 0,
+  practiceRemainingSeconds: 0,
+  practiceSubmitted: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -69,6 +76,8 @@ const elements = {
   classesRoute: $("#classesRoute"),
   subjectsRoute: $("#subjectsRoute"),
   sectionsRoute: $("#sectionsRoute"),
+  practiceRoute: $("#practiceRoute"),
+  practiceQuizRoute: $("#practiceQuizRoute"),
   materialsRoute: $("#materialsRoute"),
   materialDetailRoute: $("#materialDetailRoute"),
   searchRoute: $("#searchRoute"),
@@ -79,6 +88,13 @@ const elements = {
   classesGrid: $("#classesGrid"),
   subjectsGrid: $("#subjectsGrid"),
   sectionsGrid: $("#sectionsGrid"),
+  practiceSubjectTitle: $("#practiceSubjectTitle"),
+  practiceList: $("#practiceList"),
+  practiceNotice: $("#practiceNotice"),
+  practiceQuizTitle: $("#practiceQuizTitle"),
+  practiceQuizMeta: $("#practiceQuizMeta"),
+  practiceQuizNotice: $("#practiceQuizNotice"),
+  practiceQuizBody: $("#practiceQuizBody"),
   materialsList: $("#materialsList"),
   selectedClassTitle: $("#selectedClassTitle"),
   selectedSubjectTitle: $("#selectedSubjectTitle"),
@@ -130,6 +146,8 @@ const elements = {
   classesBackBtn: $("#classesBackBtn"),
   subjectsBackBtn: $("#subjectsBackBtn"),
   sectionsBackBtn: $("#sectionsBackBtn"),
+  practiceBackBtn: $("#practiceBackBtn"),
+  practiceQuizBackBtn: $("#practiceQuizBackBtn"),
   materialsBackBtn: $("#materialsBackBtn"),
   materialDetailBackBtn: $("#materialDetailBackBtn"),
   searchBackBtn: $("#searchBackBtn"),
@@ -244,6 +262,12 @@ function parseRoute() {
   if (parts[0] === "class" && parts[1]) return { name: "subjects", classNumber: Number(parts[1]) };
   if (parts[0] === "subject" && parts[1] && parts[2]) {
     return { name: "sections", classNumber: Number(parts[1]), subjectId: parts[2] };
+  }
+  if (parts[0] === "practice" && parts[1] && parts[2]) {
+    return { name: "practice", classNumber: Number(parts[1]), subjectId: parts[2] };
+  }
+  if (parts[0] === "practice-quiz" && parts[1] && parts[2] && parts[3]) {
+    return { name: "practice-quiz", classNumber: Number(parts[1]), subjectId: parts[2], quizId: parts[3] };
   }
   if (parts[0] === "section" && parts[1] && parts[2] && parts[3]) {
     return {
@@ -422,9 +446,216 @@ function createSectionCard(section, classNumber, subjectId) {
 }
 
 function renderSections(classNumber, subjectId) {
-  elements.sectionsGrid.innerHTML = SECTIONS.map((section) =>
+  const materialCards = SECTIONS.map((section) =>
     createSectionCard(section, classNumber, subjectId)
   ).join("");
+  const practiceCard = `
+    <button class="section-card section-practice" type="button"
+      data-action="open-practice"
+      data-class-number="${classNumber}"
+      data-subject-id="${escapeHtml(subjectId)}">
+      <span class="section-icon" aria-hidden="true">✦</span>
+      <span class="section-copy">
+        <strong>Practice</strong>
+        <span>Timed questions • Instant score</span>
+        <small>MCQ • True/False • Fill in the Blanks</small>
+      </span>
+      <span class="class-arrow" aria-hidden="true">→</span>
+    </button>
+  `;
+  elements.sectionsGrid.innerHTML = materialCards + practiceCard;
+}
+
+function createPracticeCard(quiz, classNumber, subjectId) {
+  const questionCount = quiz.questions?.length || 0;
+  const minutes = Math.max(1, Math.round((Number(quiz.durationSeconds) || 60) / 60));
+  return `
+    <button class="practice-card" type="button" data-action="open-practice-quiz"
+      data-class-number="${classNumber}" data-subject-id="${escapeHtml(subjectId)}" data-quiz-id="${escapeHtml(quiz.id)}">
+      <span class="practice-icon" aria-hidden="true">✦</span>
+      <span class="practice-copy">
+        <strong>${escapeHtml(quiz.title || "Practice Test")}</strong>
+        <span>${questionCount} question${questionCount === 1 ? "" : "s"} • ${minutes} minute${minutes === 1 ? "" : "s"}</span>
+        <small>Tap to start the timed practice.</small>
+      </span>
+      <span class="practice-arrow" aria-hidden="true">→</span>
+    </button>
+  `;
+}
+
+function clearPracticeTimer() {
+  if (state.practiceTimerId) window.clearInterval(state.practiceTimerId);
+  state.practiceTimerId = null;
+}
+
+function resetPracticeSession() {
+  clearPracticeTimer();
+  state.practiceQuiz = null;
+  state.practiceAnswers = {};
+  state.practiceStartedAt = 0;
+  state.practiceRemainingSeconds = 0;
+  state.practiceSubmitted = false;
+}
+
+function startPracticeTimer() {
+  clearPracticeTimer();
+  const timer = document.querySelector("#practiceTimerValue");
+  const submitBtn = document.querySelector("#practiceSubmitBtn");
+  state.practiceStartedAt = Date.now();
+  state.practiceRemainingSeconds = Number(state.practiceQuiz.durationSeconds) || 60;
+  const tick = () => {
+    state.practiceRemainingSeconds = Math.max(0, state.practiceRemainingSeconds - 1);
+    if (timer) timer.textContent = formatDuration(state.practiceRemainingSeconds);
+    if (state.practiceRemainingSeconds <= 0) {
+      clearPracticeTimer();
+      if (submitBtn) submitBtn.disabled = true;
+      submitPractice(true);
+    }
+  };
+  if (timer) timer.textContent = formatDuration(state.practiceRemainingSeconds);
+  state.practiceTimerId = window.setInterval(tick, 1000);
+}
+
+function renderPracticeQuiz() {
+  const quiz = state.practiceQuiz;
+  if (!quiz) return;
+  const questions = quiz.questions || [];
+  const totalPoints = questions.reduce((sum, q) => sum + (Number(q.points) || 1), 0);
+  elements.practiceQuizBody.innerHTML = `
+    <div class="practice-shell">
+      <div class="practice-topbar">
+        <div>
+          <div class="practice-progress"><span>${questions.length} Question${questions.length === 1 ? "" : "s"}</span><span>Total ${totalPoints} mark${totalPoints === 1 ? "" : "s"}</span></div>
+          <strong>Answer all you can before time ends.</strong>
+        </div>
+        <div class="practice-timer"><span>Time left</span><strong id="practiceTimerValue">${formatDuration(state.practiceRemainingSeconds)}</strong></div>
+      </div>
+      ${questions.map((question, index) => {
+        const name = `practice-q-${question.id}`;
+        if (question.type === "fill-blank") {
+          return `<article class="practice-question-card"><div class="practice-question-head"><span class="practice-question-number">Question ${index + 1}</span><span class="practice-points">${Number(question.points) || 1} mark${Number(question.points) === 1 ? "" : "s"}</span></div><h2 class="practice-question-text">${escapeHtml(question.question)}</h2><input class="practice-fill-input" data-practice-answer="${escapeHtml(question.id)}" type="text" autocomplete="off" placeholder="Type your answer"></article>`;
+        }
+        const options = question.options || ["True", "False"];
+        return `<article class="practice-question-card"><div class="practice-question-head"><span class="practice-question-number">Question ${index + 1}</span><span class="practice-points">${Number(question.points) || 1} mark${Number(question.points) === 1 ? "" : "s"}</span></div><h2 class="practice-question-text">${escapeHtml(question.question)}</h2><div class="practice-options">${options.map((option, optionIndex) => `<label class="practice-option"><input type="radio" name="${escapeHtml(name)}" value="${optionIndex}" data-practice-answer="${escapeHtml(question.id)}"><span>${escapeHtml(option)}</span></label>`).join("")}</div></article>`;
+      }).join("")}
+      <button id="practiceSubmitBtn" class="primary-button practice-submit" type="button">Submit Practice</button>
+    </div>
+  `;
+  bindPracticeInputs();
+  startPracticeTimer();
+}
+
+function bindPracticeInputs() {
+  elements.practiceQuizBody.querySelectorAll("[data-practice-answer]").forEach((input) => {
+    const questionId = input.dataset.practiceAnswer;
+    if (input.type === "radio") {
+      input.addEventListener("change", () => { state.practiceAnswers[questionId] = Number(input.value); });
+    } else {
+      input.addEventListener("input", () => { state.practiceAnswers[questionId] = input.value; });
+    }
+  });
+  elements.practiceQuizBody.querySelector("#practiceSubmitBtn")?.addEventListener("click", () => submitPractice(false));
+}
+
+async function submitPractice(autoSubmitted = false) {
+  if (state.practiceSubmitted || !state.practiceQuiz) return;
+  state.practiceSubmitted = true;
+  clearPracticeTimer();
+  const quiz = state.practiceQuiz;
+  const questions = quiz.questions || [];
+  let score = 0;
+  let totalPoints = 0;
+  let correct = 0;
+  let incorrect = 0;
+  let unanswered = 0;
+  const review = [];
+  questions.forEach((question, index) => {
+    const points = Number(question.points) || 1;
+    totalPoints += points;
+    const given = state.practiceAnswers[question.id];
+    let isAnswered = given !== undefined && String(given).trim() !== "";
+    let isCorrect = false;
+    if (question.type === "fill-blank") {
+      isCorrect = isAnswered && (question.answers || []).some((answer) => normaliseAnswer(answer) === normaliseAnswer(given));
+    } else {
+      isCorrect = isAnswered && Number(given) === Number(question.correctIndex);
+    }
+    if (!isAnswered) unanswered += 1;
+    else if (isCorrect) { correct += 1; score += points; }
+    else incorrect += 1;
+    const givenText = !isAnswered ? "Not answered" : question.type === "fill-blank" ? String(given) : (question.options?.[Number(given)] || "Not answered");
+    const correctText = question.type === "fill-blank" ? ((question.answers || [""])[0] || "") : (question.options?.[Number(question.correctIndex)] || "");
+    review.push({ index: index + 1, isCorrect, question: question.question, givenText, correctText });
+  });
+  const percentage = totalPoints ? Math.round((score / totalPoints) * 100) : 0;
+  const elapsed = state.practiceStartedAt ? Math.max(0, Math.round((Date.now() - state.practiceStartedAt) / 1000)) : 0;
+  const used = Math.min(Number(quiz.durationSeconds) || elapsed, elapsed);
+  elements.practiceQuizBody.innerHTML = `
+    <div class="practice-result">
+      <p class="eyebrow">${autoSubmitted ? "TIME UP" : "PRACTICE COMPLETE"}</p>
+      <div class="practice-result-score"><strong>${percentage}%</strong><span>Score</span></div>
+      <h2>${escapeHtml(percentage >= 70 ? "Great work!" : percentage >= 40 ? "Good effort!" : "Keep practising!" )}</h2>
+      <p class="muted">You scored <strong>${score}/${totalPoints}</strong> marks in ${formatDuration(used)}.</p>
+      <div class="practice-result-grid">
+        <div class="practice-result-stat"><strong>${correct}</strong><span>Correct</span></div>
+        <div class="practice-result-stat"><strong>${incorrect}</strong><span>Incorrect</span></div>
+        <div class="practice-result-stat"><strong>${unanswered}</strong><span>Unanswered</span></div>
+        <div class="practice-result-stat"><strong>${formatDuration(used)}</strong><span>Time used</span></div>
+      </div>
+      <div class="practice-review">
+        ${review.map((item) => `<div class="practice-review-item ${item.isCorrect ? "correct" : item.givenText === "Not answered" ? "" : "incorrect"}"><strong>${item.index}. ${escapeHtml(item.question)}</strong><span>Your answer: ${escapeHtml(item.givenText)}${item.isCorrect ? " ✓" : ` • Correct: ${escapeHtml(item.correctText)}`}</span></div>`).join("")}
+      </div>
+      <button id="practiceBackResultBtn" class="secondary-button full-width" type="button">Back to Practice</button>
+    </div>
+  `;
+  document.querySelector("#practiceBackResultBtn")?.addEventListener("click", () => redirectTo(`practice/${quiz.class}/${encodeURIComponent(quiz.subject)}`));
+  try {
+    await savePracticeAttempt({ uid: state.user.uid, classNumber: quiz.class, subjectId: quiz.subject, quizId: quiz.id, score, totalPoints, percentage, correct, incorrect, unanswered, timeTakenSeconds: used });
+  } catch (error) {
+    console.warn("Practice attempt could not be saved", error);
+  }
+}
+
+async function renderPractice(route) {
+  if (!prepareSubjectsRoute(route)) return;
+  const subject = getSubject(route.subjectId);
+  if (!subject) { redirectTo(`class/${state.assignedClass}`); return; }
+  resetPracticeSession();
+  setRouteVisibility("practice");
+  elements.practiceSubjectTitle.textContent = `${subject.icon} ${subject.label} Practice`;
+  elements.practiceList.innerHTML = makeLoadingState("Loading practice tests…");
+  try {
+    const quizzes = await loadPracticeSets(state.assignedClass, subject.id);
+    elements.practiceList.innerHTML = quizzes.length ? quizzes.map((quiz) => createPracticeCard(quiz, state.assignedClass, subject.id)).join("") : makeEmptyState("No practice tests yet", "Your teacher will publish timed practice questions here.");
+  } catch (error) {
+    console.error(error);
+    elements.practiceList.innerHTML = makeErrorState(error?.message === "NETWORK_TIMEOUT" ? "The request took too long." : "Practice tests could not be loaded.", "practice");
+  }
+}
+
+async function renderPracticeQuiz(route) {
+  if (!prepareSubjectsRoute(route)) return;
+  const subject = getSubject(route.subjectId);
+  if (!subject) { redirectTo(`class/${state.assignedClass}`); return; }
+  resetPracticeSession();
+  setRouteVisibility("practice-quiz");
+  elements.practiceQuizTitle.textContent = "Loading practice…";
+  elements.practiceQuizMeta.textContent = "";
+  elements.practiceQuizBody.innerHTML = makeLoadingState("Loading questions…");
+  try {
+    const quiz = await getPracticeSet(state.assignedClass, subject.id, route.quizId);
+    if (!quiz) {
+      elements.practiceQuizBody.innerHTML = makeErrorState("This practice test is unavailable or has been unpublished.", "practice-quiz");
+      return;
+    }
+    state.practiceQuiz = quiz;
+    elements.practiceQuizTitle.textContent = quiz.title;
+    elements.practiceQuizMeta.textContent = `${subject.label} • ${quiz.questions.length} question${quiz.questions.length === 1 ? "" : "s"}`;
+    renderPracticeQuiz();
+  } catch (error) {
+    console.error(error);
+    elements.practiceQuizBody.innerHTML = makeErrorState("Could not load this practice test. Please retry.", "practice-quiz");
+  }
 }
 
 function createMaterialCard(material) {
@@ -763,6 +994,14 @@ async function renderRoute(route) {
         break;
       }
 
+      case "practice":
+        await renderPractice(route);
+        break;
+
+      case "practice-quiz":
+        await renderPracticeQuiz(route);
+        break;
+
       case "materials": {
         if (!prepareSubjectsRoute(route)) return;
         const subject = getSubject(route.subjectId);
@@ -1014,6 +1253,18 @@ function bindDelegatedActions() {
       return;
     }
 
+    if (action === "open-practice") {
+      const classNumber = Number(button.dataset.classNumber);
+      if (ensureAssignedClass(classNumber)) redirectTo(`practice/${classNumber}/${encodeURIComponent(button.dataset.subjectId)}`);
+      return;
+    }
+
+    if (action === "open-practice-quiz") {
+      const classNumber = Number(button.dataset.classNumber);
+      if (ensureAssignedClass(classNumber)) redirectTo(`practice-quiz/${classNumber}/${encodeURIComponent(button.dataset.subjectId)}/${encodeURIComponent(button.dataset.quizId)}`);
+      return;
+    }
+
     if (action === "open-section") {
       const classNumber = Number(button.dataset.classNumber);
       if (ensureAssignedClass(classNumber)) {
@@ -1043,6 +1294,8 @@ function bindDelegatedActions() {
     if (button.dataset.retry) {
       const retry = button.dataset.retry;
       if (retry === "subjects") await renderRoute({ name: "subjects", classNumber: state.assignedClass });
+      else if (retry === "practice") await renderRoute(parseRoute());
+      else if (retry === "practice-quiz") await renderRoute(parseRoute());
       else if (retry === "sections") {
         const parsed = parseRoute();
         await renderRoute(parsed);
@@ -1205,7 +1458,7 @@ async function handleAuthenticatedUser(user) {
     const current = parseRoute();
     const safeRoute = ["home", "classes", "search", "recent", "contact", "profile"].includes(current.name)
       ? current
-      : current.name === "subjects" || current.name === "sections" || current.name === "materials" || current.name === "material-detail"
+      : current.name === "subjects" || current.name === "sections" || current.name === "practice" || current.name === "practice-quiz" || current.name === "materials" || current.name === "material-detail"
         ? current
         : { name: "home" };
 
@@ -1235,6 +1488,7 @@ function handleLoggedOut() {
   state.catalog = [];
   state.catalogLoadedFor = null;
   state.recent = [];
+  resetPracticeSession();
   showView("auth");
   setAuthControlsDisabled(false);
   setButtonBusy(elements.loginBtn, false);
@@ -1256,6 +1510,14 @@ function bindEvents() {
   elements.viewClassesBtn.addEventListener("click", () => redirectTo("classes"));
   elements.classesBackBtn.addEventListener("click", () => redirectTo("home"));
   elements.subjectsBackBtn.addEventListener("click", () => redirectTo("classes"));
+  elements.practiceBackBtn.addEventListener("click", () => {
+    const parsed = parseRoute();
+    redirectTo(`subject/${parsed.classNumber || state.assignedClass}/${parsed.subjectId}`);
+  });
+  elements.practiceQuizBackBtn.addEventListener("click", () => {
+    const parsed = parseRoute();
+    redirectTo(`practice/${parsed.classNumber || state.assignedClass}/${parsed.subjectId}`);
+  });
   elements.sectionsBackBtn.addEventListener("click", () => {
     const parsed = parseRoute();
     redirectTo(`class/${parsed.classNumber || state.assignedClass}`);
