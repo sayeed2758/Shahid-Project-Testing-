@@ -2,7 +2,6 @@
   "rules": {
     ".read": false,
     ".write": false,
-
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || (auth.token.email === 'creativesayeedd@gmail.com'))",
@@ -13,39 +12,82 @@
         }
       }
     },
-
     "studentIndex": {
       "$studentId": {
         ".read": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'"
       }
     },
-
     "catalog": {
       "$classKey": {
         ".read": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         "$materialId": {
-          ".validate": "newData.hasChildren(['title','class','subject','section','fileName','type','active','createdAt','updatedAt']) && (newData.hasChildren(['driveFileId','storageType']) || newData.hasChildren(['storagePath'])) && newData.child('class').val() == $classKey.replace('class-', '') && (newData.child('subject').val() === 'sst' || newData.child('subject').val() === 'science' || newData.child('subject').val() === 'math' || newData.child('subject').val() === 'english') && (newData.child('section').val() === 'detailed' || newData.child('section').val() === 'short' || newData.child('section').val() === 'worksheet')"
+          ".validate": "newData.hasChildren(['title','class','subject','section','fileName','type','active','createdAt','updatedAt']) && (newData.hasChildren(['driveFileId','storageType']) || newData.hasChildren(['storagePath'])) && newData.child('class').val() == $classKey.replace('class-', '') && (newData.child('subject').val() === 'sst' || newData.child('subject').val() === 'science' || newData.child('subject').val() === 'math' || newData.child('subject').val() === 'english') && (newData.child('section').val() === 'detailed' || newData.child('section').val() === 'short' || newData.child('section').val() === 'pyq' || newData.child('section').val() === 'worksheet' || newData.child('section').val() === 'exam-paper')"
         }
       }
     },
-
     "publishedCatalog": {
       "$classKey": {
-        ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() === true && String(root.child('users').child(auth.uid).child('class').val()) === $classKey.replace('class-', '')))"
-        ,".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
+        ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() === true && String(root.child('users').child(auth.uid).child('class').val()) === $classKey.replace('class-', '')))",
+        ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         "$materialId": {
           ".validate": "newData.hasChildren(['title','class','subject','section','fileName','type','active','createdAt','updatedAt']) && (newData.hasChildren(['driveFileId','storageType']) || newData.hasChildren(['storagePath'])) && newData.child('active').val() === true"
         }
       }
     },
-
     "recent": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || (auth.token.email === 'creativesayeedd@gmail.com'))",
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'creativesayeedd@gmail.com')",
         ".write": "auth != null && auth.uid === $uid",
-        ".indexOn": ["lastOpened"]
+        ".indexOn": [
+          "lastOpened"
+        ]
+      }
+    },
+    "materialSeen": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'creativesayeedd@gmail.com')",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'creativesayeedd@gmail.com')",
+        "$notificationId": {
+          ".validate": "newData.hasChildren(['title','message','type','createdAt','read']) && newData.child('title').isString() && newData.child('message').isString() && newData.child('read').isBoolean()"
+        }
+      }
+    },
+    "practiceCatalog": {
+      "$classKey": {
+        ".read": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
+        ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'"
+      }
+    },
+    "publishedPractice": {
+      "$classKey": {
+        ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() === true && String(root.child('users').child(auth.uid).child('class').val()) === $classKey.replace('class-', '')))",
+        ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'"
+      }
+    },
+    "practiceAttempts": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'creativesayeedd@gmail.com')",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "studyPlans": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "announcements": {
+      ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() === true))",
+      "$announcementId": {
+        ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'"
       }
     }
   }
