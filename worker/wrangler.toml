@@ -7,3 +7,7 @@ APP_ORIGIN = "https://sayeed2758.github.io"
 FIREBASE_PROJECT_ID = "ezee-vision-champua"
 FIREBASE_DATABASE_URL = "https://ezee-vision-champua-default-rtdb.asia-southeast1.firebasedatabase.app"
 ADMIN_EMAIL = "creativesayeedd@gmail.com"
+
+# Set this secret before deploying: npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON
+# Set this variable to the Firebase Web API key used by the web app.
+FIREBASE_WEB_API_KEY = "AIzaSyAAXE62v0nC_T0QqbUh5hJ9gDHoahMFOdc"
