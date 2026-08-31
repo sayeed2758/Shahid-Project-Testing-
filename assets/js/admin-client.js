@@ -20,7 +20,9 @@ const SUBJECTS = [
 const SECTIONS = [
   { id: "detailed", label: "Detailed Notes" },
   { id: "short", label: "Short Notes" },
+  { id: "pyq", label: "PYQ's" },
   { id: "worksheet", label: "Worksheet" },
+  { id: "exam-paper", label: "Exam Paper" },
 ];
 const CLASSES = [6, 7, 8, 9, 10];
 export { SUBJECTS, SECTIONS, CLASSES, ADMIN_EMAIL };

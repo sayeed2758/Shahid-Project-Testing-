@@ -8,9 +8,11 @@ export const SUBJECTS = [
   { id: "english", label: "English", icon: "📚", description: "Language & literature" },
 ];
 export const SECTIONS = [
-  { id: "detailed", label: "Detailed Notes", icon: "▤", tone: "notes" },
-  { id: "short", label: "Short Notes", icon: "▥", tone: "notes" },
-  { id: "worksheet", label: "Worksheet", icon: "⇩", tone: "worksheet" },
+  { id: "detailed", label: "Detailed Notes", icon: "▤", tone: "notes", downloadable: false },
+  { id: "short", label: "Short Notes", icon: "▥", tone: "notes", downloadable: false },
+  { id: "pyq", label: "PYQ's", icon: "📝", tone: "notes", downloadable: false },
+  { id: "worksheet", label: "Worksheet", icon: "⇩", tone: "worksheet", downloadable: true },
+  { id: "exam-paper", label: "Exam Paper", icon: "📄", tone: "worksheet", downloadable: true },
 ];
 const normaliseClass = value => { const n = Number.parseInt(String(value ?? "").replace(/[^\d]/g, ""), 10); return Number.isInteger(n) && n >= 6 && n <= 10 ? n : null; };
 const validSubject = value => SUBJECTS.some(x => x.id === String(value).toLowerCase()) ? String(value).toLowerCase() : null;

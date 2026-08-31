@@ -251,7 +251,7 @@ async function loadMaterials(showMessage = false) {
 function renderStats() {
   const materials = state.materials;
   el.statMaterials.textContent = String(materials.length);
-  el.statNotes.textContent = String(materials.filter((item) => item.section !== "worksheet").length);
+  el.statNotes.textContent = String(materials.filter((item) => !["worksheet", "exam-paper"].includes(item.section)).length);
   el.statWorksheets.textContent = String(materials.filter((item) => item.section === "worksheet").length);
   el.statPublished.textContent = String(materials.filter((item) => item.active).length);
   el.statStorage.textContent = fmtSize(materials.reduce((total, item) => total + Number(item.fileSize || 0), 0));

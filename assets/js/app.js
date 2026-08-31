@@ -384,10 +384,10 @@ function createSectionCard(section, classNumber, subjectId) {
     (material) => material.subject === subjectId && material.section === section.id
   ).length;
 
-  const isNotes = section.id !== "worksheet";
+  const isDownloadable = Boolean(section.downloadable);
 
   return `
-    <button class="section-card ${isNotes ? "section-notes" : "section-worksheet"}" type="button"
+    <button class="section-card ${isDownloadable ? "section-worksheet" : "section-notes"}" type="button"
       data-action="open-section"
       data-class-number="${classNumber}"
       data-subject-id="${subjectId}"
@@ -395,7 +395,7 @@ function createSectionCard(section, classNumber, subjectId) {
       <span class="section-icon" aria-hidden="true">${section.icon}</span>
       <span class="section-copy">
         <strong>${escapeHtml(section.label)}</strong>
-        <span>${isNotes ? "Read-only study material" : "Practice material"}</span>
+        <span>${isDownloadable ? "Downloadable practice paper" : "Read-only study material"}</span>
         <small>${count} file${count === 1 ? "" : "s"}</small>
       </span>
       <span class="class-arrow" aria-hidden="true">→</span>
@@ -420,8 +420,8 @@ function createMaterialCard(material) {
       data-subject-id="${escapeHtml(material.subject)}"
       data-section-id="${escapeHtml(material.section)}"
       data-material-id="${escapeHtml(material.id)}">
-      <span class="material-icon ${section?.tone === "worksheet" ? "worksheet" : "notes"}" aria-hidden="true">
-        ${section?.tone === "worksheet" ? "⇩" : "▤"}
+      <span class="material-icon ${section?.downloadable ? "worksheet" : "notes"}" aria-hidden="true">
+        ${section?.icon || (section?.downloadable ? "⇩" : "▤")}
       </span>
       <span class="material-copy">
         <strong>${escapeHtml(material.title)}</strong>
@@ -578,6 +578,31 @@ async function saveProfile(event) {
   }
 }
 
+function downloadMaterial(material) {
+  const driveFileId = String(material?.driveFileId || "").trim();
+  if (!/^[A-Za-z0-9_-]{10,200}$/.test(driveFileId)) {
+    setGlobalStatus("This material has no valid download source.");
+    setTimeout(() => setGlobalStatus(""), 2200);
+    return;
+  }
+
+  const safeName = String(material?.title || "learning-material")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\\s+/g, " ")
+    .trim()
+    .slice(0, 120) || "learning-material";
+
+  const url = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(driveFileId)}`;
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  anchor.download = `${safeName}.pdf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
 async function openMaterialAction(material) {
   if (!material?.driveFileId && !material?.storagePath) {
     setGlobalStatus("This material has no readable source file.");
@@ -590,7 +615,7 @@ async function openMaterialAction(material) {
     await readerController.open(material, getStudentWatermark());
   } catch (error) {
     console.error(error);
-    const message = error?.code === "PDF_ACCESS_DENIED" ? "You are not authorised to access this material." : error?.message === "DRIVE_GATEWAY_NOT_CONFIGURED" ? "This portal is not connected to its Drive gateway yet." : "The material could not be opened. Please retry.";
+    const message = error?.code === "PDF_ACCESS_DENIED" ? "You are not authorised to access this material." : error?.message === "DRIVE_GATEWAY_NOT_CONFIGURED" ? "This material is not configured for the app viewer yet." : "The material could not be opened. Please retry.";
     setGlobalStatus(message);
   } finally {
     setTimeout(() => setGlobalStatus(""), 2600);
@@ -792,18 +817,21 @@ async function renderRoute(route) {
               </div>
 
               <div class="detail-info">
-                <strong>${section.id === "worksheet" ? "Google Drive PDF Viewer" : "Google Drive PDF Viewer"}</strong>
+                <strong>Google Drive PDF Viewer</strong>
                 <span>
-                  ${section.id === "worksheet"
-                    ? "Worksheets open inside the app in the Google Drive PDF viewer. Download and print stay controlled by the Drive sharing settings."
-                    : "Detailed and short notes open inside the app in the Google Drive PDF viewer. Download and print stay controlled by the Drive sharing settings."}
+                  ${section.downloadable
+                    ? "This paper opens inside the app and also has a download option."
+                    : "This study material opens inside the app. Download and print remain controlled by the Drive sharing settings."}
                 </span>
               </div>
 
-              <div class="material-action-row">
+              <div class="material-action-row ${section.downloadable ? "has-download" : ""}">
                 <button class="primary-button material-action-button" id="openMaterialNowBtn" type="button">
                   Open PDF in App
                 </button>
+                ${section.downloadable
+                  ? `<button class="secondary-button material-action-button" id="downloadMaterialBtn" type="button">Download PDF</button>`
+                  : ""}
               </div>
             </div>
           `;
@@ -811,7 +839,7 @@ async function renderRoute(route) {
           const openMaterialNowBtn = document.querySelector("#openMaterialNowBtn");
           openMaterialNowBtn.addEventListener("click", async () => {
             openMaterialNowBtn.disabled = true;
-            openMaterialNowBtn.textContent = section.id === "worksheet" ? "Preparing…" : "Opening…";
+            openMaterialNowBtn.textContent = "Opening…";
             try {
               await openMaterialAction(material);
               saveRecent(state.user.uid, material).catch((error) => console.warn("Recent save failed:", error));
@@ -820,6 +848,13 @@ async function renderRoute(route) {
               openMaterialNowBtn.textContent = "Open PDF in App";
             }
           });
+
+          if (section.downloadable) {
+            const downloadMaterialBtn = document.querySelector("#downloadMaterialBtn");
+            downloadMaterialBtn?.addEventListener("click", () => {
+              downloadMaterial(material);
+            });
+          }
         } catch (error) {
           console.error(error);
           elements.materialDetailBody.innerHTML = makeErrorState(
