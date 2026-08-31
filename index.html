@@ -205,6 +205,32 @@
           <div id="sectionsGrid" class="section-grid"></div>
         </section>
 
+        <section id="practiceRoute" class="route" data-route="practice" hidden>
+          <div class="page-heading">
+            <button id="practiceBackBtn" class="back-button" type="button" aria-label="Back to subject list">←</button>
+            <div>
+              <p class="eyebrow">PRACTICE ZONE</p>
+              <h1 id="practiceSubjectTitle">Practice</h1>
+              <p class="muted">Answer the questions, beat the timer and see your score instantly.</p>
+            </div>
+          </div>
+          <div id="practiceNotice" class="callout" hidden></div>
+          <div id="practiceList" class="practice-list"></div>
+        </section>
+
+        <section id="practiceQuizRoute" class="route" data-route="practice-quiz" hidden>
+          <div class="page-heading">
+            <button id="practiceQuizBackBtn" class="back-button" type="button" aria-label="Back to practice">←</button>
+            <div>
+              <p class="eyebrow">TIMED PRACTICE</p>
+              <h1 id="practiceQuizTitle">Practice Test</h1>
+              <p id="practiceQuizMeta" class="muted">Loading…</p>
+            </div>
+          </div>
+          <div id="practiceQuizNotice" class="callout" hidden></div>
+          <div id="practiceQuizBody"></div>
+        </section>
+
         <section id="materialsRoute" class="route" data-route="materials" hidden>
           <div class="page-heading">
             <button id="materialsBackBtn" class="back-button" type="button" aria-label="Back to sections">←</button>

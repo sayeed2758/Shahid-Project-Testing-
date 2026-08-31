@@ -1,4 +1,4 @@
-const CACHE_NAME = "ezee-vision-shell-simple-v5";
+const CACHE_NAME = "ezee-vision-shell-simple-v6-practice";
 
 const APP_SHELL = [
   "./",
@@ -15,6 +15,7 @@ const APP_SHELL = [
   "./assets/js/search.js",
   "./assets/js/recent.js",
   "./assets/js/pdf-reader.js",
+  "./assets/js/practice.js",
   "./assets/js/admin.js",
   "./assets/js/admin-client.js",
   "./assets/js/profile.js",
