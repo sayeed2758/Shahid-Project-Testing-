@@ -1,4 +1,4 @@
-const CACHE_NAME = "ezee-vision-shell-simple-v7-practice-fix";
+const CACHE_NAME = "ezee-vision-shell-simple-v8-practice-safe";
 
 const APP_SHELL = [
   "./",
@@ -15,7 +15,6 @@ const APP_SHELL = [
   "./assets/js/search.js",
   "./assets/js/recent.js",
   "./assets/js/pdf-reader.js",
-  "./assets/js/practice.js",
   "./assets/js/admin.js",
   "./assets/js/admin-client.js",
   "./assets/js/profile.js",
@@ -29,7 +28,11 @@ const NETWORK_FIRST_EXTENSIONS = new Set([".html", ".js", ".css", ".json"]);
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then(async (cache) => {
+        for (const asset of APP_SHELL) {
+          try { await cache.add(asset); } catch (error) { console.warn("SW cache skipped:", asset, error); }
+        }
+      })
       .then(() => self.skipWaiting())
   );
 });
@@ -80,13 +83,21 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
+          if (response && response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {});
           }
           return response;
         })
-        .catch(() => caches.match(request))
+        .catch(async () => {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          if (request.mode === "navigate") {
+            const shell = await caches.match("./index.html");
+            if (shell) return shell;
+          }
+          return new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        })
     );
     return;
   }

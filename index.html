@@ -17,7 +17,7 @@
 <body>
   <div id="app" class="app-root">
 
-    <section id="authView" class="view auth-view" aria-labelledby="loginTitle" hidden>
+    <section id="authView" class="view auth-view" aria-labelledby="loginTitle">
       <div class="auth-shell">
         <div class="brand-lockup">
           <img class="brand-logo brand-logo-auth" src="./assets/images/logo.png" alt="EZEE VISION CHAMPUA logo">
@@ -440,6 +440,21 @@
     <div class="noscript">JavaScript is required to use EZEE VISION CHAMPUA.</div>
   </noscript>
 
-  <script type="module" src="./assets/js/app.js"></script>
+  <script>
+    // Safe startup fallback: keep the login surface visible if a module fails before boot.
+    window.addEventListener("error", function (event) {
+      if (event && event.filename) {
+        var auth = document.getElementById("authView");
+        var app = document.getElementById("appView");
+        if (auth && app && app.hidden) auth.hidden = false;
+      }
+    });
+    window.addEventListener("unhandledrejection", function () {
+      var auth = document.getElementById("authView");
+      var app = document.getElementById("appView");
+      if (auth && app && app.hidden) auth.hidden = false;
+    });
+  </script>
+  <script type="module" src="./assets/js/app.js?v=8"></script>
 </body>
 </html>
