@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delete Account - EZEE VISION CHAMPUA</title>
+<style>body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#202124}.wrap{max-width:620px;margin:40px auto;padding:18px}.card{background:#fff;padding:28px;border-radius:18px;box-shadow:0 12px 35px rgba(0,0,0,.08)}h1{color:#1a237e;margin-top:0}label{display:block;margin-top:16px;font-weight:700;font-size:14px}input{width:100%;padding:13px;margin-top:7px;border:1px solid #d7dfeb;border-radius:10px;box-sizing:border-box}button{margin-top:20px;width:100%;padding:14px;border:0;border-radius:10px;background:#9f2331;color:#fff;font-weight:800;font-size:15px;cursor:pointer}.msg{margin-top:15px;padding:12px;border-radius:10px;background:#f1f4ff}.muted{color:#667085;font-size:13px;line-height:1.6}</style>
+</head><body><div class="wrap"><div class="card"><h1>Delete Student Account</h1><p class="muted">Use your EZEE VISION CHAMPUA Student ID and password to permanently delete your student account and associated profile/recent-history data.</p><label>Student ID<input id="studentId" autocomplete="username"></label><label>Password<input id="password" type="password" autocomplete="current-password"></label><button id="deleteBtn">Permanently Delete Account</button><div id="msg" class="msg" role="status" aria-live="polite"></div><p class="muted">This action cannot be undone. Educational content stored by the institute is not deleted by this request.</p><p class="muted"><a href="./privacy-policy.html">Privacy Policy</a></p></div></div>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import {getAuth,signInWithEmailAndPassword} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import {firebaseConfig} from "./assets/js/firebase-config.js";
+import {STUDENT_EMAIL_DOMAIN,normaliseStudentId} from "./assets/js/auth.js";
+import {DRIVE_GATEWAY_URL} from "./assets/js/drive-config.js";
+const app=initializeApp(firebaseConfig);const auth=getAuth(app);const $=id=>document.getElementById(id);
+$("deleteBtn").addEventListener("click",async()=>{const id=normaliseStudentId($("studentId").value);const password=$("password").value;if(!id||!password){$("msg").textContent="Enter your Student ID and password.";return}if(!confirm("Permanently delete this student account? This cannot be undone."))return;$("deleteBtn").disabled=true;$("msg").textContent="Verifying account…";try{const cred=await signInWithEmailAndPassword(auth,`${id.toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`,password);const token=await cred.user.getIdToken(true);const r=await fetch(`${DRIVE_GATEWAY_URL.replace(/\/$/,"")}/account/delete/`,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({confirm:true})});const data=await r.json().catch(()=>({}));if(!r.ok||!data.success)throw new Error(data.message||"Account deletion failed.");$("msg").textContent="Your account and associated personal data have been deleted successfully.";}catch(e){console.error(e);$("msg").textContent=e.message||"Unable to delete the account. Please try again."}finally{$("deleteBtn").disabled=false}});
+</script></body></html>
