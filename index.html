@@ -56,6 +56,16 @@
 
           <div id="authMessage" class="inline-message" role="status" aria-live="polite"></div>
 
+          <div class="auth-help">
+            <a class="whatsapp-help" href="https://wa.me/919124478453?text=Sir%2C%20I%20need%20my%20Student%20ID%20and%20Password%20for%20EZEE%20VISION%20CHAMPUA%20application." target="_blank" rel="noopener noreferrer" aria-label="Take ID and Password from WhatsApp">
+              <span class="whatsapp-logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path fill="currentColor" d="M20.5 3.5A11.9 11.9 0 0 0 12 0C5.4 0 .1 5.3.1 11.9c0 2.1.6 4.2 1.7 6L0 24l6.2-1.6a12 12 0 0 0 5.8 1.5h.1c6.5 0 11.8-5.3 11.8-11.9 0-3.1-1.2-6.2-3.4-8.5ZM12.1 21.7h-.1a9.8 9.8 0 0 1-5-1.4l-.4-.2-3.7 1 1-3.6-.2-.4a9.8 9.8 0 1 1 8.4 4.6Zm5.4-7.3c-.3-.1-1.8-.9-2.1-1-.3-.1-.5-.1-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-1.9-.9-3.1-1.6-4.3-3.6-.3-.5.3-.5.8-1.7.1-.2 0-.4-.1-.5-.1-.1-.7-1.7-1-2.3-.3-.6-.6-.5-.8-.5h-.7c-.2 0-.5.1-.7.4-.2.3-1 1-1 2.4 0 1.4 1 2.7 1.2 2.9.1.2 2 3.1 4.8 4.3.7.3 1.3.5 1.8.6.8.3 1.5.2 2.1.1.6-.1 1.8-.7 2-1.3.3-.6.3-1.2.2-1.3-.1-.1-.3-.2-.6-.3Z"/></svg>
+              </span>
+              <span><strong>Take ID &amp; Password from here</strong><small>Contact Shahid Sir on WhatsApp</small></span>
+              <span class="whatsapp-arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+
           <p class="auth-note">Student accounts are created by EZEE VISION CHAMPUA administration.</p>
         </div>
 
@@ -69,15 +79,34 @@
 
     <section id="appView" class="view app-view" hidden>
       <header class="topbar">
-        <div class="topbar-brand">
-          <img class="brand-logo brand-logo-small" src="./assets/images/logo.png" alt="">
-          <div>
-            <span class="brand-title">EZEE VISION</span>
-            <span class="brand-subtitle">CHAMPUA</span>
+        <div class="topbar-leading">
+          <button id="menuOpenBtn" class="topbar-logo-button" type="button" aria-label="Open menu" aria-controls="appMenu" aria-expanded="false">
+            <img class="brand-logo brand-logo-small" src="./assets/images/logo.png" alt="">
+          </button>
+          <div class="topbar-brand">
+            <div>
+              <span class="brand-title">EZEE VISION</span>
+              <span class="brand-subtitle">CHAMPUA</span>
+            </div>
           </div>
         </div>
         <div class="topbar-actions"><button id="profileOpenBtn" class="profile-mini-button" type="button" aria-label="Open profile"><span id="topbarAvatar">S</span></button><button id="logoutTopBtn" class="outline-button" type="button">Logout</button></div>
       </header>
+
+      <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+      <aside id="appMenu" class="app-menu" aria-label="Application menu" aria-hidden="true">
+        <div class="app-menu-head">
+          <div><p class="eyebrow">EZEE VISION CHAMPUA</p><h2>Menu</h2></div>
+          <button id="menuCloseBtn" class="icon-button menu-close" type="button" aria-label="Close menu">×</button>
+        </div>
+        <nav class="app-menu-nav" aria-label="App menu options">
+          <button class="menu-item is-active" data-menu-nav="home" type="button"><span class="menu-icon">⌂</span><span>Home</span></button>
+          <button class="menu-item" data-menu-nav="classes" type="button"><span class="menu-icon">▦</span><span>Class</span></button>
+          <button class="menu-item" data-menu-nav="search" type="button"><span class="menu-icon">⌕</span><span>Search</span></button>
+          <button class="menu-item" data-menu-nav="recent" type="button"><span class="menu-icon">◷</span><span>History</span></button>
+          <button class="menu-item" data-menu-nav="contact" type="button"><span class="menu-icon">◉</span><span>Contact</span></button>
+        </nav>
+      </aside>
 
       <main id="mainContent" class="main-content" tabindex="-1">
 
@@ -223,6 +252,21 @@
           <p id="searchSummary" class="search-summary"></p>
           <div id="searchNotice" class="callout" hidden></div>
           <div id="searchResults" class="material-list"></div>
+        </section>
+
+        <section id="contactRoute" class="route" data-route="contact" hidden>
+          <div class="page-heading">
+            <button id="contactBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
+            <div><p class="eyebrow">SUPPORT</p><h1>Contact EZEE VISION</h1><p class="muted">Need help with the application? Message us on WhatsApp.</p></div>
+          </div>
+          <div class="contact-card card">
+            <div class="contact-card-head"><div class="contact-mark" aria-hidden="true">💬</div><div><strong>WhatsApp Support</strong><span>Tap any number to start a message.</span></div></div>
+            <div class="contact-list">
+              <a class="contact-number" href="https://wa.me/919124478453?text=Sir%2C%20I%20need%20help%20on%20EZEE%20VISION%20CHAMPUA%20application" target="_blank" rel="noopener noreferrer"><span><small>WhatsApp</small><strong>9124478453</strong></span><span class="contact-arrow">→</span></a>
+              <a class="contact-number" href="https://wa.me/918917225693?text=Sir%2C%20I%20need%20help%20on%20EZEE%20VISION%20CHAMPUA%20application" target="_blank" rel="noopener noreferrer"><span><small>WhatsApp</small><strong>8917225693</strong></span><span class="contact-arrow">→</span></a>
+              <a class="contact-number" href="https://wa.me/917749916815?text=Sir%2C%20I%20need%20help%20on%20EZEE%20VISION%20CHAMPUA%20application" target="_blank" rel="noopener noreferrer"><span><small>WhatsApp</small><strong>+91 7749916815</strong></span><span class="contact-arrow">→</span></a>
+            </div>
+          </div>
         </section>
 
         <section id="recentRoute" class="route" data-route="recent" hidden>
