@@ -1259,11 +1259,17 @@ button.class-card:hover {
 }
 
 .material-action-row {
+  display: grid;
+  gap: 9px;
   margin-top: 17px;
 }
 
 .material-action-button {
   width: 100%;
+}
+
+.material-action-row.has-download {
+  grid-template-columns: 1fr 1fr;
 }
 
 .reader-open {
@@ -1497,6 +1503,10 @@ button.class-card:hover {
   background: transparent;
 }
 @media (max-width: 699px) {
+.material-action-row.has-download {
+  grid-template-columns: 1fr;
+}
+
   .reader-paper:has(.reader-drive-frame) {
     min-height: calc(100vh - 150px);
   }
