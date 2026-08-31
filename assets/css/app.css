@@ -2094,3 +2094,23 @@ textarea {
   .practice-header{align-items:flex-start;}
   .practice-timer{margin-top:2px;}
 }
+
+/* Profile photo picker: native gallery trigger with no layout impact. */
+.profile-photo-button{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;text-decoration:none;}
+.profile-photo-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;}
+.profile-photo-input:focus-visible + .profile-photo-button{outline:3px solid rgba(31,103,219,.22);outline-offset:3px;}
+
+/* Announcement route aliases + mobile-safe performance history. */
+.performance-table{overflow:hidden;}
+.performance-table > .feature-toolbar{padding:0 0 4px;margin-bottom:4px;}
+.performance-table > .feature-toolbar h3{font-size:18px;line-height:1.25;}
+.perf-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;min-width:0;}
+.perf-row > div:first-child{min-width:0;overflow:hidden;}
+.perf-row strong{overflow-wrap:anywhere;word-break:break-word;}
+.perf-row small{overflow-wrap:anywhere;line-height:1.4;}
+.perf-score{min-width:58px;white-space:nowrap;}
+@media (max-width:420px){
+  .perf-row{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:14px 0;}
+  .perf-score strong{font-size:12px;}
+  .perf-score span{font-size:10px;}
+}
