@@ -6,10 +6,10 @@ Production-oriented GitHub Pages student learning portal for Classes 6–10, usi
 
 - **Firebase Authentication:** Admin Email/Password + Student synthetic Email/Password identities.
 - **Firebase Realtime Database:** users, student index, catalog, published catalog, recent materials.
-- **Google Drive:** source PDF storage using your existing Drive storage plan.
-- **Cloudflare Worker:** validates Firebase identity, checks class access, verifies Drive files, and streams PDFs without exposing Drive URLs to students.
-- **PDF.js:** renders protected notes inside the application's own reader UI.
-- **GitHub Pages:** hosts only the application shell/static assets.
+- **Google Drive:** source PDF storage using Google Drive Viewer for in-app reading.
+- **GitHub Pages:** hosts the application shell/static assets.
+- **Learning sections:** Detailed Notes, Short Notes, PYQ's, Worksheet, and Exam Paper for every supported Class 6–10 subject.
+- **Downloads:** Worksheet and Exam Paper provide a dedicated Download PDF action; other sections remain viewer-focused.
 
 ## Admin
 
@@ -22,8 +22,8 @@ The production admin screen uses Email/Password only. There is no Google Sign-In
 2. Share that folder with the Drive Gateway service-account email as Viewer.
 3. Open Admin → Upload PDF.
 4. Choose Class / Subject / Section.
-5. Paste the Drive file link.
-6. Tap **Verify Drive File**.
+5. Paste the Google Drive file link.
+6. Tap **Check Drive Link**.
 7. Tap **Save Material**.
 8. Publish immediately or later.
 
