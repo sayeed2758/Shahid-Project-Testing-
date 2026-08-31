@@ -48,6 +48,32 @@ async function authorizePublishedMaterial(env,claims,materialId){
   if(!material.driveFileId)throw Object.assign(new Error("Material is missing its Drive file ID."),{code:"PDF_NOT_CONFIGURED"});
   return {user,material};
 }
+
+async function firebaseServiceAccessToken(env){
+  if(!env.GOOGLE_SERVICE_ACCOUNT_JSON)throw Object.assign(new Error("Google service account is not configured."),{code:"SERVICE_ACCOUNT_MISSING"});
+  const sa=JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  const now=Math.floor(Date.now()/1000);
+  const key=await importPKCS8(sa.private_key,"RS256");
+  const assertion=await new SignJWT({scope:"https://www.googleapis.com/auth/firebase.database"})
+    .setProtectedHeader({alg:"RS256",typ:"JWT"}).setIssuer(sa.client_email)
+    .setAudience("https://oauth2.googleapis.com/token").setIssuedAt(now).setExpirationTime(now+3500).sign(key);
+  const r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion})});
+  const data=await r.json();
+  if(!r.ok)throw Object.assign(new Error(data.error_description||"Could not get Firebase service token."),{code:"SERVICE_AUTH_FAILED"});
+  return data.access_token;
+}
+async function dbDeleteWithServiceToken(env,path,serviceToken){
+  const u=`${env.FIREBASE_DATABASE_URL.replace(/\/$/,"")}/${path.replace(/^\//,"")}.json`;
+  const r=await fetch(u,{method:"DELETE",headers:{Authorization:`Bearer ${serviceToken}`}});
+  if(!r.ok)throw Object.assign(new Error("Firebase database deletion failed."),{code:"DB_DELETE_ERROR",status:r.status});
+}
+async function deleteFirebaseAuthAccount(env,idToken){
+  if(!env.FIREBASE_WEB_API_KEY)throw Object.assign(new Error("Firebase Web API key is not configured on the deletion gateway."),{code:"AUTH_DELETE_CONFIG_MISSING"});
+  const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${encodeURIComponent(env.FIREBASE_WEB_API_KEY)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw Object.assign(new Error(data.error?.message||"Firebase account deletion failed."),{code:(data.error?.message||"AUTH_DELETE_ERROR").toLowerCase().replace(/[^a-z0-9]+/g,"_"),status:r.status});
+}
+
 function cleanError(error){return {code:error?.code||"GATEWAY_ERROR",message:error?.message||"Drive Gateway request failed."};}
 
 export default {
@@ -56,6 +82,20 @@ export default {
     const url=new URL(request.url); const path=url.pathname.replace(/\/+$/,"/");
     if(path==="/health/")return json(env,{ok:true,service:"ezee-vision-drive-gateway",time:new Date().toISOString()});
     try{
+      if(path==="/account/delete/" && request.method==="POST"){
+        const firebaseToken=tokenFromRequest(request);
+        const claims=await verifyFirebaseToken(firebaseToken,env);
+        if(String(claims.email||"").toLowerCase()===String(env.ADMIN_EMAIL||"").toLowerCase())throw Object.assign(new Error("Admin accounts cannot be deleted from the student portal."),{code:"ACCOUNT_DELETE_NOT_ALLOWED"});
+        const user=await dbGet(env,`users/${claims.user_id}`,firebaseToken);
+        if(!user || String(user.role||"").toLowerCase()!=="student")throw Object.assign(new Error("Only student accounts can be deleted here."),{code:"ACCOUNT_DELETE_NOT_ALLOWED"});
+        const serviceToken=await firebaseServiceAccessToken(env);
+        const studentId=String(user.studentId||"").trim();
+        await dbDeleteWithServiceToken(env,`users/${claims.user_id}`,serviceToken);
+        await dbDeleteWithServiceToken(env,`recent/${claims.user_id}`,serviceToken);
+        if(studentId) await dbDeleteWithServiceToken(env,`studentIndex/${encodeURIComponent(studentId)}`,serviceToken);
+        await deleteFirebaseAuthAccount(env,firebaseToken);
+        return json(env,{success:true,code:"ACCOUNT_DELETED",message:"Account and associated personal data were deleted."});
+      }
       if(path==="/admin/check-file/" && request.method==="POST"){
         const raw=await request.json();const id=String(raw?.driveFileId||"").trim();const token=tokenFromRequest(request);const claims=await verifyFirebaseToken(token,env);if(String(claims.email||"").toLowerCase()!==String(env.ADMIN_EMAIL).toLowerCase())throw Object.assign(new Error("Admin permission is required."),{code:"ADMIN_REQUIRED"});if(!/^[A-Za-z0-9_-]{10,200}$/.test(id))throw Object.assign(new Error("Invalid Google Drive file ID."),{code:"INVALID_DRIVE_ID"});
         const meta=await driveFile(env,id);if(meta.trashed||meta.mimeType!=="application/pdf")throw Object.assign(new Error("The selected Drive file must be a non-trashed PDF."),{code:"DRIVE_NOT_PDF"});return json(env,{success:true,id:meta.id,name:meta.name,size:Number(meta.size||0),mimeType:meta.mimeType});
