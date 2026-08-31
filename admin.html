@@ -63,6 +63,8 @@
           <button class="admin-tab" data-admin-tab="students" type="button">Students</button>
           <button class="admin-tab" data-admin-tab="materials" type="button">Materials</button>
           <button class="admin-tab" data-admin-tab="upload" type="button">Upload PDF</button>
+          <button class="admin-tab" data-extra-admin-tab="announcements" type="button">Announcements</button>
+          <button class="admin-tab" data-extra-admin-tab="practice" type="button">Practice</button>
         </nav>
 
         <section id="adminOverviewTab" class="admin-tab-panel" data-panel="overview">
@@ -93,6 +95,59 @@
           </div>
           <div id="materialsMessage" class="inline-message" role="status" aria-live="polite"></div>
           <div class="table-wrap card"><table class="admin-table"><thead><tr><th>Material</th><th>Class</th><th>Section</th><th>Size</th><th>Status</th><th>Actions</th></tr></thead><tbody id="materialsTableBody"></tbody></table></div>
+        </section>
+
+        <section id="adminFeatureRoot" class="feature-admin-panel" data-extra-admin-panel="announcements" hidden>
+          <div class="upload-layout">
+            <form id="announcementFormAdmin" class="card upload-card" novalidate>
+              <div><p class="eyebrow" id="annMode">NEW ANNOUNCEMENT</p><h2>Publish Announcement</h2><p class="muted">Send class-specific or all-class updates to student notifications.</p></div>
+              <input id="annId" type="hidden">
+              <input id="annCreatedAt" type="hidden">
+              <label class="field"><span>Title</span><input id="annTitle" maxlength="120" required placeholder="e.g. New revision material uploaded"></label>
+              <label class="field"><span>Target class</span><select id="annClass"><option value="all">All classes</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label>
+              <label class="field"><span>Announcement message</span><textarea id="annMessage" rows="5" maxlength="600" required placeholder="Write the update for students"></textarea></label>
+              <label class="check-row"><input id="annPublish" type="checkbox" checked><span>Publish immediately</span></label>
+              <div id="featureAdminMessage" class="inline-message" role="status" aria-live="polite"></div>
+              <div class="dialog-actions"><button id="announcementResetBtn" class="outline-button" type="button">Reset</button><button id="annSaveBtn" class="primary-button" type="submit">Publish Announcement</button></div>
+            </form>
+            <div class="card admin-recent-card"><div class="admin-section-head"><div><p class="eyebrow">MANAGE</p><h2>Announcements</h2></div></div><div id="announcementAdminList" class="admin-feature-list"></div></div>
+          </div>
+        </section>
+
+        <section id="adminFeatureRootPractice" class="feature-admin-panel" data-extra-admin-panel="practice" hidden>
+          <div class="upload-layout">
+            <form id="practiceFormAdmin" class="card upload-card" novalidate>
+              <div><p class="eyebrow" id="practiceAdminMode">CREATE PRACTICE</p><h2>Practice Test Builder</h2><p class="muted">Create timed MCQ, True/False and Fill in the Blanks tests. Students get an instant score.</p></div>
+              <input id="practiceCreatedAt" type="hidden">
+              <label class="field"><span>Class</span><select id="practiceClass"><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label>
+              <label class="field"><span>Subject</span><select id="practiceSubject">${'<option value="sst">SST</option><option value="science">Science</option><option value="math">Math</option><option value="english">English</option>'}</select></label>
+              <label class="field"><span>Practice title</span><input id="practiceTitle" maxlength="120" required placeholder="e.g. Chapter 1 Practice Test"></label>
+              <label class="field"><span>Chapter / topic</span><input id="practiceChapter" maxlength="120" placeholder="e.g. Chapter 1"></label>
+              <label class="field"><span>Timer (minutes)</span><input id="practiceDuration" type="number" min="0" max="180" value="10" required></label>
+              <div class="card question-composer">
+                <p class="eyebrow">ADD QUESTION</p>
+                <label class="field"><span>Type</span><select id="pqType"><option value="mcq">MCQ</option><option value="truefalse">True / False</option><option value="fill">Fill in the Blanks</option></select></label>
+                <label class="field"><span>Question</span><textarea id="pqPrompt" rows="3" maxlength="600" placeholder="Write the question"></textarea></label>
+                <div id="pqMcqOptions" class="form-grid-two">
+                  <label class="field"><span>Option A</span><input id="pqOptionA"></label><label class="field"><span>Option B</span><input id="pqOptionB"></label>
+                  <label class="field"><span>Option C</span><input id="pqOptionC"></label><label class="field"><span>Option D</span><input id="pqOptionD"></label>
+                  <label class="field"><span>Correct option</span><select id="pqAnswer"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></label>
+                </div>
+                <div id="pqTfOptions" hidden>
+                  <label class="field"><span>Correct answer</span><select id="pqTfAnswer"><option value="true">True</option><option value="false">False</option></select></label>
+                </div>
+                <div id="pqFillOptions" hidden>
+                  <label class="field"><span>Accepted answers</span><textarea id="pqAccepted" rows="3" placeholder="One per line or comma separated"></textarea></label>
+                </div>
+                <label class="field"><span>Marks</span><input id="pqMarks" type="number" min="1" max="20" value="1"></label>
+                <button id="addPracticeQuestionBtn" class="secondary-button full-width" type="button">+ Add Question</button>
+              </div>
+              <div><p class="eyebrow">QUESTIONS</p><div id="practiceQuestionsList" class="admin-feature-list"></div></div>
+              <label class="check-row"><input id="practicePublish" type="checkbox" checked><span>Publish immediately and notify students</span></label>
+              <div class="dialog-actions"><button id="practiceResetBtn" class="outline-button" type="button">Reset</button><button id="practiceSaveBtn" class="primary-button" type="submit">Save Practice Test</button></div>
+            </form>
+            <div class="card admin-recent-card"><div class="admin-section-head"><div><p class="eyebrow">MANAGE</p><h2>Practice Tests</h2></div></div><div id="practiceAdminList" class="admin-feature-list"></div></div>
+          </div>
         </section>
 
         <section id="adminUploadTab" class="admin-tab-panel" data-panel="upload" hidden>
