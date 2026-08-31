@@ -17,7 +17,7 @@
 <body>
   <div id="app" class="app-root">
 
-    <section id="authView" class="view auth-view" aria-labelledby="loginTitle">
+    <section id="authView" class="view auth-view" aria-labelledby="loginTitle" hidden>
       <div class="auth-shell">
         <div class="brand-lockup">
           <img class="brand-logo brand-logo-auth" src="./assets/images/logo.png" alt="EZEE VISION CHAMPUA logo">
@@ -203,32 +203,6 @@
           </div>
           <div id="sectionsNotice" class="callout" hidden></div>
           <div id="sectionsGrid" class="section-grid"></div>
-        </section>
-
-        <section id="practiceRoute" class="route" data-route="practice" hidden>
-          <div class="page-heading">
-            <button id="practiceBackBtn" class="back-button" type="button" aria-label="Back to subject list">←</button>
-            <div>
-              <p class="eyebrow">PRACTICE ZONE</p>
-              <h1 id="practiceSubjectTitle">Practice</h1>
-              <p class="muted">Answer the questions, beat the timer and see your score instantly.</p>
-            </div>
-          </div>
-          <div id="practiceNotice" class="callout" hidden></div>
-          <div id="practiceList" class="practice-list"></div>
-        </section>
-
-        <section id="practiceQuizRoute" class="route" data-route="practice-quiz" hidden>
-          <div class="page-heading">
-            <button id="practiceQuizBackBtn" class="back-button" type="button" aria-label="Back to practice">←</button>
-            <div>
-              <p class="eyebrow">TIMED PRACTICE</p>
-              <h1 id="practiceQuizTitle">Practice Test</h1>
-              <p id="practiceQuizMeta" class="muted">Loading…</p>
-            </div>
-          </div>
-          <div id="practiceQuizNotice" class="callout" hidden></div>
-          <div id="practiceQuizBody"></div>
         </section>
 
         <section id="materialsRoute" class="route" data-route="materials" hidden>
@@ -440,21 +414,6 @@
     <div class="noscript">JavaScript is required to use EZEE VISION CHAMPUA.</div>
   </noscript>
 
-  <script>
-    // Safe startup fallback: keep the login surface visible if a module fails before boot.
-    window.addEventListener("error", function (event) {
-      if (event && event.filename) {
-        var auth = document.getElementById("authView");
-        var app = document.getElementById("appView");
-        if (auth && app && app.hidden) auth.hidden = false;
-      }
-    });
-    window.addEventListener("unhandledrejection", function () {
-      var auth = document.getElementById("authView");
-      var app = document.getElementById("appView");
-      if (auth && app && app.hidden) auth.hidden = false;
-    });
-  </script>
-  <script type="module" src="./assets/js/app.js?v=8"></script>
+  <script type="module" src="./assets/js/app.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "ezee-vision-shell-simple-v8-practice-safe";
+const CACHE_NAME = "ezee-vision-shell-simple-v5";
 
 const APP_SHELL = [
   "./",
@@ -28,11 +28,7 @@ const NETWORK_FIRST_EXTENSIONS = new Set([".html", ".js", ".css", ".json"]);
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(async (cache) => {
-        for (const asset of APP_SHELL) {
-          try { await cache.add(asset); } catch (error) { console.warn("SW cache skipped:", asset, error); }
-        }
-      })
+      .then((cache) => cache.addAll(APP_SHELL))
       .then(() => self.skipWaiting())
   );
 });
@@ -83,21 +79,13 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response && response.ok) {
+          if (response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {});
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }
           return response;
         })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          if (cached) return cached;
-          if (request.mode === "navigate") {
-            const shell = await caches.match("./index.html");
-            if (shell) return shell;
-          }
-          return new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
-        })
+        .catch(() => caches.match(request))
     );
     return;
   }

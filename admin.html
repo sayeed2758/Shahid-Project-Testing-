@@ -62,7 +62,6 @@
           <button class="admin-tab is-active" data-admin-tab="overview" type="button">Overview</button>
           <button class="admin-tab" data-admin-tab="students" type="button">Students</button>
           <button class="admin-tab" data-admin-tab="materials" type="button">Materials</button>
-          <button class="admin-tab" data-admin-tab="practice" type="button">Practice</button>
           <button class="admin-tab" data-admin-tab="upload" type="button">Upload PDF</button>
         </nav>
 
@@ -94,43 +93,6 @@
           </div>
           <div id="materialsMessage" class="inline-message" role="status" aria-live="polite"></div>
           <div class="table-wrap card"><table class="admin-table"><thead><tr><th>Material</th><th>Class</th><th>Section</th><th>Size</th><th>Status</th><th>Actions</th></tr></thead><tbody id="materialsTableBody"></tbody></table></div>
-        </section>
-
-        <section id="adminPracticeTab" class="admin-tab-panel" data-panel="practice" hidden>
-          <div class="practice-admin-layout">
-            <div>
-              <div class="admin-toolbar card">
-                <div class="toolbar-main">
-                  <input id="practiceSearch" type="search" placeholder="Search practice tests…" aria-label="Search practice tests">
-                  <select id="practiceClassFilter"><option value="all">All Classes</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select>
-                  <select id="practiceSubjectFilter"><option value="all">All Subjects</option><option value="sst">SST</option><option value="science">Science</option><option value="math">Math</option><option value="english">English</option></select>
-                </div>
-                <button id="newPracticeBtn" class="primary-button" type="button">+ New Practice</button>
-              </div>
-              <div id="practiceAdminMessage" class="inline-message" role="status" aria-live="polite"></div>
-              <div id="practiceAdminList" class="practice-admin-list"></div>
-            </div>
-
-            <form id="practiceForm" class="card practice-builder" novalidate>
-              <div class="admin-section-head">
-                <div><p class="eyebrow" id="practiceModeLabel">NEW PRACTICE</p><h2 id="practiceFormTitle">Create Practice Test</h2><p class="muted">Build timed questions for one class and subject.</p></div>
-                <button id="practiceResetBtn" class="secondary-button" type="button">Reset</button>
-              </div>
-              <div class="form-grid two">
-                <label class="field"><span>Class</span><select id="practiceClass" required><option value="">Choose class</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label>
-                <label class="field"><span>Subject</span><select id="practiceSubject" required><option value="">Choose subject</option><option value="sst">SST</option><option value="science">Science</option><option value="math">Math</option><option value="english">English</option></select></label>
-              </div>
-              <div class="form-grid two">
-                <label class="field"><span>Practice title</span><input id="practiceTitle" maxlength="160" required placeholder="e.g. Chapter 1 Quick Practice"></label>
-                <label class="field"><span>Timer (minutes)</span><input id="practiceDuration" type="number" min="1" max="180" value="15" required></label>
-              </div>
-              <label class="check-row"><input id="practicePublish" type="checkbox" checked><span>Publish immediately after saving</span></label>
-              <div class="practice-builder-head"><div><p class="eyebrow">QUESTIONS</p><strong>Add as many questions as needed.</strong></div><button id="addPracticeQuestionBtn" class="secondary-button" type="button">+ Add Question</button></div>
-              <div id="practiceQuestionBuilder" class="practice-question-builder"></div>
-              <div id="practiceFormMessage" class="inline-message" role="status" aria-live="polite"></div>
-              <button id="savePracticeBtn" class="primary-button full-width" type="submit"><span class="button-label">Save Practice Test</span></button>
-            </form>
-          </div>
         </section>
 
         <section id="adminUploadTab" class="admin-tab-panel" data-panel="upload" hidden>
