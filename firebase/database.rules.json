@@ -9,6 +9,10 @@
         "displayName": {
           ".write": "auth != null && auth.uid === $uid && data.child('role').val() === 'student'",
           ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60"
+        },
+        "photoURL": {
+          ".write": "auth != null && auth.uid === $uid && data.child('role').val() === 'student'",
+          ".validate": "newData.isString() && newData.val().length <= 2048"
         }
       }
     },
