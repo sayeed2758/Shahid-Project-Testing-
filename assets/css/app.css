@@ -2046,3 +2046,13 @@ textarea {
 .plan-row.is-complete { opacity:.7; }
 .plan-row.is-complete .plan-copy strong { text-decoration:line-through; }
 @media (max-width:620px){ .feature-action-grid,.form-grid-two,.score-grid,.performance-grid{grid-template-columns:1fr;} .feature-toolbar{align-items:flex-start;flex-direction:column;} .feature-toolbar-actions{width:100%;} .feature-toolbar-actions button{flex:1;} }
+
+
+/* Feature layout stabilization */
+.feature-list { display:grid; gap:10px; }
+.section-block > .feature-list { margin-top:10px; }
+.feature-action-grid { margin-top:0; }
+.practice-shortcut-wrap { margin-top: 4px; }
+@media (max-width:420px){
+  .feature-action-grid { grid-template-columns:1fr; }
+}
