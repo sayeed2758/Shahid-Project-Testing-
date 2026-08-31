@@ -92,6 +92,10 @@ export default {
         const studentId=String(user.studentId||"").trim();
         await dbDeleteWithServiceToken(env,`users/${claims.user_id}`,serviceToken);
         await dbDeleteWithServiceToken(env,`recent/${claims.user_id}`,serviceToken);
+        await dbDeleteWithServiceToken(env,`materialSeen/${claims.user_id}`,serviceToken);
+        await dbDeleteWithServiceToken(env,`notifications/${claims.user_id}`,serviceToken);
+        await dbDeleteWithServiceToken(env,`practiceAttempts/${claims.user_id}`,serviceToken);
+        await dbDeleteWithServiceToken(env,`studyPlans/${claims.user_id}`,serviceToken);
         if(studentId) await dbDeleteWithServiceToken(env,`studentIndex/${encodeURIComponent(studentId)}`,serviceToken);
         await deleteFirebaseAuthAccount(env,firebaseToken);
         return json(env,{success:true,code:"ACCOUNT_DELETED",message:"Account and associated personal data were deleted."});
