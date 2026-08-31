@@ -191,3 +191,26 @@ textarea {
   .admin-tabs { padding-bottom: 13px; }
   .admin-tab { min-height: 44px; }
 }
+
+/* =========================================================
+   PRACTICE BUILDER — additive admin styles only
+   ========================================================= */
+.practice-admin-layout { display:grid; gap:14px; }
+.practice-admin-list { display:grid; gap:10px; }
+.practice-admin-card { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:11px; align-items:center; padding:15px; }
+.practice-admin-main { display:flex; align-items:center; gap:11px; min-width:0; }
+.practice-admin-icon { display:grid; place-items:center; width:42px; height:42px; flex:0 0 42px; border-radius:13px; background:linear-gradient(145deg,#fff7d7,#edf4ff); color:#0c3984; font-weight:900; }
+.practice-admin-main h3 { margin:2px 0 4px; color:#122d55; font-size:15px; }
+.practice-admin-main p:not(.eyebrow) { margin:0; color:#7a899f; font-size:10px; }
+.practice-admin-card > .row-actions { grid-column:1 / -1; }
+.practice-builder { padding:19px; }
+.practice-builder-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:16px 0 10px; padding-top:14px; border-top:1px solid #edf1f6; }
+.practice-builder-head strong { color:#294564; font-size:11px; }
+.practice-question-builder { display:grid; gap:11px; }
+.practice-builder-question { padding:14px; border:1px solid #dfe6f0; border-radius:16px; background:#f9fbfe; }
+.practice-builder-question-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.practice-builder-question-head strong { color:#103267; font-size:12px; }
+.practice-builder-label { margin:0 0 6px; color:#77879d; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.07em; }
+.practice-options-builder { display:grid; gap:8px; }
+@media(min-width:900px){ .practice-admin-layout { grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); align-items:start; } .practice-builder { position:sticky; top:16px; max-height:calc(100vh - 32px); overflow:auto; } }
+@media(max-width:699px){ .practice-admin-card { grid-template-columns:1fr; } .practice-builder { padding:15px; } .practice-builder-head { align-items:flex-start; flex-direction:column; } .practice-builder-head button { width:100%; } }
