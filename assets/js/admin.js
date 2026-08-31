@@ -21,10 +21,6 @@ import {
   publishMaterial,
   extractDriveFileId,
   getDriveGatewayStatus,
-  loadAllPractice,
-  savePracticeSet,
-  publishPracticeSet,
-  deletePracticeSet,
 } from "./admin-client.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -40,8 +36,6 @@ const state = {
   verifiedDriveId: "",
   gatewayHealthy: false,
   busy: false,
-  practice: [],
-  editingPractice: null,
 };
 
 const el = {
@@ -93,25 +87,6 @@ const el = {
   uploadBtn: $("#uploadBtn"),
   uploadModeLabel: $("#uploadModeLabel"),
   gatewayHealth: $("#gatewayHealth"),
-  practiceSearch: $("#practiceSearch"),
-  practiceClassFilter: $("#practiceClassFilter"),
-  practiceSubjectFilter: $("#practiceSubjectFilter"),
-  newPracticeBtn: $("#newPracticeBtn"),
-  practiceAdminMessage: $("#practiceAdminMessage"),
-  practiceAdminList: $("#practiceAdminList"),
-  practiceForm: $("#practiceForm"),
-  practiceModeLabel: $("#practiceModeLabel"),
-  practiceFormTitle: $("#practiceFormTitle"),
-  practiceResetBtn: $("#practiceResetBtn"),
-  practiceClass: $("#practiceClass"),
-  practiceSubject: $("#practiceSubject"),
-  practiceTitle: $("#practiceTitle"),
-  practiceDuration: $("#practiceDuration"),
-  practicePublish: $("#practicePublish"),
-  addPracticeQuestionBtn: $("#addPracticeQuestionBtn"),
-  practiceQuestionBuilder: $("#practiceQuestionBuilder"),
-  practiceFormMessage: $("#practiceFormMessage"),
-  savePracticeBtn: $("#savePracticeBtn"),
   studentDialog: $("#studentDialog"),
   studentForm: $("#studentForm"),
   studentDialogTitle: $("#studentDialogTitle"),
@@ -186,14 +161,6 @@ function friendly(error) {
     GATEWAY_ERROR: "Drive Gateway rejected the request. Check its configuration.",
     AUTH_REQUIRED: "Please sign in again.",
     PASSWORD_MANAGEMENT_UNAVAILABLE: "Student password editing is not available in this browser-only build.",
-    INVALID_SUBJECT: "Choose a valid subject.",
-    INVALID_PRACTICE_TITLE: "Enter a valid practice title.",
-    INVALID_PRACTICE_DURATION: "Timer must be between 1 and 180 minutes.",
-    INVALID_PRACTICE_QUESTIONS: "Add between 1 and 50 questions.",
-    INVALID_PRACTICE_QUESTION: "Every question needs text.",
-    INVALID_PRACTICE_OPTIONS: "MCQ questions need at least 2 options.",
-    INVALID_PRACTICE_ANSWER: "Set a valid correct answer.",
-    PRACTICE_NOT_FOUND: "The practice test could not be found.",
   };
   return map[code] || error?.message || "Something went wrong. Please retry.";
 }
@@ -456,166 +423,6 @@ async function toggleStudent(student) {
   }
 }
 
-
-function practiceFiltered() {
-  const query = (el.practiceSearch?.value || "").trim().toLowerCase();
-  const classFilter = el.practiceClassFilter?.value || "all";
-  const subjectFilter = el.practiceSubjectFilter?.value || "all";
-  return state.practice.filter((item) => {
-    const searchable = [item.title, item.subject, item.class].join(" ").toLowerCase();
-    return (!query || searchable.includes(query))
-      && (classFilter === "all" || String(item.class) === classFilter)
-      && (subjectFilter === "all" || item.subject === subjectFilter);
-  });
-}
-function practiceStatusText(active) { return active ? "Published" : "Unpublished"; }
-function renderPracticeAdmin() {
-  if (!el.practiceAdminList) return;
-  const rows = practiceFiltered();
-  if (!rows.length) {
-    el.practiceAdminList.innerHTML = `<div class="card table-empty">No practice tests found. Create your first timed practice test.</div>`;
-    return;
-  }
-  el.practiceAdminList.innerHTML = rows.map((item) => {
-    const subject = SUBJECTS.find((x) => x.id === item.subject)?.label || item.subject;
-    const minutes = Math.max(1, Math.round((Number(item.durationSeconds) || 60) / 60));
-    const count = item.questions?.length || 0;
-    return `<article class="card practice-admin-card">
-      <div class="practice-admin-main"><div class="practice-admin-icon">✦</div><div><p class="eyebrow">CLASS ${item.class} • ${escapeHtml(subject)}</p><h3>${escapeHtml(item.title)}</h3><p>${count} question${count === 1 ? "" : "s"} • ${minutes} minute${minutes === 1 ? "" : "s"}</p></div></div>
-      <span class="status-pill ${item.active ? "active" : "disabled"}">${practiceStatusText(item.active)}</span>
-      <div class="row-actions"><button class="mini-action" data-practice-action="edit" data-id="${escapeHtml(item.id)}" type="button">Edit</button><button class="mini-action" data-practice-action="toggle" data-id="${escapeHtml(item.id)}" type="button">${item.active ? "Unpublish" : "Publish"}</button><button class="mini-action danger" data-practice-action="delete" data-id="${escapeHtml(item.id)}" type="button">Remove</button></div>
-    </article>`;
-  }).join("");
-}
-function newPracticeQuestion(question = null) {
-  const q = question || { id: `q-${Date.now()}-${Math.random().toString(36).slice(2)}`, type: "mcq", question: "", points: 1, options: ["", "", "", ""], correctIndex: 0, answers: [] };
-  return {
-    id: String(q.id || `q-${Date.now()}-${Math.random().toString(36).slice(2)}`),
-    type: ["mcq", "true-false", "fill-blank"].includes(q.type) ? q.type : "mcq",
-    question: String(q.question || ""), points: Number(q.points) || 1,
-    options: Array.isArray(q.options) ? q.options.slice(0,4) : ["", "", "", ""], correctIndex: Number(q.correctIndex) || 0,
-    answers: Array.isArray(q.answers) ? q.answers : [],
-  };
-}
-function collectPracticeQuestions() {
-  if (!el.practiceQuestionBuilder) return [];
-  return [...el.practiceQuestionBuilder.querySelectorAll(".practice-builder-question")].map((card, index) => {
-    const type = card.querySelector("[data-q-field='type']")?.value || "mcq";
-    const options = [...card.querySelectorAll("[data-q-field='option']")].map((input) => input.value.trim()).filter(Boolean);
-    const answer = card.querySelector("[data-q-field='answers']")?.value || "";
-    return {
-      id: card.dataset.questionId || `q-${index + 1}`,
-      type,
-      question: card.querySelector("[data-q-field='question']")?.value.trim() || "",
-      points: Number(card.querySelector("[data-q-field='points']")?.value) || 1,
-      options: type === "true-false" ? ["True", "False"] : options,
-      correctIndex: type === "fill-blank" ? 0 : Number(card.querySelector("[data-q-field='correctIndex']")?.value) || 0,
-      answers: type === "fill-blank" ? answer.split(",").map((x) => x.trim()).filter(Boolean) : [],
-    };
-  });
-}
-function renderQuestionBuilder(questions = [newPracticeQuestion()]) {
-  el.practiceQuestionBuilder.innerHTML = questions.map((question, index) => {
-    const q = newPracticeQuestion(question);
-    const optionInputs = q.options.length ? q.options : ["", "", "", ""];
-    const typeSpecific = q.type === "fill-blank"
-      ? `<label class="field"><span>Accepted answers (comma separated)</span><input data-q-field="answers" type="text" value="${escapeHtml(q.answers.join(", "))}" placeholder="e.g. Delhi, New Delhi"></label>`
-      : q.type === "true-false"
-        ? `<div class="form-grid two"><label class="field"><span>Correct answer</span><select data-q-field="correctIndex"><option value="0" ${q.correctIndex === 0 ? "selected" : ""}>True</option><option value="1" ${q.correctIndex === 1 ? "selected" : ""}>False</option></select></label></div>`
-        : `<div class="practice-options-builder"><p class="practice-builder-label">Options</p>${optionInputs.map((option, optionIndex) => `<label class="field"><span>Option ${optionIndex + 1}</span><input data-q-field="option" type="text" value="${escapeHtml(option)}" maxlength="300" placeholder="Option ${optionIndex + 1}"></label>`).join("")}<label class="field"><span>Correct option</span><select data-q-field="correctIndex">${optionInputs.map((_, optionIndex) => `<option value="${optionIndex}" ${q.correctIndex === optionIndex ? "selected" : ""}>Option ${optionIndex + 1}</option>`).join("")}</select></label></div>`;
-    return `<article class="practice-builder-question" data-question-id="${escapeHtml(q.id)}">
-      <div class="practice-builder-question-head"><strong>Question ${index + 1}</strong><button class="mini-action danger" data-question-action="remove" type="button">Remove</button></div>
-      <div class="form-grid two"><label class="field"><span>Question type</span><select data-q-field="type"><option value="mcq" ${q.type === "mcq" ? "selected" : ""}>MCQ</option><option value="true-false" ${q.type === "true-false" ? "selected" : ""}>True / False</option><option value="fill-blank" ${q.type === "fill-blank" ? "selected" : ""}>Fill in the Blanks</option></select></label><label class="field"><span>Marks</span><input data-q-field="points" type="number" min="1" max="20" value="${q.points}"></label></div>
-      <label class="field"><span>Question</span><textarea data-q-field="question" rows="3" maxlength="1200" placeholder="Write the question…">${escapeHtml(q.question)}</textarea></label>
-      ${typeSpecific}
-    </article>`;
-  }).join("");
-}
-function resetPracticeBuilder() {
-  state.editingPractice = null;
-  if (el.practiceModeLabel) el.practiceModeLabel.textContent = "NEW PRACTICE";
-  if (el.practiceFormTitle) el.practiceFormTitle.textContent = "Create Practice Test";
-  if (el.practiceClass) el.practiceClass.value = "";
-  if (el.practiceSubject) el.practiceSubject.value = "";
-  if (el.practiceTitle) el.practiceTitle.value = "";
-  if (el.practiceDuration) el.practiceDuration.value = "15";
-  if (el.practicePublish) el.practicePublish.checked = true;
-  message(el.practiceFormMessage, "");
-  renderQuestionBuilder([newPracticeQuestion()]);
-}
-function editPracticeBuilder(practice) {
-  state.editingPractice = practice;
-  el.practiceModeLabel.textContent = "EDIT PRACTICE";
-  el.practiceFormTitle.textContent = "Edit Practice Test";
-  el.practiceClass.value = String(practice.class || "");
-  el.practiceSubject.value = practice.subject || "";
-  el.practiceTitle.value = practice.title || "";
-  el.practiceDuration.value = Math.max(1, Math.round((Number(practice.durationSeconds) || 900) / 60));
-  el.practicePublish.checked = Boolean(practice.active);
-  message(el.practiceFormMessage, "Editing existing practice test.", "loading");
-  renderQuestionBuilder((practice.questions?.length ? practice.questions : [newPracticeQuestion()]));
-  document.querySelector("#adminPracticeTab")?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-async function loadPracticeAdmin() {
-  try {
-    state.practice = await loadAllPractice();
-    renderPracticeAdmin();
-    return true;
-  } catch (error) {
-    console.error(error);
-    message(el.practiceAdminMessage, friendly(error), "error");
-    return false;
-  }
-}
-async function submitPracticeForm(event) {
-  event.preventDefault();
-  const input = {
-    class: Number(el.practiceClass.value), subject: el.practiceSubject.value,
-    title: el.practiceTitle.value.trim(), durationSeconds: Math.round(Number(el.practiceDuration.value) * 60),
-    questions: collectPracticeQuestions(),
-  };
-  if (!CLASSES.includes(input.class)) return message(el.practiceFormMessage, "Choose Class 6–10.", "error");
-  if (!SUBJECTS.some((x) => x.id === input.subject)) return message(el.practiceFormMessage, "Choose a subject.", "error");
-  if (input.title.length < 2) return message(el.practiceFormMessage, "Enter a practice title.", "error");
-  if (!Number.isFinite(input.durationSeconds) || input.durationSeconds < 60 || input.durationSeconds > 10800) return message(el.practiceFormMessage, "Timer must be between 1 and 180 minutes.", "error");
-  if (!input.questions.length) return message(el.practiceFormMessage, "Add at least one question.", "error");
-  setButtonBusy(el.savePracticeBtn, true, "Saving…");
-  message(el.practiceFormMessage, state.editingPractice ? "Saving practice changes…" : "Creating practice test…", "loading");
-  try {
-    const result = await savePracticeSet({ input, publish: el.practicePublish.checked, existing: state.editingPractice });
-    await loadPracticeAdmin();
-    message(el.practiceFormMessage, "Practice test saved successfully.", "success");
-    status(`${state.editingPractice ? "Practice test updated" : "Practice test created"}.`, "success");
-    clearStatus();
-    resetPracticeBuilder();
-    if (result?.id) tab("practice");
-  } catch (error) {
-    console.error(error);
-    message(el.practiceFormMessage, friendly(error), "error");
-  } finally {
-    setButtonBusy(el.savePracticeBtn, false);
-  }
-}
-async function practiceAction(action, id) {
-  const item = state.practice.find((entry) => entry.id === id);
-  if (!item) return;
-  if (action === "edit") { editPracticeBuilder(item); return; }
-  if (action === "toggle") {
-    const next = !item.active;
-    if (!window.confirm(`${next ? "Publish" : "Unpublish"} “${item.title}”?`)) return;
-    status(`${next ? "Publishing" : "Unpublishing"} practice…`, "loading");
-    try { const updated = await publishPracticeSet(item, next); state.practice = state.practice.map((x) => x.id === id ? updated : x); renderPracticeAdmin(); status(`Practice ${next ? "published" : "unpublished"}.`, "success"); clearStatus(); }
-    catch (error) { console.error(error); status(friendly(error), "error"); clearStatus(3500); }
-    return;
-  }
-  if (action === "delete") {
-    if (!window.confirm(`Remove “${item.title}” permanently from the practice portal?`)) return;
-    status("Removing practice test…", "loading");
-    try { await deletePracticeSet(item); state.practice = state.practice.filter((x) => x.id !== id); renderPracticeAdmin(); if (state.editingPractice?.id === id) resetPracticeBuilder(); status("Practice test removed.", "success"); clearStatus(); }
-    catch (error) { console.error(error); status(friendly(error), "error"); clearStatus(3500); }
-  }
-}
-
 function resetUploadForm() {
   el.uploadForm.reset();
   state.replacingMaterial = null;
@@ -869,7 +676,6 @@ async function refreshAll({ silent = false } = {}) {
 
   try {
     const [studentsOk, materialsOk] = await Promise.all([loadStudents(), loadMaterials(true)]);
-    await loadPracticeAdmin();
     if (studentsOk && materialsOk) {
       if (!silent) {
         status("Dashboard refreshed.", "success");
@@ -944,38 +750,6 @@ function bind() {
   el.materialsBody.addEventListener("click", (event) => {
     const button = event.target.closest("[data-material-action]");
     if (button) void materialAction(button.dataset.materialAction, button.dataset.id);
-  });
-
-  el.practiceSearch.addEventListener("input", renderPracticeAdmin);
-  el.practiceClassFilter.addEventListener("change", renderPracticeAdmin);
-  el.practiceSubjectFilter.addEventListener("change", renderPracticeAdmin);
-  el.newPracticeBtn.addEventListener("click", resetPracticeBuilder);
-  el.practiceResetBtn.addEventListener("click", resetPracticeBuilder);
-  el.addPracticeQuestionBtn.addEventListener("click", () => {
-    const questions = collectPracticeQuestions();
-    if (questions.length >= 50) return message(el.practiceFormMessage, "Maximum 50 questions allowed.", "error");
-    questions.push(newPracticeQuestion());
-    renderQuestionBuilder(questions);
-  });
-  el.practiceQuestionBuilder.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-question-action]");
-    if (!button) return;
-    const card = button.closest(".practice-builder-question");
-    const questions = collectPracticeQuestions().filter((q) => q.id !== card?.dataset.questionId);
-    renderQuestionBuilder(questions.length ? questions : [newPracticeQuestion()]);
-  });
-  el.practiceQuestionBuilder.addEventListener("change", (event) => {
-    if (event.target.matches("[data-q-field='type']")) {
-      const questions = collectPracticeQuestions();
-      const card = event.target.closest(".practice-builder-question");
-      const index = [...el.practiceQuestionBuilder.querySelectorAll(".practice-builder-question")].indexOf(card);
-      if (index >= 0) { questions[index].type = event.target.value; if (event.target.value === "true-false") questions[index].options = ["True", "False"]; if (event.target.value === "fill-blank") questions[index].answers = []; renderQuestionBuilder(questions); }
-    }
-  });
-  el.practiceForm.addEventListener("submit", submitPracticeForm);
-  el.practiceAdminList.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-practice-action]");
-    if (button) void practiceAction(button.dataset.practiceAction, button.dataset.id);
   });
 
   el.copyCredentialsBtn.addEventListener("click", async () => {
