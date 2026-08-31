@@ -943,6 +943,10 @@ async function renderRoute(route) {
         break;
 
       case "notifications":
+        if (!elements.notificationsRoute || !elements.notificationsContent) {
+          setRouteVisibility("not-found");
+          break;
+        }
         setRouteVisibility("notifications");
         if (!state.features) {
           elements.notificationsContent.innerHTML = makeErrorState("Notifications are still loading. Please retry.", "notifications");
@@ -952,6 +956,10 @@ async function renderRoute(route) {
         break;
 
       case "practice": {
+        if (!elements.practiceRoute || !elements.practiceContent) {
+          setRouteVisibility("not-found");
+          break;
+        }
         if (!prepareSubjectsRoute(route)) return;
         const subject = getSubject(route.subjectId);
         if (!subject) { redirectTo(`class/${state.assignedClass}`); return; }
@@ -970,6 +978,10 @@ async function renderRoute(route) {
       }
 
       case "practice-test":
+        if (!elements.practiceTestRoute || !elements.practiceTestContent) {
+          setRouteVisibility("not-found");
+          break;
+        }
         if (!prepareSubjectsRoute(route)) return;
         setRouteVisibility("practice-test");
         if (!state.features) {
@@ -986,12 +998,20 @@ async function renderRoute(route) {
         break;
 
       case "performance":
+        if (!elements.performanceRoute || !elements.performanceContent) {
+          setRouteVisibility("not-found");
+          break;
+        }
         setRouteVisibility("performance");
         if (!state.features) elements.performanceContent.innerHTML = makeErrorState("Performance is still loading. Please retry.", "performance");
         else await state.features.renderPerformance({ rootEl: elements.performanceContent });
         break;
 
       case "planner":
+        if (!elements.plannerRoute || !elements.plannerContent) {
+          setRouteVisibility("not-found");
+          break;
+        }
         setRouteVisibility("planner");
         if (!state.features) elements.plannerContent.innerHTML = makeErrorState("Study Planner is still loading. Please retry.", "planner");
         else await state.features.renderPlanner({ rootEl: elements.plannerContent });
@@ -1403,56 +1423,65 @@ function handleLoggedOut() {
 }
 
 function bindEvents() {
-  elements.loginForm.addEventListener("submit", onLoginSubmit);
-  elements.logoutTopBtn.addEventListener("click", onLogout);
+  // Some optional feature routes are intentionally absent from the baseline HTML.
+  // Bind only when an element exists so a missing optional control can never
+  // abort application startup (and incorrectly surface as a Firebase error).
+  const on = (element, event, handler, options) => {
+    if (element && typeof element.addEventListener === "function") {
+      element.addEventListener(event, handler, options);
+    }
+  };
 
-  elements.togglePasswordBtn.addEventListener("click", () => {
+  on(elements.loginForm, "submit", onLoginSubmit);
+  on(elements.logoutTopBtn, "click", onLogout);
+
+  on(elements.togglePasswordBtn, "click", () => {
     const visible = elements.passwordInput.type === "text";
     elements.passwordInput.type = visible ? "password" : "text";
     elements.togglePasswordBtn.setAttribute("aria-label", visible ? "Show password" : "Hide password");
     elements.togglePasswordBtn.textContent = visible ? "◉" : "◌";
   });
 
-  elements.viewClassesBtn.addEventListener("click", () => redirectTo("classes"));
-  elements.classesBackBtn.addEventListener("click", () => redirectTo("home"));
-  elements.subjectsBackBtn.addEventListener("click", () => redirectTo("classes"));
-  elements.sectionsBackBtn.addEventListener("click", () => {
+  on(elements.viewClassesBtn, "click", () => redirectTo("classes"));
+  on(elements.classesBackBtn, "click", () => redirectTo("home"));
+  on(elements.subjectsBackBtn, "click", () => redirectTo("classes"));
+  on(elements.sectionsBackBtn, "click", () => {
     const parsed = parseRoute();
     redirectTo(`class/${parsed.classNumber || state.assignedClass}`);
   });
-  elements.materialsBackBtn.addEventListener("click", () => {
+  on(elements.materialsBackBtn, "click", () => {
     const parsed = parseRoute();
     redirectTo(`subject/${parsed.classNumber || state.assignedClass}/${parsed.subjectId}`);
   });
-  elements.materialDetailBackBtn.addEventListener("click", () => {
+  on(elements.materialDetailBackBtn, "click", () => {
     const parsed = parseRoute();
     redirectTo(`section/${parsed.classNumber || state.assignedClass}/${parsed.subjectId}/${parsed.sectionId}`);
   });
-  elements.searchBackBtn.addEventListener("click", () => redirectTo("home"));
-  elements.recentBackBtn.addEventListener("click", () => redirectTo("home"));
-  elements.notificationsBackBtn.addEventListener("click", () => redirectTo("home"));
-  elements.practiceBackBtn.addEventListener("click", () => {
+  on(elements.searchBackBtn, "click", () => redirectTo("home"));
+  on(elements.recentBackBtn, "click", () => redirectTo("home"));
+  on(elements.notificationsBackBtn, "click", () => redirectTo("home"));
+  on(elements.practiceBackBtn, "click", () => {
     const parsed = parseRoute();
     redirectTo(`subject/${parsed.classNumber || state.assignedClass}/${parsed.subjectId || ""}`);
   });
-  elements.practiceTestBackBtn.addEventListener("click", () => {
+  on(elements.practiceTestBackBtn, "click", () => {
     const parsed = parseRoute();
     redirectTo(`practice/${parsed.classNumber || state.assignedClass}/${parsed.subjectId || ""}`);
   });
-  elements.performanceBackBtn.addEventListener("click", () => redirectTo("home"));
-  elements.plannerBackBtn.addEventListener("click", () => redirectTo("home"));
+  on(elements.performanceBackBtn, "click", () => redirectTo("home"));
+  on(elements.plannerBackBtn, "click", () => redirectTo("home"));
 
-  elements.materialDetailHomeBtn.addEventListener("click", () => redirectTo("home"));
-  elements.fallbackHomeBtn.addEventListener("click", () => redirectTo("home"));
+  on(elements.materialDetailHomeBtn, "click", () => redirectTo("home"));
+  on(elements.fallbackHomeBtn, "click", () => redirectTo("home"));
 
-  elements.searchInput.addEventListener("input", onSearchInput);
-  elements.searchClearBtn.addEventListener("click", onSearchClear);
+  on(elements.searchInput, "input", onSearchInput);
+  on(elements.searchClearBtn, "click", onSearchClear);
 
-  elements.contactBackBtn.addEventListener("click", () => redirectTo("home"));
+  on(elements.contactBackBtn, "click", () => redirectTo("home"));
 
-  elements.menuOpenBtn.addEventListener("click", () => setMenuOpen(true));
-  elements.menuCloseBtn.addEventListener("click", closeMenu);
-  elements.menuBackdrop.addEventListener("click", closeMenu);
+  on(elements.menuOpenBtn, "click", () => setMenuOpen(true));
+  on(elements.menuCloseBtn, "click", closeMenu);
+  on(elements.menuBackdrop, "click", closeMenu);
   elements.menuItems.forEach((button) => {
     button.addEventListener("click", () => {
       closeMenu();
@@ -1460,15 +1489,15 @@ function bindEvents() {
     });
   });
 
-  elements.profileForm.addEventListener("submit", saveProfile);
-  elements.profileRefreshBtn.addEventListener("click", refreshProfileView);
-  elements.profileDeleteBtn.addEventListener("click", onDeleteAccount);
-  elements.profileBackBtn.addEventListener("click", () => redirectTo("home"));
-  elements.profileLogoutBtn.addEventListener("click", onLogout);
+  on(elements.profileForm, "submit", saveProfile);
+  on(elements.profileRefreshBtn, "click", refreshProfileView);
+  on(elements.profileDeleteBtn, "click", onDeleteAccount);
+  on(elements.profileBackBtn, "click", () => redirectTo("home"));
+  on(elements.profileLogoutBtn, "click", onLogout);
 
   // Profile is an explicit app-area action, not a duplicate page.
   const profileOpenBtn = document.querySelector("#profileOpenBtn");
-  profileOpenBtn.addEventListener("click", () => redirectTo("profile"));
+  on(profileOpenBtn, "click", () => redirectTo("profile"));
 
   // One reader controller for the entire SPA.
   readerController = createProtectedReaderController(
