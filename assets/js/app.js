@@ -73,6 +73,7 @@ const elements = {
   materialDetailRoute: $("#materialDetailRoute"),
   searchRoute: $("#searchRoute"),
   recentRoute: $("#recentRoute"),
+  contactRoute: $("#contactRoute"),
   notFoundRoute: $("#notFoundRoute"),
 
   classesGrid: $("#classesGrid"),
@@ -133,6 +134,13 @@ const elements = {
   materialDetailBackBtn: $("#materialDetailBackBtn"),
   searchBackBtn: $("#searchBackBtn"),
   recentBackBtn: $("#recentBackBtn"),
+  contactBackBtn: $("#contactBackBtn"),
+
+  menuOpenBtn: $("#menuOpenBtn"),
+  menuCloseBtn: $("#menuCloseBtn"),
+  menuBackdrop: $("#menuBackdrop"),
+  appMenu: $("#appMenu"),
+  menuItems: [...document.querySelectorAll("[data-menu-nav]")],
 
   materialDetailHomeBtn: $("#materialDetailHomeBtn"),
   fallbackHomeBtn: $("#fallbackHomeBtn"),
@@ -213,11 +221,7 @@ function setRouteVisibility(target) {
 
   const navRoute = ["home", "classes", "search", "recent"].includes(target)
     ? target
-    : target === "not-found"
-      ? "home"
-      : target === "profile"
-        ? "home"
-        : "classes";
+    : "home";
 
   elements.navItems.forEach((button) => {
     const active = button.dataset.nav === navRoute;
@@ -260,9 +264,22 @@ function parseRoute() {
   }
   if (parts[0] === "search") return { name: "search", query: params.get("q") || "" };
   if (parts[0] === "recent") return { name: "recent" };
+  if (parts[0] === "contact") return { name: "contact" };
   if (parts[0] === "profile") return { name: "profile" };
 
   return { name: "not-found" };
+}
+
+function setMenuOpen(open) {
+  elements.appMenu.classList.toggle("is-open", open);
+  elements.menuBackdrop.hidden = !open;
+  elements.menuOpenBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  elements.appMenu.setAttribute("aria-hidden", open ? "false" : "true");
+  document.body.classList.toggle("menu-is-open", open);
+}
+
+function closeMenu() {
+  setMenuOpen(false);
 }
 
 function navigate(route, options = {}) {
@@ -874,6 +891,10 @@ async function renderRoute(route) {
         await renderRecent();
         break;
 
+      case "contact":
+        setRouteVisibility("contact");
+        break;
+
       case "profile":
         setRouteVisibility("profile");
         populateProfileForm();
@@ -1182,7 +1203,7 @@ async function handleAuthenticatedUser(user) {
     renderClassCards();
 
     const current = parseRoute();
-    const safeRoute = ["home", "classes", "search", "recent", "profile"].includes(current.name)
+    const safeRoute = ["home", "classes", "search", "recent", "contact", "profile"].includes(current.name)
       ? current
       : current.name === "subjects" || current.name === "sections" || current.name === "materials" || current.name === "material-detail"
         ? current
@@ -1207,6 +1228,7 @@ async function handleAuthenticatedUser(user) {
 }
 
 function handleLoggedOut() {
+  closeMenu();
   state.user = null;
   state.profile = null;
   state.assignedClass = null;
@@ -1254,6 +1276,18 @@ function bindEvents() {
 
   elements.searchInput.addEventListener("input", onSearchInput);
   elements.searchClearBtn.addEventListener("click", onSearchClear);
+
+  elements.contactBackBtn.addEventListener("click", () => redirectTo("home"));
+
+  elements.menuOpenBtn.addEventListener("click", () => setMenuOpen(true));
+  elements.menuCloseBtn.addEventListener("click", closeMenu);
+  elements.menuBackdrop.addEventListener("click", closeMenu);
+  elements.menuItems.forEach((button) => {
+    button.addEventListener("click", () => {
+      closeMenu();
+      redirectTo(button.dataset.menuNav);
+    });
+  });
 
   elements.profileForm.addEventListener("submit", saveProfile);
   elements.profileRefreshBtn.addEventListener("click", refreshProfileView);
