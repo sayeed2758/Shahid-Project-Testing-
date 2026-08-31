@@ -33,199 +33,161 @@
   .dialog-card{padding:18px}.dialog-actions{flex-direction:column-reverse}.dialog-actions button{width:100%;min-height:44px}.credential-row{align-items:flex-start;flex-direction:column;gap:4px}.credential-row strong{max-width:100%;text-align:left}.global-status{right:10px;left:10px;bottom:10px;text-align:center}
 }
 
+
 /* =========================================================
-   PREMIUM ADMIN UI POLISH — visual-only enhancement
-   Existing structure, events and functionality unchanged.
+   PREMIUM ADMIN UI POLISH — VISUAL ONLY
+   No feature/event/ID changes. No decorative animation.
    ========================================================= */
 .admin-root {
-  --admin-ui-shadow: 0 10px 26px rgba(11,35,80,.08);
-  --admin-ui-lift: 0 16px 34px rgba(8,36,93,.13);
+  background:
+    radial-gradient(circle at 95% 0%, rgba(245,181,27,.08), transparent 24rem),
+    radial-gradient(circle at 0% 28%, rgba(27,99,217,.05), transparent 30rem),
+    #f4f7fb;
 }
 
 .admin-topbar {
-  box-shadow: 0 6px 24px rgba(8,36,93,.06);
+  background: rgba(250,252,255,.97);
+  box-shadow: 0 6px 22px rgba(7,29,75,.07), inset 0 1px 0 rgba(255,255,255,.9);
 }
 
 .admin-auth-card,
 .admin-stat,
 .admin-info-card,
 .admin-recent-card,
-.upload-card,
-.upload-side,
 .admin-toolbar,
-.dialog-card,
-.detail-info,
-.credentials-panel,
-.auth-note-card {
-  transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
-}
-
-.admin-stat:hover,
-.admin-info-card:hover,
-.admin-recent-card:hover,
-.upload-card:hover,
-.upload-side:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--admin-ui-lift);
-}
-
-.admin-stat,
-.admin-info-card,
-.admin-recent-card,
+.table-wrap,
 .upload-card,
 .upload-side,
-.admin-toolbar {
-  background-image: linear-gradient(145deg, rgba(255,255,255,.99), rgba(247,250,255,.98));
+.dialog-card {
+  border-color: rgba(13,50,115,.09);
+  box-shadow: 0 14px 34px rgba(7,29,75,.075), inset 0 1px 0 rgba(255,255,255,.86);
+}
+
+.admin-auth-logo,
+.brand-logo-small {
+  border: 1px solid rgba(245,181,27,.18);
+  box-shadow: 0 10px 24px rgba(7,29,75,.14), 0 0 0 4px rgba(255,255,255,.72);
+}
+
+.admin-tab {
+  min-height: 46px;
+  border-color: #d7e0ec;
+  box-shadow: 0 4px 0 #dce4ee, 0 8px 17px rgba(11,35,80,.05), inset 0 1px 0 rgba(255,255,255,.88);
+}
+
+.admin-tab.is-active {
+  border-color: #09265d;
+  box-shadow: 0 4px 0 #08245d, 0 11px 21px rgba(12,52,125,.15), inset 0 1px 0 rgba(255,255,255,.12);
 }
 
 .primary-button,
 .secondary-button,
-.outline-button,
-.mini-action,
-.admin-tab,
-.icon-button,
-.retry-button {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none;
-  user-select: none;
-  will-change: transform;
+.outline-button {
+  border-width: 1px;
+  border-style: solid;
 }
 
-.mini-action {
-  box-shadow: 0 4px 0 rgba(11,35,80,.08), 0 8px 16px rgba(11,35,80,.06);
-  transition: transform .14s cubic-bezier(.2,.8,.2,1), box-shadow .14s ease, background-color .14s ease, border-color .14s ease;
+.primary-button {
+  border-color: rgba(6,23,56,.16);
+  box-shadow: 0 5px 0 #09265d, 0 12px 24px rgba(8,36,93,.16);
 }
 
-.mini-action:hover {
-  transform: translateY(-2px);
-  background: #fff;
-  border-color: #c9d8ee;
-  box-shadow: 0 8px 18px rgba(11,35,80,.10);
+.secondary-button {
+  border-color: #d7dfeb;
+  box-shadow: 0 5px 0 #d8e0eb, 0 10px 20px rgba(11,35,80,.06);
 }
 
+.outline-button {
+  border-color: #d4deeb;
+  box-shadow: 0 5px 0 #dbe4ef, 0 10px 20px rgba(11,35,80,.06);
+}
+
+.primary-button:active,
+.secondary-button:active,
+.outline-button:active,
+.icon-button:active,
+.back-button:active,
+.admin-tab:active,
 .mini-action:active {
-  transform: translateY(2px) scale(.985);
-  box-shadow: 0 2px 5px rgba(11,35,80,.08);
-}
-
-.admin-tab {
-  transition: transform .14s cubic-bezier(.2,.8,.2,1), box-shadow .14s ease, background-color .14s ease, color .14s ease;
-}
-
-.admin-tab:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(11,35,80,.09);
-}
-
-.admin-tab:active {
-  transform: translateY(2px) scale(.985);
-}
-
-.admin-tab.is-active {
-  box-shadow: 0 6px 0 rgba(5,28,72,.18), 0 12px 24px rgba(12,52,125,.18);
-}
-
-.admin-topbar .outline-button,
-.dialog-actions .secondary-button,
-.dialog-actions .primary-button {
-  box-shadow: 0 5px 0 rgba(11,35,80,.08), 0 10px 20px rgba(11,35,80,.08);
-}
-
-.admin-topbar .outline-button:hover,
-.dialog-actions .secondary-button:hover,
-.dialog-actions .primary-button:hover {
-  transform: translateY(-2px);
-}
-
-.admin-topbar .outline-button:active,
-.dialog-actions .secondary-button:active,
-.dialog-actions .primary-button:active {
-  transform: translateY(2px) scale(.985);
-}
-
-.admin-auth-card .primary-button,
-.upload-card .primary-button {
-  position: relative;
-  overflow: hidden;
-}
-
-.admin-auth-card .primary-button::after,
-.upload-card .primary-button::after {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.15) 50%, transparent 70%);
-  transform: translateX(-120%);
-  opacity: 0;
-  transition: transform .45s ease, opacity .18s ease;
-}
-
-.admin-auth-card .primary-button:hover::after,
-.upload-card .primary-button:hover::after {
-  opacity: 1;
-  transform: translateX(120%);
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 rgba(8,36,93,.08), 0 6px 12px rgba(11,35,80,.06);
 }
 
 .admin-toolbar input,
 .admin-toolbar select,
-.upload-card input,
-.upload-card select,
-.dialog-card input,
-.dialog-card select {
-  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease, transform .16s ease;
+.field input,
+select,
+textarea {
+  border-color: #d9e2ee;
+  background: #fcfdff;
+  box-shadow: inset 0 1px 2px rgba(8,36,93,.025);
 }
 
 .admin-toolbar input:focus,
 .admin-toolbar select:focus,
-.upload-card input:focus,
-.upload-card select:focus,
-.dialog-card input:focus,
-.dialog-card select:focus {
-  transform: translateY(-1px);
+.field input:focus {
+  border-color: #7ea9ec;
+  box-shadow: 0 0 0 4px rgba(27,99,217,.075), inset 0 1px 2px rgba(8,36,93,.02);
 }
 
-.status-pill,
-.admin-session-pill,
-.auth-note-card,
-.progress-wrap {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
+.admin-stat {
+  min-height: 92px;
+}
+
+.status-dot {
+  box-shadow: 0 0 0 4px #e8f7ef, inset 0 1px 0 rgba(255,255,255,.85);
 }
 
 .table-wrap {
-  border-radius: 18px;
+  overflow: auto;
+  background: #fff;
 }
 
-.admin-table tbody tr {
-  transition: background-color .14s ease;
+.admin-table th {
+  background: #f6f9fd;
 }
 
-.admin-table tbody tr:hover {
-  background: #f8fbff;
+.mini-action {
+  border-color: #d5deea;
+  box-shadow: 0 3px 0 #dbe3ed, 0 6px 12px rgba(11,35,80,.04), inset 0 1px 0 rgba(255,255,255,.88);
+}
+
+.upload-card h2,
+.upload-side h2,
+.admin-info-card h2,
+.admin-recent-card h2 {
+  letter-spacing: -.03em;
+}
+
+.drive-verify-row {
+  padding: 13px 0;
+  margin-top: 2px;
+  border-top: 1px solid #edf1f6;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.detail-info,
+.auth-note-card {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+}
+
+.site-credit {
+  margin: 18px auto 4px;
+  text-align: center;
+  color: #738198;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.site-credit span { color: #d94d62; }
+
+.site-credit-admin-auth {
+  margin-top: -4px;
 }
 
 @media (max-width: 699px) {
-  .admin-topbar {
-    box-shadow: 0 5px 20px rgba(8,36,93,.07);
-  }
-
-  .admin-topbar .outline-button {
-    min-height: 44px;
-  }
-
-  .admin-stat,
-  .admin-info-card,
-  .admin-recent-card,
-  .upload-card,
-  .upload-side {
-    box-shadow: 0 9px 22px rgba(11,35,80,.07);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .admin-auth-card .primary-button::after,
-  .upload-card .primary-button::after {
-    display: none;
-  }
+  .admin-main { padding-top: 18px; }
+  .admin-tabs { padding-bottom: 13px; }
+  .admin-tab { min-height: 44px; }
 }
