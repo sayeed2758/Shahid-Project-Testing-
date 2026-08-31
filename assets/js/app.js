@@ -1483,7 +1483,7 @@ function bindEvents() {
   on(elements.menuCloseBtn, "click", closeMenu);
   on(elements.menuBackdrop, "click", closeMenu);
   elements.menuItems.forEach((button) => {
-    button.addEventListener("click", () => {
+    on(button, "click", () => {
       closeMenu();
       redirectTo(button.dataset.menuNav);
     });
@@ -1521,7 +1521,7 @@ function bindEvents() {
   readerController.bind();
 
   elements.navItems.forEach((button) => {
-    button.addEventListener("click", () => redirectTo(button.dataset.nav));
+    on(button, "click", () => redirectTo(button.dataset.nav));
   });
 
   bindDelegatedActions();

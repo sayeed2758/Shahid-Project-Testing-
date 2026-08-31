@@ -98,7 +98,13 @@ async function savePractice(){
     updates[`publishedPractice/class-${practiceClass}/${id}`]=null;
   }
   await withTimeout(update(ref(database),updates),15000);
-  if(record.active) await notifyClass(cls,"New practice test",`${title} is now available for Class ${cls}.`,"practice");
+  if(record.active){
+    try {
+      await notifyClass(cls,"New practice test",`${title} is now available for Class ${cls}.`,"practice");
+    } catch (notifyError) {
+      console.warn("Practice notification failed; test was saved successfully.", notifyError);
+    }
+  }
   msg(editingPracticeId?"Practice test updated.":"Practice test created and published.","success");
   resetPracticeEditor(); await loadPracticeAdmin();
 }
@@ -125,7 +131,7 @@ async function loadPracticeAdmin(){
     list.innerHTML=items.length?items.map(t=>`
       <article class="admin-feature-row">
         <div><strong>${esc(t.title)}</strong><small>Class ${Number(t.class)} • ${esc(SUBJECTS.find(s=>s.id===t.subject)?.label||t.subject)} • ${Array.isArray(t.questions)?t.questions.length:0} questions • ${Math.round(Number(t.durationSec||0)/60)} min</small></div>
-        <div class="row-actions"><span class="status-pill ${t.active===false?"disabled":"active"}">${t.active===false?"Unpublished":"Published"}</span><button class="mini-action" data-practice-edit="${esc(id)}">Edit</button><button class="mini-action ${t.active===false?"success":""}" data-practice-toggle="${esc(id)}">${t.active===false?"Publish":"Unpublish"}</button><button class="mini-action danger" data-practice-delete="${esc(id)}">Delete</button></div>
+        <div class="row-actions"><span class="status-pill ${t.active===false?"disabled":"active"}">${t.active===false?"Unpublished":"Published"}</span><button class="mini-action" data-practice-edit="${esc(t.id)}">Edit</button><button class="mini-action ${t.active===false?"success":""}" data-practice-toggle="${esc(t.id)}">${t.active===false?"Publish":"Unpublish"}</button><button class="mini-action danger" data-practice-delete="${esc(t.id)}">Delete</button></div>
       </article>`).join(""):'<div class="table-empty">No practice tests created yet.</div>';
     list.querySelectorAll("[data-practice-edit]").forEach(b=>b.addEventListener("click",()=>editPractice(items.find(x=>x.id===b.dataset.practiceEdit))));
     list.querySelectorAll("[data-practice-toggle]").forEach(b=>b.addEventListener("click",()=>togglePractice(items.find(x=>x.id===b.dataset.practiceToggle))));
@@ -178,11 +184,17 @@ async function saveAnnouncement(){
   const rec={id,title,message:messageText,targetClass:target||"all",active:Boolean($("#annPublish").checked),createdAt:Number($("#annCreatedAt").value)||Date.now(),updatedAt:Date.now()};
   await withTimeout(update(ref(database),{[`announcements/${id}`]:rec}),15000);
   if(rec.active){
-    if(target==="all"){
-      const r=await listStudents(); const updates={};
-      r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;updates[`notifications/${s.uid}/${nid}`]={title,message:messageText,type:"announcement",createdAt:Date.now(),read:false,targetClass:"all"};});
-      if(Object.keys(updates).length)await withTimeout(update(ref(database),updates),15000);
-    }else await notifyClass(Number(target),"New announcement",messageText,"announcement");
+    try {
+      if(target==="all"){
+        const r=await listStudents(); const updates={};
+        r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;updates[`notifications/${s.uid}/${nid}`]={title:rec.title,message:messageText,type:"announcement",createdAt:Date.now(),read:false,targetClass:"all"};});
+        if(Object.keys(updates).length)await withTimeout(update(ref(database),updates),15000);
+      }else {
+        await notifyClass(Number(target),rec.title,messageText,"announcement");
+      }
+    } catch (notifyError) {
+      console.warn("Announcement notification failed; announcement was saved successfully.", notifyError);
+    }
   }
   resetAnnouncement(); await loadAnnouncements(); msg("Announcement saved.","success");
 }
@@ -195,7 +207,19 @@ async function toggleAnnouncement(a){
   const next=a.active===false; if(!confirm(`${next?"Publish":"Hide"} “${a.title}”?`))return;
   const rec={...a,active:next,updatedAt:Date.now()};
   await withTimeout(update(ref(database),{[`announcements/${a.id}`]:rec}),15000);
-  if(next){if(a.targetClass==="all"){const r=await listStudents();const updates={};r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;updates[`notifications/${s.uid}/${nid}`]={title:a.title,message:a.message,type:"announcement",createdAt:Date.now(),read:false,targetClass:"all"};});if(Object.keys(updates).length)await withTimeout(update(ref(database),updates),15000);}else await notifyClass(Number(a.targetClass),a.title,a.message,"announcement");}
+  if(next){
+    try {
+      if(a.targetClass==="all"){
+        const r=await listStudents();const updates={};
+        r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;updates[`notifications/${s.uid}/${nid}`]={title:a.title,message:a.message,type:"announcement",createdAt:Date.now(),read:false,targetClass:"all"};});
+        if(Object.keys(updates).length)await withTimeout(update(ref(database),updates),15000);
+      } else {
+        await notifyClass(Number(a.targetClass),a.title,a.message,"announcement");
+      }
+    } catch (notifyError) {
+      console.warn("Announcement notification failed after publish toggle.", notifyError);
+    }
+  }
   await loadAnnouncements();
 }
 async function deleteAnnouncement(a){if(!a||!confirm(`Delete “${a.title}”?`))return;await withTimeout(update(ref(database),{[`announcements/${a.id}`]:null}),15000);await loadAnnouncements();}
