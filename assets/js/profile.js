@@ -1,6 +1,9 @@
 import { auth, database } from "./firebase-init.js";
 import { updateProfile as updateFirebaseProfile } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { ref, update, get } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+import { reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { STUDENT_EMAIL_DOMAIN, normaliseStudentId } from "./auth.js";
+import { DRIVE_GATEWAY_URL } from "./drive-config.js";
 
 function withTimeout(promise, ms = 12000) {
   return Promise.race([
@@ -53,4 +56,41 @@ export function getFriendlyProfileError(error) {
     default:
       return "Profile could not be saved. Please try again.";
   }
+}
+
+
+export async function deleteStudentAccount(password) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("PROFILE_AUTH_REQUIRED");
+  const profile = await refreshStudentProfile(user.uid);
+  if (!profile || String(profile.role || "student").toLowerCase() !== "student") {
+    throw new Error("ACCOUNT_DELETE_NOT_ALLOWED");
+  }
+  const studentId = normaliseStudentId(profile.studentId || "");
+  if (!studentId) throw new Error("ACCOUNT_DELETE_PROFILE_MISSING");
+  if (!password || String(password).length < 6) throw new Error("ACCOUNT_DELETE_PASSWORD_REQUIRED");
+
+  const credential = EmailAuthProvider.credential(
+    `${studentId.toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`,
+    String(password)
+  );
+  await withTimeout(reauthenticateWithCredential(user, credential), 15000);
+
+  const idToken = await user.getIdToken(true);
+  const response = await fetch(`${DRIVE_GATEWAY_URL.replace(/\/$/, "")}/account/delete/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ confirm: true })
+  });
+  let data = null;
+  try { data = await response.json(); } catch {}
+  if (!response.ok || !data?.success) {
+    const error = new Error(data?.message || "Account deletion failed. Please try again.");
+    error.code = data?.code || `ACCOUNT_DELETE_HTTP_${response.status}`;
+    throw error;
+  }
+  return data;
 }

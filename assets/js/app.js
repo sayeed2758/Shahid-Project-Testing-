@@ -20,7 +20,7 @@ import {
 } from "./catalog.js";
 import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
-import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile } from "./profile.js";
+import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
@@ -109,6 +109,7 @@ const elements = {
   profileMessage: $("#profileMessage"),
   profileSaveBtn: $("#profileSaveBtn"),
   profileRefreshBtn: $("#profileRefreshBtn"),
+  profileDeleteBtn: $("#profileDeleteBtn"),
 
   readerModal: $("#readerModal"),
   readerTitle: $("#readerTitle"),
@@ -1088,6 +1089,55 @@ async function onLoginSubmit(event) {
   }
 }
 
+async function onDeleteAccount() {
+  if (state.isBusy || !state.user) return;
+  const first = window.confirm(
+    "Delete your student account permanently?\n\nYour profile and recent-material history will be deleted. This action cannot be undone."
+  );
+  if (!first) return;
+
+  const password = window.prompt("For security, enter your Student ID password to confirm account deletion:");
+  if (password === null) return;
+  if (!password) {
+    setProfileMessage("Password is required to delete your account.", "error");
+    return;
+  }
+
+  state.isBusy = true;
+  elements.profileDeleteBtn.disabled = true;
+  elements.profileSaveBtn.disabled = true;
+  elements.profileRefreshBtn.disabled = true;
+  setProfileMessage("Deleting your account…", "loading");
+
+  try {
+    await deleteStudentAccount(password);
+    setProfileMessage("Account deleted successfully.", "success");
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    await logout().catch(() => {});
+    state.user = null;
+    state.profile = null;
+    state.assignedClass = null;
+    showView("auth");
+    setAuthMessage("Your account and associated personal data have been deleted.", "success");
+  } catch (error) {
+    console.error(error);
+    const messages = {
+      "auth/wrong-password": "The password is incorrect.",
+      "auth/invalid-credential": "The password is incorrect.",
+      "auth/requires-recent-login": "Please sign in again and retry account deletion.",
+      "ACCOUNT_DELETE_PASSWORD_REQUIRED": "Password is required to delete your account.",
+      "ACCOUNT_DELETE_PROFILE_MISSING": "Your student profile is incomplete. Please contact EZEE VISION CHAMPUA.",
+      "ACCOUNT_DELETE_NOT_ALLOWED": "Only student accounts can be deleted here.",
+    };
+    setProfileMessage(messages[error?.code] || error?.message || "Account deletion failed. Please try again.", "error");
+  } finally {
+    elements.profileDeleteBtn.disabled = false;
+    elements.profileSaveBtn.disabled = false;
+    elements.profileRefreshBtn.disabled = false;
+    state.isBusy = false;
+  }
+}
+
 async function onLogout() {
   if (state.isBusy) return;
   state.isBusy = true;
@@ -1207,6 +1257,7 @@ function bindEvents() {
 
   elements.profileForm.addEventListener("submit", saveProfile);
   elements.profileRefreshBtn.addEventListener("click", refreshProfileView);
+  elements.profileDeleteBtn.addEventListener("click", onDeleteAccount);
   elements.profileBackBtn.addEventListener("click", () => redirectTo("home"));
   elements.profileLogoutBtn.addEventListener("click", onLogout);
 
