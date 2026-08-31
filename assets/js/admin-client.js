@@ -86,6 +86,29 @@ function userRecordFromAuth(user, studentId, displayName, classNumber) {
   return { displayName, studentId, email: user.email || studentEmailFromId(studentId), role: "student", class: classNumber, active: true, createdAt: now, updatedAt: now, lastSignInTime: null };
 }
 
+async function notifyClassStudents(classNumber, title, message, type = "material") {
+  try {
+    const snap = await withTimeout(get(ref(database, "users")), 12000);
+    const users = snap.val() || {};
+    const updates = {};
+    Object.entries(users).forEach(([uid, user]) => {
+      if (user?.role !== "student" || user?.active === false || Number(user.class) !== Number(classNumber)) return;
+      const id = `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${Math.random().toString(36).slice(2, 5)}`;
+      updates[`notifications/${uid}/${id}`] = {
+        title: String(title || "New update"),
+        message: String(message || ""),
+        type,
+        createdAt: Date.now(),
+        read: false,
+        targetClass: Number(classNumber),
+      };
+    });
+    if (Object.keys(updates).length) await withTimeout(update(ref(database), updates), 15000);
+  } catch (error) {
+    console.warn("Student notification creation failed:", error);
+  }
+}
+
 export async function createStudent({ displayName, studentId, password, classNumber }) {
   const name = String(displayName ?? "").trim();
   const id = normaliseStudentId(studentId);
@@ -212,7 +235,10 @@ export async function uploadMaterial({ metadata, publish }) {
     createdAt: Number(metadata.createdAt || Date.now()), updatedAt: Date.now(),
   };
   await withTimeout(update(ref(database), { [`catalog/class-${record.class}/${record.id}`]: record }), 15000);
-  if (publish) await writePublished(record, true);
+  if (publish) {
+    await writePublished(record, true);
+    await notifyClassStudents(record.class, "New material available", `${record.title} is now available in your class materials.`, "material");
+  }
   return record;
 }
 export async function replaceMaterial(material, metadata, publish) {
@@ -228,6 +254,7 @@ export async function replaceMaterial(material, metadata, publish) {
     updates[`publishedCatalog/class-${material.class}/${material.id}`] = null;
   }
   await withTimeout(update(ref(database), updates), 15000);
+  if (publish) await notifyClassStudents(updated.class, "Material updated", `${updated.title} has been updated in your class materials.`, "material");
   return updated;
 }
 export async function deleteMaterial(material) {
@@ -241,6 +268,7 @@ export async function publishMaterial(material, publish) {
     [`catalog/class-${material.class}/${material.id}`]: updated,
     [`publishedCatalog/class-${material.class}/${material.id}`]: publish ? updated : null,
   }), 15000);
+  if (publish) await notifyClassStudents(updated.class, "New material available", `${updated.title} is now available in your class materials.`, "material");
   return updated;
 }
 

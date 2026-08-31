@@ -43,6 +43,7 @@ const state = {
   catalogLoadedFor: null,
   recent: [],
   isBusy: false,
+  features: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -64,6 +65,9 @@ const elements = {
   worksheetsCount: $("#worksheetsCount"),
   totalMaterialsCount: $("#totalMaterialsCount"),
   homeClassGrid: $("#homeClassGrid"),
+  homeAnnouncements: $("#homeAnnouncements"),
+  homeNotifications: $("#homeNotifications"),
+  homeFeatureActions: $("#homeFeatureActions"),
 
   homeRoute: $("#homeRoute"),
   classesRoute: $("#classesRoute"),
@@ -73,6 +77,11 @@ const elements = {
   materialDetailRoute: $("#materialDetailRoute"),
   searchRoute: $("#searchRoute"),
   recentRoute: $("#recentRoute"),
+  notificationsRoute: $("#notificationsRoute"),
+  practiceRoute: $("#practiceRoute"),
+  practiceTestRoute: $("#practiceTestRoute"),
+  performanceRoute: $("#performanceRoute"),
+  plannerRoute: $("#plannerRoute"),
   contactRoute: $("#contactRoute"),
   notFoundRoute: $("#notFoundRoute"),
 
@@ -95,6 +104,13 @@ const elements = {
   materialDetailMeta: $("#materialDetailMeta"),
   materialDetailBody: $("#materialDetailBody"),
   materialsSubjectTitle: $("#materialsSubjectTitle"),
+  practiceShortcut: $("#practiceShortcut"),
+  practicePageTitle: $("#practicePageTitle"),
+  notificationsContent: $("#notificationsContent"),
+  practiceContent: $("#practiceContent"),
+  practiceTestContent: $("#practiceTestContent"),
+  performanceContent: $("#performanceContent"),
+  plannerContent: $("#plannerContent"),
 
   searchInput: $("#searchInput"),
   searchClearBtn: $("#searchClearBtn"),
@@ -134,6 +150,11 @@ const elements = {
   materialDetailBackBtn: $("#materialDetailBackBtn"),
   searchBackBtn: $("#searchBackBtn"),
   recentBackBtn: $("#recentBackBtn"),
+  notificationsBackBtn: $("#notificationsBackBtn"),
+  practiceBackBtn: $("#practiceBackBtn"),
+  practiceTestBackBtn: $("#practiceTestBackBtn"),
+  performanceBackBtn: $("#performanceBackBtn"),
+  plannerBackBtn: $("#plannerBackBtn"),
   contactBackBtn: $("#contactBackBtn"),
 
   menuOpenBtn: $("#menuOpenBtn"),
@@ -264,6 +285,11 @@ function parseRoute() {
   }
   if (parts[0] === "search") return { name: "search", query: params.get("q") || "" };
   if (parts[0] === "recent") return { name: "recent" };
+  if (parts[0] === "notifications") return { name: "notifications" };
+  if (parts[0] === "practice" && parts[1] && parts[2]) return { name: "practice", classNumber: Number(parts[1]), subjectId: parts[2] };
+  if (parts[0] === "practice-test" && parts[1] && parts[2] && parts[3]) return { name: "practice-test", classNumber: Number(parts[1]), subjectId: parts[2], testId: parts.slice(3).join("/") };
+  if (parts[0] === "performance") return { name: "performance" };
+  if (parts[0] === "planner") return { name: "planner" };
   if (parts[0] === "contact") return { name: "contact" };
   if (parts[0] === "profile") return { name: "profile" };
 
@@ -425,6 +451,14 @@ function renderSections(classNumber, subjectId) {
   elements.sectionsGrid.innerHTML = SECTIONS.map((section) =>
     createSectionCard(section, classNumber, subjectId)
   ).join("");
+  if (elements.practiceShortcut) {
+    elements.practiceShortcut.innerHTML = `
+      <button class="practice-shortcut card" type="button" data-action="open-practice" data-class-number="${classNumber}" data-subject-id="${escapeHtml(subjectId)}">
+        <span class="practice-shortcut-icon">📝</span>
+        <span><strong>Practice</strong><small>MCQ • Fill in the Blanks • True / False • Timed</small></span>
+        <b>→</b>
+      </button>`;
+  }
 }
 
 function createMaterialCard(material) {
@@ -695,6 +729,20 @@ async function renderHomeData() {
     elements.worksheetsCount.textContent = "—";
     elements.totalMaterialsCount.textContent = "—";
   }
+
+  if (state.features) {
+    try {
+      await state.features.loadNotifications();
+      await state.features.renderAnnouncements(elements.homeAnnouncements);
+      state.features.renderHomeWidgets({
+        announcementsEl: elements.homeAnnouncements,
+        notificationsEl: elements.homeNotifications,
+        homeActionsEl: elements.homeFeatureActions,
+      });
+    } catch (error) {
+      console.warn("Student feature home widgets failed:", error);
+    }
+  }
 }
 
 function prepareSubjectsRoute(route) {
@@ -851,6 +899,9 @@ async function renderRoute(route) {
                   ? `<button class="secondary-button material-action-button" id="downloadMaterialBtn" type="button">Download PDF</button>`
                   : ""}
               </div>
+              <a class="whatsapp-material-help" href="https://wa.me/919124478453?text=${encodeURIComponent(`Sir, I need help with ${material.title} on EZEE VISION CHAMPUA application.`)}" target="_blank" rel="noopener noreferrer">
+                <span>💬</span><span><strong>Ask Teacher on WhatsApp</strong><small>Get help with this material</small></span><b>→</b>
+              </a>
             </div>
           `;
 
@@ -889,6 +940,61 @@ async function renderRoute(route) {
 
       case "recent":
         await renderRecent();
+        break;
+
+      case "notifications":
+        setRouteVisibility("notifications");
+        if (!state.features) {
+          elements.notificationsContent.innerHTML = makeErrorState("Notifications are still loading. Please retry.", "notifications");
+        } else {
+          await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent });
+        }
+        break;
+
+      case "practice": {
+        if (!prepareSubjectsRoute(route)) return;
+        const subject = getSubject(route.subjectId);
+        if (!subject) { redirectTo(`class/${state.assignedClass}`); return; }
+        setRouteVisibility("practice");
+        if (elements.practicePageTitle) elements.practicePageTitle.textContent = `${subject.label} Practice`;
+        if (!state.features) {
+          elements.practiceContent.innerHTML = makeErrorState("Practice is still loading. Please retry.", "practice");
+        } else {
+          await state.features.renderPracticeList({
+            rootEl: elements.practiceContent,
+            classNumber: route.classNumber,
+            subjectId: route.subjectId,
+          });
+        }
+        break;
+      }
+
+      case "practice-test":
+        if (!prepareSubjectsRoute(route)) return;
+        setRouteVisibility("practice-test");
+        if (!state.features) {
+          elements.practiceTestContent.innerHTML = makeErrorState("Practice is still loading. Please retry.", "practice-test");
+        } else {
+          await state.features.renderPracticeTest({
+            rootEl: elements.practiceTestContent,
+            classNumber: route.classNumber,
+            subjectId: route.subjectId,
+            testId: route.testId,
+            goBack: () => redirectTo(`practice/${route.classNumber}/${route.subjectId}`),
+          });
+        }
+        break;
+
+      case "performance":
+        setRouteVisibility("performance");
+        if (!state.features) elements.performanceContent.innerHTML = makeErrorState("Performance is still loading. Please retry.", "performance");
+        else await state.features.renderPerformance({ rootEl: elements.performanceContent });
+        break;
+
+      case "planner":
+        setRouteVisibility("planner");
+        if (!state.features) elements.plannerContent.innerHTML = makeErrorState("Study Planner is still loading. Please retry.", "planner");
+        else await state.features.renderPlanner({ rootEl: elements.plannerContent });
         break;
 
       case "contact":
@@ -1037,6 +1143,52 @@ function bindDelegatedActions() {
     if (action === "open-recent") {
       const item = state.recent.find((entry) => entry.id === button.dataset.materialId);
       if (item) await openRecentItem(item);
+      return;
+    }
+
+    if (action === "open-practice") {
+      const cls = Number(button.dataset.classNumber);
+      const subject = button.dataset.subjectId;
+      if (ensureAssignedClass(cls) && subject) redirectTo(`practice/${cls}/${encodeURIComponent(subject)}`);
+      return;
+    }
+
+    if (action === "open-practice-test") {
+      const cls = Number(button.dataset.classNumber);
+      const subject = button.dataset.subjectId;
+      const id = button.dataset.testId;
+      if (ensureAssignedClass(cls) && subject && id) redirectTo(`practice-test/${cls}/${encodeURIComponent(subject)}/${encodeURIComponent(id)}`);
+      return;
+    }
+
+    if (action === "open-notifications") {
+      redirectTo("notifications");
+      return;
+    }
+
+    if (action === "open-performance") { redirectTo("performance"); return; }
+    if (action === "open-planner") { redirectTo("planner"); return; }
+
+    if (button.dataset.featureAction) {
+      const featureAction = button.dataset.featureAction;
+      try {
+        if (featureAction === "read-notification" && state.features) {
+          await state.features.markNotificationRead(button.dataset.id);
+          if (parseRoute().name === "notifications") {
+            await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent });
+          } else {
+            await renderHomeData();
+          }
+        } else if (featureAction === "mark-all-read" && state.features) {
+          await state.features.markAllNotificationsRead();
+          await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent });
+        } else if (featureAction === "enable-notifications" && state.features) {
+          try { await state.features.enableNotifications(); alert("Notifications enabled for this device."); }
+          catch { alert("Notification permission was not granted."); }
+        }
+      } catch (error) {
+        console.error("Feature action failed:", error);
+      }
       return;
     }
 
@@ -1198,12 +1350,19 @@ async function handleAuthenticatedUser(user) {
     state.assignedClass = assigned;
     state.catalog = [];
     state.catalogLoadedFor = null;
+    if (state.features) {
+      await Promise.allSettled([
+        state.features.loadMaterialSeen(),
+        state.features.loadNotifications(),
+      ]);
+      state.features.watchNotifications?.(user.uid);
+    }
 
     showView("app");
     renderClassCards();
 
     const current = parseRoute();
-    const safeRoute = ["home", "classes", "search", "recent", "contact", "profile"].includes(current.name)
+    const safeRoute = ["home", "classes", "search", "recent", "notifications", "performance", "planner", "practice", "practice-test", "contact", "profile"].includes(current.name)
       ? current
       : current.name === "subjects" || current.name === "sections" || current.name === "materials" || current.name === "material-detail"
         ? current
@@ -1235,6 +1394,7 @@ function handleLoggedOut() {
   state.catalog = [];
   state.catalogLoadedFor = null;
   state.recent = [];
+  state.features?.stopNotificationWatch?.();
   showView("auth");
   setAuthControlsDisabled(false);
   setButtonBusy(elements.loginBtn, false);
@@ -1270,6 +1430,17 @@ function bindEvents() {
   });
   elements.searchBackBtn.addEventListener("click", () => redirectTo("home"));
   elements.recentBackBtn.addEventListener("click", () => redirectTo("home"));
+  elements.notificationsBackBtn.addEventListener("click", () => redirectTo("home"));
+  elements.practiceBackBtn.addEventListener("click", () => {
+    const parsed = parseRoute();
+    redirectTo(`subject/${parsed.classNumber || state.assignedClass}/${parsed.subjectId || ""}`);
+  });
+  elements.practiceTestBackBtn.addEventListener("click", () => {
+    const parsed = parseRoute();
+    redirectTo(`practice/${parsed.classNumber || state.assignedClass}/${parsed.subjectId || ""}`);
+  });
+  elements.performanceBackBtn.addEventListener("click", () => redirectTo("home"));
+  elements.plannerBackBtn.addEventListener("click", () => redirectTo("home"));
 
   elements.materialDetailHomeBtn.addEventListener("click", () => redirectTo("home"));
   elements.fallbackHomeBtn.addEventListener("click", () => redirectTo("home"));
@@ -1338,6 +1509,11 @@ function bindEvents() {
   window.addEventListener("offline", () => {
     setGlobalStatus("You’re offline. Firebase-backed data may not load.");
   });
+
+  window.addEventListener("evc-notifications-updated", () => {
+    if (!state.user || parseRoute().name !== "home") return;
+    void renderHomeData();
+  });
 }
 
 async function bootstrap() {
@@ -1345,6 +1521,15 @@ async function bootstrap() {
   bindEvents();
   showView("auth");
   setAuthMessage("Connecting securely…", "loading");
+
+  try {
+    const featureModule = await import("./student-features.js");
+    featureModule.init(() => state);
+    state.features = featureModule;
+    await featureModule.loadMaterialSeen().catch(() => {});
+  } catch (error) {
+    console.warn("Student feature module could not load; core app will continue:", error);
+  }
 
   try {
     await configureAuthPersistence();

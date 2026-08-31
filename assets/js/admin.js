@@ -783,3 +783,9 @@ function bind() {
   await checkGatewayHealth();
   updateDriveActionState();
 })();
+
+
+// Optional feature modules are loaded after the core admin panel so a feature error cannot blank the existing dashboard.
+import("./admin-features.js").then(({ initAdminExtras }) => {
+  try { initAdminExtras(); } catch (error) { console.warn("Admin feature module initialization failed:", error); }
+}).catch((error) => console.warn("Admin feature module unavailable; core admin panel remains active:", error));
