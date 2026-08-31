@@ -287,7 +287,7 @@ function parseRoute() {
   }
   if (parts[0] === "search") return { name: "search", query: params.get("q") || "" };
   if (parts[0] === "recent") return { name: "recent" };
-  if (parts[0] === "notifications") return { name: "notifications" };
+  if (parts[0] === "notifications" || parts[0] === "announcement" || parts[0] === "announcements") return { name: "notifications" };
   if (parts[0] === "practice" && parts[1] && parts[2]) return { name: "practice", classNumber: Number(parts[1]), subjectId: parts[2] };
   if (parts[0] === "practice-test" && parts[1] && parts[2] && parts[3]) return { name: "practice-test", classNumber: Number(parts[1]), subjectId: parts[2], testId: parts.slice(3).join("/") };
   if (parts[0] === "performance") return { name: "performance" };
@@ -1535,7 +1535,6 @@ function bindEvents() {
   });
 
   on(elements.profileForm, "submit", saveProfile);
-  on(elements.profilePhotoBtn, "click", changeProfilePhoto);
   on(elements.profilePhotoInput, "change", onProfilePhotoSelected);
   on(elements.profileRefreshBtn, "click", refreshProfileView);
   on(elements.profileDeleteBtn, "click", onDeleteAccount);
