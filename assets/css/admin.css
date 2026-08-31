@@ -191,3 +191,17 @@ textarea {
   .admin-tabs { padding-bottom: 13px; }
   .admin-tab { min-height: 44px; }
 }
+
+/* ---- additive admin learning controls ---- */
+.feature-admin-panel[hidden] { display:none !important; }
+.question-composer { padding:16px; margin-top:6px; border-color:#dce6f4; box-shadow:none; }
+.admin-feature-list { display:grid; gap:9px; }
+.admin-feature-row, .question-admin-row { display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:15px;background:#fff; }
+.admin-feature-row > div:first-child, .question-admin-row > div:first-child { min-width:0;flex:1; }
+.admin-feature-row strong, .admin-feature-row small, .question-admin-row strong, .question-admin-row small { display:block; }
+.admin-feature-row strong, .question-admin-row strong { font-size:11px;line-height:1.4; }
+.admin-feature-row small, .question-admin-row small { margin-top:4px;color:var(--muted);font-size:9px;line-height:1.4;overflow:hidden;text-overflow:ellipsis; }
+@media (min-width:760px){
+ .upload-layout { grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);align-items:start; }
+ .form-grid.two, .form-grid-two { grid-template-columns:1fr 1fr; }
+}
