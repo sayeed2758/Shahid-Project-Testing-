@@ -20,12 +20,12 @@ function k(v){return String(v??"").replace(/[.#$\[\]/]/g,"_");}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function isAdmin(){return String(auth.currentUser?.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();}
 function msg(text,type=""){const el=$("#featureAdminMessage");if(el){el.textContent=text;el.dataset.type=type;}}
-async function notifyClass(classNumber,title,message,type="material"){
+async function notifyClass(classNumber,title,message,type="material",priority="normal"){
   const result=await listStudents();
   const updates={};
   result.students.filter(s=>Number(s.class)===Number(classNumber)&&s.active!==false).forEach(s=>{
     const id=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;
-    updates[`notifications/${s.uid}/${id}`]={title,message,type,createdAt:Date.now(),read:false,targetClass:Number(classNumber)};
+    updates[`notifications/${s.uid}/${id}`]={title,message,type,priority,createdAt:Date.now(),read:false,targetClass:Number(classNumber)};
   });
   if(Object.keys(updates).length) await withTimeout(update(ref(database),updates),15000);
 }
@@ -168,29 +168,37 @@ async function loadAnnouncements(){
   list.innerHTML=items.length?items.map(a=>`
     <article class="admin-feature-row">
       <div><strong>${esc(a.title)}</strong><small>${a.targetClass==="all"?"All classes":`Class ${Number(a.targetClass)}`} • ${esc(a.message||"")}</small></div>
-      <div class="row-actions"><span class="status-pill ${a.active!==false?"active":"disabled"}">${a.active!==false?"Published":"Hidden"}</span><button class="mini-action" data-ann-edit="${esc(a.id)}">Edit</button><button class="mini-action ${a.active===false?"success":""}" data-ann-toggle="${esc(a.id)}">${a.active===false?"Publish":"Hide"}</button><button class="mini-action danger" data-ann-delete="${esc(a.id)}">Delete</button></div>
+      <div class="row-actions"><span class="status-pill ${a.active!==false?"active":"disabled"}">${a.active!==false?"Published":"Hidden"}</span><span class="status-pill priority-${esc(a.priority||"normal")}">${esc(a.priority||"normal")}</span><button class="mini-action" data-ann-edit="${esc(a.id)}">Edit</button><button class="mini-action ${a.active===false?"success":""}" data-ann-toggle="${esc(a.id)}">${a.active===false?"Publish":"Hide"}</button><button class="mini-action danger" data-ann-delete="${esc(a.id)}">Delete</button></div>
     </article>`).join(""):'<div class="table-empty">No announcements yet.</div>';
   list.querySelectorAll("[data-ann-edit]").forEach(b=>b.addEventListener("click",()=>editAnnouncement(items.find(x=>x.id===b.dataset.annEdit))));
   list.querySelectorAll("[data-ann-toggle]").forEach(b=>b.addEventListener("click",()=>toggleAnnouncement(items.find(x=>x.id===b.dataset.annToggle))));
   list.querySelectorAll("[data-ann-delete]").forEach(b=>b.addEventListener("click",()=>deleteAnnouncement(items.find(x=>x.id===b.dataset.annDelete))));
 }
 function editAnnouncement(a){
-  $("#annId").value=a.id; $("#annTitle").value=a.title||""; $("#annClass").value=String(a.targetClass||"all"); $("#annMessage").value=a.message||""; $("#annPublish").checked=a.active!==false; $("#annMode").textContent="EDIT ANNOUNCEMENT"; $("#annSaveBtn").textContent="Save Changes";
+  $("#annId").value=a.id;
+  $("#annTitle").value=a.title||"";
+  $("#annClass").value=String(a.targetClass||"all");
+  $("#annPriority").value=String(a.priority||"normal");
+  $("#annMessage").value=a.message||"";
+  $("#annPublish").checked=a.active!==false;
+  $("#annCreatedAt").value=String(a.createdAt||Date.now());
+  $("#annMode").textContent="EDIT ANNOUNCEMENT";
+  $("#annSaveBtn").textContent="Save Changes";
 }
 async function saveAnnouncement(){
   const title=$("#annTitle").value.trim(), messageText=$("#annMessage").value.trim(), target=$("#annClass").value;
   if(title.length<2||messageText.length<2)throw new Error("Enter title and message.");
   const id=$("#annId").value||`ann-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-  const rec={id,title,message:messageText,targetClass:target||"all",active:Boolean($("#annPublish").checked),createdAt:Number($("#annCreatedAt").value)||Date.now(),updatedAt:Date.now()};
+  const rec={id,title,message:messageText,targetClass:target||"all",priority:$("#annPriority")?.value||"normal",active:Boolean($("#annPublish").checked),createdAt:Number($("#annCreatedAt").value)||Date.now(),updatedAt:Date.now()};
   await withTimeout(update(ref(database),{[`announcements/${id}`]:rec}),15000);
   if(rec.active){
     try {
       if(target==="all"){
         const r=await listStudents(); const updates={};
-        r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;updates[`notifications/${s.uid}/${nid}`]={title:rec.title,message:messageText,type:"announcement",createdAt:Date.now(),read:false,targetClass:"all"};});
+        r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;updates[`notifications/${s.uid}/${nid}`]={title:rec.title,message:messageText,type:"announcement",priority:rec.priority||"normal",createdAt:Date.now(),read:false,targetClass:"all"};});
         if(Object.keys(updates).length)await withTimeout(update(ref(database),updates),15000);
       }else {
-        await notifyClass(Number(target),rec.title,messageText,"announcement");
+        await notifyClass(Number(target),rec.title,messageText,"announcement",rec.priority||"normal");
       }
     } catch (notifyError) {
       console.warn("Announcement notification failed; announcement was saved successfully.", notifyError);
@@ -201,6 +209,7 @@ async function saveAnnouncement(){
 function resetAnnouncement(){
   $("#announcementFormAdmin")?.reset();
   $("#annId").value=""; $("#annCreatedAt").value=String(Date.now()); $("#annPublish").checked=true;
+  if($("#annPriority"))$("#annPriority").value="normal";
   $("#annMode").textContent="NEW ANNOUNCEMENT"; $("#annSaveBtn").textContent="Publish Announcement";
 }
 async function toggleAnnouncement(a){
@@ -211,10 +220,10 @@ async function toggleAnnouncement(a){
     try {
       if(a.targetClass==="all"){
         const r=await listStudents();const updates={};
-        r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;updates[`notifications/${s.uid}/${nid}`]={title:a.title,message:a.message,type:"announcement",createdAt:Date.now(),read:false,targetClass:"all"};});
+        r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;updates[`notifications/${s.uid}/${nid}`]={title:a.title,message:a.message,type:"announcement",priority:a.priority||"normal",createdAt:Date.now(),read:false,targetClass:"all"};});
         if(Object.keys(updates).length)await withTimeout(update(ref(database),updates),15000);
       } else {
-        await notifyClass(Number(a.targetClass),a.title,a.message,"announcement");
+        await notifyClass(Number(a.targetClass),a.title,a.message,"announcement",a.priority||"normal");
       }
     } catch (notifyError) {
       console.warn("Announcement notification failed after publish toggle.", notifyError);

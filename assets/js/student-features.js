@@ -40,6 +40,9 @@ function notificationIcon(type){
 function areNotificationsEnabled(){
   return "Notification" in window && Notification.permission === "granted";
 }
+function browserAlertsEnabled(){
+  try { return localStorage.getItem("evc-browser-alerts")==="1" && areNotificationsEnabled(); } catch { return areNotificationsEnabled(); }
+}
 
 let cache = {
   notifications: [],
@@ -60,10 +63,26 @@ export function watchNotifications(uid){
   if(notificationUnsubscribe) { try{ notificationUnsubscribe(); }catch{} notificationUnsubscribe=null; }
   if(!uid) return;
   const node=ref(database,`notifications/${uid}`);
+  let knownIds=new Set(cache.notifications.map(n=>n.id));
   notificationUnsubscribe=onValue(node,(snapshot)=>{
     const value=snapshot.val()||{};
-    cache.notifications=Object.entries(value).map(([id,v])=>({id,...v})).filter(Boolean)
+    const next=Object.entries(value).map(([id,v])=>({id,...v})).filter(Boolean)
       .sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0)).slice(0,50);
+    const fresh=next.filter(n=>!knownIds.has(n.id) && n.read!==true);
+    knownIds=new Set(next.map(n=>n.id));
+    cache.notifications=next;
+    if(browserAlertsEnabled() && document.visibilityState !== "visible" && fresh.length){
+      fresh.slice(0,3).forEach(n=>{
+        try{
+          const note=new Notification(n.title||"EZEE VISION CHAMPUA",{
+            body:n.message||"You have a new update.",
+            icon:"./assets/images/icon-192.png",
+            tag:`evc-${n.id}`,
+          });
+          note.onclick=()=>{ try{ window.focus(); }catch{}; location.hash="#notifications"; note.close(); };
+        }catch{}
+      });
+    }
     window.dispatchEvent(new CustomEvent("evc-notifications-updated",{detail:{unread:unreadNotifications().length}}));
   },(error)=>console.warn("Notification listener failed:",error));
 }
@@ -98,6 +117,7 @@ export async function enableNotifications(){
   if(!( "Notification" in window)) throw new Error("NOTIFICATION_UNSUPPORTED");
   const result=await Notification.requestPermission();
   if(result!=="granted") throw new Error("NOTIFICATION_DENIED");
+  try { localStorage.setItem("evc-browser-alerts","1"); } catch {}
   return true;
 }
 
@@ -228,28 +248,54 @@ export async function deletePlan(id){
   await withTimeout(update(ref(database),{[`studyPlans/${s.user.uid}/${keyify(id)}`]:null}));
 }
 
+
+function priorityMeta(priority){
+  const p=String(priority||"normal").toLowerCase();
+  if(p==="urgent") return {label:"Urgent", cls:"is-urgent"};
+  if(p==="important") return {label:"Important", cls:"is-important"};
+  return {label:"Update", cls:"is-normal"};
+}
 function announcementCard(v,compact=false){
-  return `<button class="announcement-card ${compact?"announcement-card-compact":""}" type="button" data-action="open-announcement" data-announcement-id="${escapeHtml(v.id)}">
-    <span class="announcement-icon">📢</span>
-    <span class="announcement-copy"><strong>${escapeHtml(v.title||"Announcement")}</strong><span>${escapeHtml(v.message||"")}</span><small>${shortDate(v.createdAt)}${v.targetClass&&v.targetClass!=="all"?` • Class ${escapeHtml(v.targetClass)}`:""}</small></span>
+  const priority=priorityMeta(v.priority);
+  return `<button class="announcement-card premium-announcement-card ${compact?"announcement-card-compact":""}" type="button" data-action="open-announcement" data-announcement-id="${escapeHtml(v.id)}">
+    <span class="announcement-icon premium-update-icon">📢</span>
+    <span class="announcement-copy">
+      <span class="update-card-topline"><span class="update-badge ${priority.cls}">${escapeHtml(priority.label)}</span><small>${escapeHtml(shortDate(v.createdAt))}</small></span>
+      <strong>${escapeHtml(v.title||"Announcement")}</strong>
+      <span>${escapeHtml(v.message||"")}</span>
+      <small>${v.targetClass&&v.targetClass!=="all"?`Class ${escapeHtml(v.targetClass)}`:"All classes"}</small>
+    </span>
     <b class="announcement-arrow">→</b>
   </button>`;
+}
+function notificationCard(n){
+  const priority=priorityMeta(n.priority);
+  return `<article class="notification-card premium-notification-card ${n.read===true?"is-read":""} ${priority.cls}">
+    <div class="notification-icon">${notificationIcon(n.type)}</div>
+    <div class="notification-copy">
+      <div class="notification-title-line">
+        <strong>${escapeHtml(n.title||"Notification")}</strong>
+        ${n.read!==true?`<span class="notification-unread-dot" title="Unread"></span>`:""}
+      </div>
+      <p>${escapeHtml(n.message||"")}</p>
+      <div class="notification-meta-row"><small>${escapeHtml(dateText(n.createdAt))}</small><span class="update-badge ${priority.cls}">${escapeHtml(priority.label)}</span></div>
+    </div>
+    ${n.read===true?`<span class="notification-read">Read</span>`:`<button class="mini-action notification-read-btn" type="button" data-feature-action="read-notification" data-id="${escapeHtml(n.id)}">Mark read</button>`}
+  </article>`;
 }
 
 export function renderHomeWidgets({announcementsEl,notificationsEl,homeActionsEl}){
   if(announcementsEl){
     const items=cache.announcements||[];
     announcementsEl.innerHTML=items.length
-      ? items.slice(0,3).map(v=>announcementCard(v,true)).join("")
-      : `<div class="feature-empty">No announcements right now.</div>`;
+      ? `<div class="home-update-label"><span>📢 Latest announcement</span><button type="button" class="link-button" data-action="open-notifications">View all</button></div>${items.slice(0,2).map(v=>announcementCard(v,true)).join("")}`
+      : `<div class="feature-empty home-update-empty">No announcements right now.</div>`;
   }
   if(notificationsEl){
     const unread=unreadNotifications();
     notificationsEl.innerHTML=unread.length
-      ? unread.slice(0,3).map(n=>`<button class="feature-row notification-home-row" type="button" data-feature-action="read-notification" data-id="${escapeHtml(n.id)}">
-          <span class="feature-icon">${notificationIcon(n.type)}</span><span><strong>${escapeHtml(n.title||"Notification")}</strong><small>${escapeHtml(n.message||"")}</small><em>${shortDate(n.createdAt)}</em></span><span class="feature-arrow">→</span>
-        </button>`).join("")
-      : `<div class="feature-empty">You're all caught up. No new alerts.</div>`;
+      ? `<div class="home-update-label"><span>🔔 Your alerts <b class="home-unread-pill">${unread.length}</b></span><button type="button" class="link-button" data-action="open-notifications">View all</button></div>${unread.slice(0,2).map(n=>`<button class="feature-row premium-home-alert" type="button" data-feature-action="read-notification" data-id="${escapeHtml(n.id)}"><span class="feature-icon">${notificationIcon(n.type)}</span><span><strong>${escapeHtml(n.title||"Notification")}</strong><small>${escapeHtml(n.message||"")}</small><em>${escapeHtml(shortDate(n.createdAt))}</em></span><span class="feature-arrow">→</span></button>`).join("")}`
+      : `<div class="home-update-label"><span>🔔 Your alerts</span><button type="button" class="link-button" data-action="open-notifications">Open alerts</button></div><div class="feature-empty home-update-empty">You're all caught up.</div>`;
   }
   if(homeActionsEl){
     const attempts=cache.attempts||[];
@@ -259,59 +305,82 @@ export function renderHomeWidgets({announcementsEl,notificationsEl,homeActionsEl
       <button class="feature-action-card premium-feature-card" type="button" data-action="open-planner"><span>📅</span><div><strong>Study Planner</strong><small>Plan, track and complete your next tasks</small></div><b>→</b></button>`;
   }
 }
-
 export async function renderAnnouncements(el){
   const s=currentState(); if(!el||!s.user?.uid)return;
   try{
     await loadAnnouncementsData();
     el.innerHTML=cache.announcements.length
       ? cache.announcements.slice(0,5).map(v=>announcementCard(v)).join("")
-      : `<div class="feature-empty">No announcements right now.</div>`;
+      : `<div class="feature-empty">No announcements for your class right now.</div>`;
   }catch(e){
     el.innerHTML=`<div class="feature-empty">Announcements could not be loaded. Please retry.</div>`;
   }
 }
-
 function announcementDetail(id){
   const item=cache.announcements.find(a=>a.id===String(id));
   if(!item) return `<div class="feature-empty">This announcement is no longer available.</div>`;
-  return `<section class="announcement-detail card">
-    <div class="announcement-detail-icon">📢</div>
+  const priority=priorityMeta(item.priority);
+  return `<section class="announcement-detail premium-announcement-detail card">
+    <div class="announcement-detail-topline">
+      <div class="announcement-detail-icon">📢</div>
+      <span class="update-badge ${priority.cls}">${escapeHtml(priority.label)}</span>
+    </div>
     <p class="eyebrow">ANNOUNCEMENT</p>
     <h2>${escapeHtml(item.title||"Announcement")}</h2>
     <p class="announcement-detail-message">${escapeHtml(item.message||"")}</p>
-    <div class="announcement-detail-meta"><span>Published ${escapeHtml(dateText(item.createdAt))}</span>${item.targetClass&&item.targetClass!=="all"?`<span>Class ${escapeHtml(item.targetClass)}</span>`:`<span>All students</span>`}</div>
+    <div class="announcement-detail-meta">
+      <span>Published ${escapeHtml(dateText(item.createdAt))}</span>
+      <span>${item.targetClass&&item.targetClass!=="all"?`Class ${escapeHtml(item.targetClass)}`:`All classes`}</span>
+    </div>
   </section>`;
 }
-
 export async function renderNotificationsRoute({rootEl,announcementId=""}){
   await Promise.all([loadNotifications(),loadAnnouncementsData()]);
   const unread=unreadNotifications();
-  const enabled=areNotificationsEnabled();
   const selectedId=String(announcementId||"");
+  const enabled=areNotificationsEnabled();
   rootEl.innerHTML=`
-    <div class="notification-hub-hero card">
-      <div><p class="eyebrow">STAY UPDATED</p><h2>Announcements &amp; Alerts</h2><p>Important updates, new study material and practice notifications — all in one place.</p></div>
-      <div class="notification-hub-badge"><strong>${unread.length}</strong><span>unread</span></div>
+    <div class="updates-center-hero card">
+      <div class="updates-center-hero-copy">
+        <div class="updates-center-icon">🔔</div>
+        <div><p class="eyebrow">YOUR UPDATES</p><h2>Announcements &amp; Alerts</h2><p>Stay informed about what matters for your class and your account.</p></div>
+      </div>
+      <div class="updates-center-stats"><strong>${unread.length}</strong><span>unread</span></div>
     </div>
     ${selectedId?`<div class="announcement-detail-wrap">${announcementDetail(selectedId)}<button class="secondary-button full-width" type="button" data-notification-back-list>Back to all updates</button></div>`:""}
-    <section class="updates-section">
-      <div class="updates-section-head"><div><p class="eyebrow">LATEST UPDATES</p><h3>Announcements</h3><p>Messages from EZEE VISION CHAMPUA.</p></div></div>
-      <div class="feature-list updates-list">${cache.announcements.length?cache.announcements.map(v=>announcementCard(v)).join(""):`<div class="feature-empty">No announcements for your class right now.</div>`}</div>
+    <div class="updates-filter-bar">
+      <button class="updates-filter is-active" type="button" data-update-filter="all">All</button>
+      <button class="updates-filter" type="button" data-update-filter="announcement">Announcements</button>
+      <button class="updates-filter" type="button" data-update-filter="alerts">Alerts</button>
+      <button class="updates-filter" type="button" data-update-filter="unread">Unread <span>${unread.length}</span></button>
+    </div>
+    <section class="updates-feed-section">
+      <div class="updates-feed-head"><div><p class="eyebrow">LATEST</p><h3>Announcements</h3><p>Updates published by EZEE VISION CHAMPUA.</p></div></div>
+      <div id="updatesAnnouncementsFeed" class="updates-feed">${cache.announcements.length?cache.announcements.map(v=>announcementCard(v)).join(""):`<div class="feature-empty">No announcements for your class right now.</div>`}</div>
     </section>
-    <section class="updates-section">
-      <div class="updates-section-head"><div><p class="eyebrow">YOUR ALERTS</p><h3>Notifications</h3><p>Account-specific updates and learning alerts.</p></div>
-        <div class="feature-toolbar-actions"><button class="secondary-button" data-feature-action="enable-notifications" ${enabled?"disabled":""}>${enabled?"Enabled":"Enable alerts"}</button>${unread.length?`<button class="outline-button" data-feature-action="mark-all-read">Mark all read</button>`:""}</div>
+    <section class="updates-feed-section">
+      <div class="updates-feed-head"><div><p class="eyebrow">YOUR ALERTS</p><h3>Notifications</h3><p>Learning and account alerts.</p></div>
+        <div class="feature-toolbar-actions"><button class="secondary-button" data-feature-action="enable-notifications" ${enabled?"disabled":""}>${enabled?"Alerts enabled":"Enable alerts"}</button>${unread.length?`<button class="outline-button" data-feature-action="mark-all-read">Mark all read</button>`:""}</div>
       </div>
-      <div class="feature-list updates-list">
-        ${cache.notifications.length?cache.notifications.map(n=>`<article class="notification-card premium-notification-card ${n.read===true?"is-read":""}">
-          <div class="notification-icon">${notificationIcon(n.type)}</div>
-          <div class="notification-copy"><div class="notification-title-line"><strong>${escapeHtml(n.title||"Notification")}</strong>${n.read!==true?`<span class="notification-unread-dot" title="Unread"></span>`:""}</div><p>${escapeHtml(n.message||"")}</p><small>${escapeHtml(dateText(n.createdAt))}</small></div>
-          ${n.read===true?`<span class="notification-read">Read</span>`:`<button class="mini-action notification-read-btn" type="button" data-feature-action="read-notification" data-id="${escapeHtml(n.id)}">Mark read</button>`}
-        </article>`).join(""):`<div class="feature-empty">No notifications yet. You're all caught up.</div>`}
-      </div>
+      <div id="updatesNotificationsFeed" class="updates-feed">${cache.notifications.length?cache.notifications.map(n=>notificationCard(n)).join(""):`<div class="feature-empty">No notifications yet. You're all caught up.</div>`}</div>
     </section>`;
 
+  const applyFilter=(filter)=>{
+    rootEl.querySelectorAll(".updates-filter").forEach(b=>b.classList.toggle("is-active",b.dataset.updateFilter===filter));
+    const anns=rootEl.querySelector("#updatesAnnouncementsFeed");
+    const alerts=rootEl.querySelector("#updatesNotificationsFeed");
+    if(!anns||!alerts)return;
+    if(filter==="announcement"){ anns.hidden=false; alerts.hidden=true; }
+    else if(filter==="alerts"){ anns.hidden=true; alerts.hidden=false; }
+    else if(filter==="unread"){
+      anns.hidden=true; alerts.hidden=false;
+      alerts.querySelectorAll(".notification-card").forEach(card=>card.classList.toggle("filter-hidden",card.classList.contains("is-read")));
+    } else {
+      anns.hidden=false; alerts.hidden=false;
+      alerts.querySelectorAll(".notification-card").forEach(card=>card.classList.remove("filter-hidden"));
+    }
+  };
+  rootEl.querySelectorAll("[data-update-filter]").forEach(btn=>btn.addEventListener("click",()=>applyFilter(btn.dataset.updateFilter)));
   rootEl.querySelectorAll('[data-action="open-announcement"]').forEach(button=>button.addEventListener("click",()=>{
     const id=button.dataset.announcementId;
     if(id) location.hash=`#announcement/${encodeURIComponent(id)}`;
@@ -334,6 +403,7 @@ export async function renderNotificationsRoute({rootEl,announcementId=""}){
     try{ await enableNotifications(); await renderNotificationsRoute({rootEl,announcementId:selectedId}); }
     catch(error){ button.disabled=false; alert(error.message==="NOTIFICATION_UNSUPPORTED"?"This browser does not support notifications.":error.message==="NOTIFICATION_DENIED"?"Notification permission was not granted. Please allow notifications in browser settings.":"Notifications could not be enabled. Please try again."); }
   }));
+  applyFilter("all");
 }
 
 export async function renderPerformance({rootEl}){
