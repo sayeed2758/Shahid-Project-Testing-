@@ -205,3 +205,8 @@ textarea {
  .upload-layout { grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);align-items:start; }
  .form-grid.two, .form-grid-two { grid-template-columns:1fr 1fr; }
 }
+
+/* Phase 1 — Announcement priority */
+.status-pill.priority-normal{background:#eef4fb;color:#62738c}
+.status-pill.priority-important{background:#fff3cb;color:#946d00}
+.status-pill.priority-urgent{background:#ffe6e3;color:#ad3325}
