@@ -287,7 +287,7 @@ function parseRoute() {
   }
   if (parts[0] === "search") return { name: "search", query: params.get("q") || "" };
   if (parts[0] === "recent") return { name: "recent" };
-  if (parts[0] === "notifications" || parts[0] === "announcement" || parts[0] === "announcements") return { name: "notifications" };
+  if (/^(notifications?|announc(e)?ments?|announcement-view|notice|notices)$/i.test(parts[0] || "")) return { name: "notifications" };
   if (parts[0] === "practice" && parts[1] && parts[2]) return { name: "practice", classNumber: Number(parts[1]), subjectId: parts[2] };
   if (parts[0] === "practice-test" && parts[1] && parts[2] && parts[3]) return { name: "practice-test", classNumber: Number(parts[1]), subjectId: parts[2], testId: parts.slice(3).join("/") };
   if (parts[0] === "performance") return { name: "performance" };
@@ -557,6 +557,39 @@ function setProfileMessage(message = "", type = "") {
   elements.profileMessage.className = `inline-message ${type}`.trim();
 }
 
+function profilePhotoStorageKey() {
+  return state.user?.uid ? `ezee_profile_photo_${state.user.uid}` : "";
+}
+
+function getStoredProfilePhoto() {
+  const key = profilePhotoStorageKey();
+  if (!key) return "";
+  try { return String(localStorage.getItem(key) || "").trim(); } catch { return ""; }
+}
+
+function renderProfilePhoto(photoURL, initial) {
+  const remote = String(photoURL || "").trim();
+  const fallback = getStoredProfilePhoto();
+  const source = remote || fallback;
+  if (!source) {
+    elements.profileAvatar.textContent = initial;
+    elements.profileAvatar.classList.remove("has-photo");
+    return;
+  }
+  elements.profileAvatar.innerHTML = `<img src="${escapeHtml(source)}" alt="Student photo" loading="eager" decoding="async">`;
+  elements.profileAvatar.classList.add("has-photo");
+  const img = elements.profileAvatar.querySelector("img");
+  img?.addEventListener("error", () => {
+    const safeFallback = getStoredProfilePhoto();
+    if (safeFallback && img.getAttribute("src") !== safeFallback) {
+      img.src = safeFallback;
+    } else {
+      elements.profileAvatar.textContent = initial;
+      elements.profileAvatar.classList.remove("has-photo");
+    }
+  }, { once: true });
+}
+
 function populateProfileForm() {
   const name = getDisplayName(state.user, state.profile);
   elements.profileNameInput.value = name === "Student" ? "" : name;
@@ -564,13 +597,7 @@ function populateProfileForm() {
   elements.profileClassInput.value = state.assignedClass ? `Class ${state.assignedClass}` : "Not assigned";
   const initial = name.trim().charAt(0).toUpperCase() || "S";
   const photoURL = String(state.profile?.photoURL || state.user?.photoURL || "").trim();
-  if (photoURL) {
-    elements.profileAvatar.innerHTML = `<img src="${escapeHtml(photoURL)}" alt="Student photo" loading="lazy">`;
-    elements.profileAvatar.classList.add("has-photo");
-  } else {
-    elements.profileAvatar.textContent = initial;
-    elements.profileAvatar.classList.remove("has-photo");
-  }
+  renderProfilePhoto(photoURL, initial);
 }
 
 async function refreshProfileView() {
@@ -616,9 +643,28 @@ async function onProfilePhotoSelected(event) {
   elements.profileSaveBtn.disabled = true;
   elements.profileRefreshBtn.disabled = true;
   setProfileMessage("Uploading photo…", "loading");
+  let previewURL = "";
   try {
+    previewURL = URL.createObjectURL(file);
+    const previewReader = new FileReader();
+    previewReader.onload = () => {
+      const value = String(previewReader.result || "");
+      if (!value) return;
+      const key = profilePhotoStorageKey();
+      if (key) {
+        try { localStorage.setItem(key, value); } catch { /* local fallback is best-effort */ }
+      }
+      const name = getDisplayName(state.user, state.profile);
+      renderProfilePhoto(value, name.trim().charAt(0).toUpperCase() || "S");
+    };
+    previewReader.readAsDataURL(file);
+
     const photoURL = await uploadStudentPhoto(state.user.uid, file);
     state.profile = { ...(state.profile || {}), photoURL, updatedAt: Date.now() };
+    try {
+      const key = profilePhotoStorageKey();
+      if (key) localStorage.removeItem(key);
+    } catch { /* best-effort cleanup */ }
     populateProfileForm();
     setProfileMessage("Profile photo saved successfully.", "success");
   } catch (error) {
@@ -631,6 +677,7 @@ async function onProfilePhotoSelected(event) {
     };
     setProfileMessage(messages[error?.message] || "Photo could not be saved. Please try again.", "error");
   } finally {
+    if (previewURL) URL.revokeObjectURL(previewURL);
     elements.profilePhotoBtn.disabled = false;
     elements.profileSaveBtn.disabled = false;
     elements.profileRefreshBtn.disabled = false;

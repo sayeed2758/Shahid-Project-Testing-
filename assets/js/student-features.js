@@ -296,12 +296,22 @@ export async function renderPerformance({rootEl}){
       <div class="perf-stat card"><span>Best Score</span><strong>${best}%</strong></div>
       <div class="perf-stat card"><span>Passing Attempts</span><strong>${passed}</strong></div>
     </div>
-    <div class="card performance-table">
-      <div class="feature-toolbar"><div><h3>Attempt History</h3></div></div>
-      ${attempts.length?`<div class="perf-list">${attempts.slice(0,30).map(a=>`
-        <article class="perf-row"><div><strong>${escapeHtml(a.title||"Practice Test")}</strong><small>${escapeHtml(subjectLabel(a.subject))} • ${escapeHtml(dateText(a.submittedAt))}</small></div>
-          <div class="perf-score"><strong>${Number(a.score||0)}/${Number(a.total||0)}</strong><span>${Number(a.percentage||0)}%</span></div></article>`).join("")}</div>`:`<div class="feature-empty">Complete a practice test and your results will appear here.</div>`}
-    </div>`;
+    <section class="card performance-table" aria-labelledby="attemptHistoryTitle">
+      <div class="performance-table-head">
+        <div><p class="eyebrow">HISTORY</p><h3 id="attemptHistoryTitle">Attempt History</h3><p class="muted">Your latest practice attempts.</p></div>
+      </div>
+      ${attempts.length?`<div class="perf-list">${attempts.slice(0,30).map((a,idx)=>`
+        <article class="perf-row">
+          <div class="perf-attempt-info">
+            <strong>${escapeHtml(a.title||"Practice Test")}</strong>
+            <small>${escapeHtml(subjectLabel(a.subject))} • ${escapeHtml(dateText(a.submittedAt))}</small>
+          </div>
+          <div class="perf-score" aria-label="Score ${Number(a.score||0)} out of ${Number(a.total||0)}">
+            <strong>${Number(a.score||0)}/${Number(a.total||0)}</strong>
+            <span>${Number(a.percentage||0)}%</span>
+          </div>
+        </article>`).join("")}</div>`:`<div class="feature-empty">Complete a practice test and your results will appear here.</div>`}
+    </section>`;
 }
 
 export async function renderPlanner({rootEl}){
