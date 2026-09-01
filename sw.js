@@ -1,4 +1,4 @@
-const CACHE_NAME = "ezee-vision-shell-simple-v7-firebase-fix";
+const CACHE_NAME = "ezee-vision-shell-simple-v7-firebase-fix-ui2";
 
 const APP_SHELL = [
   "./",
