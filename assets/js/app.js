@@ -287,7 +287,10 @@ function parseRoute() {
   }
   if (parts[0] === "search") return { name: "search", query: params.get("q") || "" };
   if (parts[0] === "recent") return { name: "recent" };
-  if (/^(notifications?|announc(e)?ments?|announcement-view|notice|notices)$/i.test(parts[0] || "")) return { name: "notifications" };
+  if (/^(notifications?|announc(e)?ments?|announcement-view|notice|notices)$/i.test(parts[0] || "")) {
+    const announcementId = parts[1] || params.get("id") || params.get("announcementId") || "";
+    return { name: "notifications", announcementId };
+  }
   if (parts[0] === "practice" && parts[1] && parts[2]) return { name: "practice", classNumber: Number(parts[1]), subjectId: parts[2] };
   if (parts[0] === "practice-test" && parts[1] && parts[2] && parts[3]) return { name: "practice-test", classNumber: Number(parts[1]), subjectId: parts[2], testId: parts.slice(3).join("/") };
   if (parts[0] === "performance") return { name: "performance" };
@@ -1043,7 +1046,7 @@ async function renderRoute(route) {
         if (!state.features) {
           elements.notificationsContent.innerHTML = makeErrorState("Notifications are still loading. Please retry.", "notifications");
         } else {
-          await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent });
+          await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent, announcementId: route.announcementId || "" });
         }
         break;
 
@@ -1273,6 +1276,12 @@ function bindDelegatedActions() {
       return;
     }
 
+    if (action === "open-announcement") {
+      const id = button.dataset.announcementId;
+      if (id) redirectTo(`announcement/${encodeURIComponent(id)}`);
+      return;
+    }
+
     if (action === "open-notifications") {
       redirectTo("notifications");
       return;
@@ -1286,14 +1295,16 @@ function bindDelegatedActions() {
       try {
         if (featureAction === "read-notification" && state.features) {
           await state.features.markNotificationRead(button.dataset.id);
-          if (parseRoute().name === "notifications") {
-            await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent });
+          const currentRoute = parseRoute();
+          if (currentRoute.name === "notifications") {
+            await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent, announcementId: currentRoute.announcementId || "" });
           } else {
             await renderHomeData();
           }
         } else if (featureAction === "mark-all-read" && state.features) {
           await state.features.markAllNotificationsRead();
-          await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent });
+          const currentRoute = parseRoute();
+          await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent, announcementId: currentRoute.announcementId || "" });
         } else if (featureAction === "enable-notifications" && state.features) {
           try { await state.features.enableNotifications(); alert("Notifications enabled for this device."); }
           catch { alert("Notification permission was not granted."); }
