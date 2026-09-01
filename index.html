@@ -157,25 +157,19 @@
 
 
           <section class="section-block">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">LATEST UPDATES</p>
-                <h2>Announcements</h2>
+            <div class="updates-center-preview card">
+              <div class="updates-preview-head">
+                <div>
+                  <p class="eyebrow">UPDATES CENTER</p>
+                  <h2>Stay up to date</h2>
+                  <p>Important class announcements, new materials and practice alerts in one place.</p>
+                </div>
+                <button class="updates-preview-open" type="button" data-action="open-notifications">Open all</button>
               </div>
-              <button class="link-button" type="button" data-action="open-notifications">View notifications</button>
+              <div id="homeAnnouncements" class="home-update-stack"></div>
+              <div class="home-updates-divider"></div>
+              <div id="homeNotifications" class="home-alert-stack"></div>
             </div>
-            <div id="homeAnnouncements" class="feature-list"></div>
-          </section>
-
-          <section class="section-block">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">YOUR ALERTS</p>
-                <h2>Notifications</h2>
-              </div>
-              <button class="link-button" type="button" data-action="open-notifications">View all</button>
-            </div>
-            <div id="homeNotifications" class="feature-list"></div>
           </section>
 
           <section class="section-block">
@@ -286,7 +280,11 @@
         <section id="notificationsRoute" class="route" data-route="notifications" hidden>
           <div class="page-heading">
             <button id="notificationsBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
-            <div><p class="eyebrow">ALERTS</p><h1>Notifications</h1><p class="muted">Announcements and updates for your account.</p></div>
+            <div>
+              <p class="eyebrow">UPDATES CENTER</p>
+              <h1>Announcements &amp; Alerts</h1>
+              <p class="muted">Everything important for your class, in one place.</p>
+            </div>
           </div>
           <div id="notificationsContent"></div>
         </section>

@@ -104,7 +104,10 @@
               <input id="annId" type="hidden">
               <input id="annCreatedAt" type="hidden">
               <label class="field"><span>Title</span><input id="annTitle" maxlength="120" required placeholder="e.g. New revision material uploaded"></label>
-              <label class="field"><span>Target class</span><select id="annClass"><option value="all">All classes</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label>
+              <div class="form-grid-two">
+                <label class="field"><span>Target class</span><select id="annClass"><option value="all">All classes</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select></label>
+                <label class="field"><span>Priority</span><select id="annPriority"><option value="normal">Normal</option><option value="important">Important</option><option value="urgent">Urgent</option></select></label>
+              </div>
               <label class="field"><span>Announcement message</span><textarea id="annMessage" rows="5" maxlength="600" required placeholder="Write the update for students"></textarea></label>
               <label class="check-row"><input id="annPublish" type="checkbox" checked><span>Publish immediately</span></label>
               <div id="featureAdminMessage" class="inline-message" role="status" aria-live="polite"></div>
