@@ -20,7 +20,7 @@ import {
 } from "./catalog.js";
 import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
-import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount, uploadStudentPhoto, createProfilePhotoPreview } from "./profile.js";
+import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount, uploadStudentPhoto } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
@@ -570,10 +570,39 @@ function getStoredProfilePhoto() {
   try { return String(localStorage.getItem(key) || "").trim(); } catch { return ""; }
 }
 
+function renderTopbarAvatar(photoURL, initial) {
+  const remote = String(photoURL || "").trim();
+  const fallback = getStoredProfilePhoto();
+  const source = remote || fallback;
+
+  if (!source) {
+    elements.topbarAvatar.textContent = initial;
+    elements.topbarAvatar.classList.remove("has-photo");
+    return;
+  }
+
+  elements.topbarAvatar.innerHTML = `<img src="${escapeHtml(source)}" alt="Student photo" loading="eager" decoding="async">`;
+  elements.topbarAvatar.classList.add("has-photo");
+
+  const img = elements.topbarAvatar.querySelector("img");
+  img?.addEventListener("error", () => {
+    const safeFallback = getStoredProfilePhoto();
+    if (safeFallback && img.getAttribute("src") !== safeFallback) {
+      img.src = safeFallback;
+    } else {
+      elements.topbarAvatar.textContent = initial;
+      elements.topbarAvatar.classList.remove("has-photo");
+    }
+  }, { once: true });
+}
+
 function renderProfilePhoto(photoURL, initial) {
   const remote = String(photoURL || "").trim();
   const fallback = getStoredProfilePhoto();
   const source = remote || fallback;
+
+  renderTopbarAvatar(remote, initial);
+
   if (!source) {
     elements.profileAvatar.textContent = initial;
     elements.profileAvatar.classList.remove("has-photo");
@@ -649,18 +678,27 @@ async function onProfilePhotoSelected(event) {
   let previewURL = "";
   try {
     previewURL = URL.createObjectURL(file);
-    const previewValue = await createProfilePhotoPreview(file);
-    if (previewValue) {
+    const previewReader = new FileReader();
+    previewReader.onload = () => {
+      const value = String(previewReader.result || "");
+      if (!value) return;
       const key = profilePhotoStorageKey();
-      if (key) { try { localStorage.setItem(key, previewValue); } catch {} }
+      if (key) {
+        try { localStorage.setItem(key, value); } catch { /* local fallback is best-effort */ }
+      }
       const name = getDisplayName(state.user, state.profile);
-      renderProfilePhoto(previewValue, name.trim().charAt(0).toUpperCase() || "S");
-    }
+      renderProfilePhoto(value, name.trim().charAt(0).toUpperCase() || "S");
+    };
+    previewReader.readAsDataURL(file);
 
     const photoURL = await uploadStudentPhoto(state.user.uid, file);
     state.profile = { ...(state.profile || {}), photoURL, updatedAt: Date.now() };
-    const finalName = getDisplayName(state.user, state.profile);
-    renderProfilePhoto(photoURL, finalName.trim().charAt(0).toUpperCase() || "S");
+    renderTopbarAvatar(photoURL, getDisplayName(state.user, state.profile).trim().charAt(0).toUpperCase() || "S");
+    try {
+      const key = profilePhotoStorageKey();
+      if (key) localStorage.removeItem(key);
+    } catch { /* best-effort cleanup */ }
+    populateProfileForm();
     setProfileMessage("Profile photo saved successfully.", "success");
   } catch (error) {
     console.error(error);
@@ -792,8 +830,10 @@ async function ensureCatalog(classNumber, { force = false, targetNotice = null }
 
 async function renderHomeData() {
   const displayName = getDisplayName(state.user, state.profile);
+  const initial = displayName.trim().charAt(0).toUpperCase() || "S";
+  const photoURL = String(state.profile?.photoURL || state.user?.photoURL || "").trim();
   elements.welcomeHeading.innerHTML = `${escapeHtml(displayName)} <span aria-hidden="true">👋</span>`;
-  elements.topbarAvatar.textContent = displayName.trim().charAt(0).toUpperCase() || "S";
+  renderTopbarAvatar(photoURL, initial);
   elements.dateLine.textContent = formatToday();
   elements.classStatus.textContent = state.assignedClass
     ? `Your assigned class: Class ${state.assignedClass}`
@@ -1463,6 +1503,10 @@ async function handleAuthenticatedUser(user) {
 
     state.profile = profile;
     state.assignedClass = assigned;
+    renderTopbarAvatar(
+      String(profile?.photoURL || user?.photoURL || "").trim(),
+      getDisplayName(user, profile).trim().charAt(0).toUpperCase() || "S"
+    );
     state.catalog = [];
     state.catalogLoadedFor = null;
     if (state.features) {
