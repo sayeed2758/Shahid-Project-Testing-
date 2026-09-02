@@ -33,7 +33,7 @@
     },
     "publishedCatalog": {
       "$classKey": {
-        ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() === true && String(root.child('users').child(auth.uid).child('class').val()) === $classKey.replace('class-', '')))",
+        ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() !== false && String(root.child('users').child(auth.uid).child('class').val()) === $classKey.replace('class-', '')))",
         ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         "$materialId": {
           ".validate": "newData.hasChildren(['title','class','subject','section','fileName','type','active','createdAt','updatedAt']) && (newData.hasChildren(['driveFileId','storageType']) || newData.hasChildren(['storagePath'])) && newData.child('active').val() === true"
@@ -72,7 +72,7 @@
     },
     "publishedPractice": {
       "$classKey": {
-        ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() === true && String(root.child('users').child(auth.uid).child('class').val()) === $classKey.replace('class-', '')))",
+        ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() !== false && String(root.child('users').child(auth.uid).child('class').val()) === $classKey.replace('class-', '')))",
         ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'"
       }
     },
@@ -89,7 +89,7 @@
       }
     },
     "announcements": {
-      ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() === true))",
+      ".read": "auth != null && (auth.token.email === 'creativesayeedd@gmail.com' || (root.child('users').child(auth.uid).child('role').val() === 'student' && root.child('users').child(auth.uid).child('active').val() !== false))",
       "$announcementId": {
         ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'"
       }
