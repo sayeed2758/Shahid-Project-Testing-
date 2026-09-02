@@ -1391,6 +1391,21 @@ body.menu-is-open { overflow: hidden; }
   font-weight: 900;
 }
 
+.profile-mini-button.has-photo {
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.profile-mini-button.has-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: inherit;
+}
+
 .profile-avatar {
   display: grid;
   place-items: center;
