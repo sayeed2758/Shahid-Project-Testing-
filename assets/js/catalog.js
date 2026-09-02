@@ -1,19 +1,8 @@
 import { database } from "./firebase-init.js";
 import { get, ref } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+import { SUBJECTS, SECTIONS } from "./constants.js";
 
-export const SUBJECTS = [
-  { id: "sst", label: "SST", icon: "🌍", description: "Social Studies" },
-  { id: "science", label: "Science", icon: "🔬", description: "Science & discovery" },
-  { id: "math", label: "Math", icon: "🧮", description: "Numbers & problem solving" },
-  { id: "english", label: "English", icon: "📚", description: "Language & literature" },
-];
-export const SECTIONS = [
-  { id: "detailed", label: "Detailed Notes", icon: "▤", tone: "notes", downloadable: false },
-  { id: "short", label: "Short Notes", icon: "▥", tone: "notes", downloadable: false },
-  { id: "pyq", label: "PYQ's", icon: "📝", tone: "notes", downloadable: false },
-  { id: "worksheet", label: "Worksheet", icon: "⇩", tone: "worksheet", downloadable: true },
-  { id: "exam-paper", label: "Exam Paper", icon: "📄", tone: "worksheet", downloadable: true },
-];
+export { SUBJECTS, SECTIONS };
 const normaliseClass = value => { const n = Number.parseInt(String(value ?? "").replace(/[^\d]/g, ""), 10); return Number.isInteger(n) && n >= 6 && n <= 10 ? n : null; };
 const validSubject = value => SUBJECTS.some(x => x.id === String(value).toLowerCase()) ? String(value).toLowerCase() : null;
 const validSection = value => SECTIONS.some(x => x.id === String(value).toLowerCase()) ? String(value).toLowerCase() : null;
@@ -21,9 +10,8 @@ function withTimeout(promise, ms=12000){return Promise.race([promise,new Promise
 function normaliseMaterial(id, raw={}, classNumber){
   const cls=normaliseClass(raw.class)||classNumber, subject=validSubject(raw.subject), section=validSection(raw.section);
   const driveFileId=String(raw.driveFileId||"").trim();
-  const storagePath=String(raw.storagePath||"").trim();
-  if(!cls||!subject||!section||raw.active===false||(!driveFileId&&!storagePath))return null;
-  return {id:String(id),title:String(raw.title||"Untitled Material").trim(),chapter:String(raw.chapter||"").trim(),class:cls,subject,section,driveFileId,storagePath,fileName:String(raw.fileName||raw.driveName||"PDF"),fileSize:Number(raw.fileSize)||0,type:"pdf",active:true,createdAt:Number(raw.createdAt)||0,updatedAt:Number(raw.updatedAt)||Number(raw.createdAt)||0};
+  if(!cls||!subject||!section||raw.active===false||!driveFileId)return null;
+  return {id:String(id),title:String(raw.title||"Untitled Material").trim(),chapter:String(raw.chapter||"").trim(),class:cls,subject,section,driveFileId,fileName:String(raw.fileName||raw.driveName||"PDF"),fileSize:Number(raw.fileSize)||0,type:"pdf",active:true,createdAt:Number(raw.createdAt)||0,updatedAt:Number(raw.updatedAt)||Number(raw.createdAt)||0};
 }
 let cachedClassCatalog=new Map();
 export async function loadClassCatalog(classNumber,{force=false}={}){

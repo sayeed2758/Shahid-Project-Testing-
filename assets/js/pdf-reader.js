@@ -1,16 +1,69 @@
 import { auth } from "./firebase-init.js";
+import { DRIVE_GATEWAY_URL } from "./drive-config.js";
 
 const LOAD_TIMEOUT = 30_000;
 
-function normaliseDriveFileId(value) {
-  const id = String(value ?? "").trim();
-  return /^[A-Za-z0-9_-]{10,200}$/.test(id) ? id : "";
+function gatewayEndpoint(path) {
+  if (!DRIVE_GATEWAY_URL) throw new Error("DRIVE_GATEWAY_NOT_CONFIGURED");
+  return `${DRIVE_GATEWAY_URL.replace(/\/$/, "")}${path}`;
 }
 
-function drivePreviewUrl(fileId) {
-  const id = normaliseDriveFileId(fileId);
-  if (!id) throw new Error("PDF_FILE_ID_MISSING");
-  return `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview?rm=minimal`;
+async function fetchGatewayBlob(path, { timeoutMs = LOAD_TIMEOUT } = {}) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("AUTH_REQUIRED");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const token = await user.getIdToken();
+    const response = await fetch(gatewayEndpoint(path), {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.ok) {
+      let payload = null;
+      if (contentType.includes("application/json")) {
+        try { payload = await response.json(); } catch {}
+      }
+      const error = new Error(payload?.message || `Gateway request failed (${response.status})`);
+      error.code = payload?.code || (response.status === 401 ? "AUTH_REQUIRED" : response.status === 403 ? "PDF_ACCESS_DENIED" : "GATEWAY_ERROR");
+      error.status = response.status;
+      throw error;
+    }
+    if (!contentType.toLowerCase().includes("application/pdf")) {
+      throw new Error("GATEWAY_INVALID_PDF_RESPONSE");
+    }
+    return { blob: await response.blob(), contentDisposition: response.headers.get("content-disposition") || "" };
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("NETWORK_TIMEOUT");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function safeDownloadName(material) {
+  const source = String(material?.fileName || material?.title || "learning-material")
+    .replace(/^\"|\"$/g, "")
+    .replace(/\.[^.]+$/i, "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+  return `${source || "learning-material"}.pdf`;
+}
+
+function triggerBlobDownload(blob, fileName) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
 export function createProtectedReaderController(elements, { onBusyChange = () => {} } = {}) {
@@ -26,7 +79,7 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
   }
 
   function updateControls() {
-    // Direct Drive preview owns page navigation and zoom. Keep only app-level actions visible.
+    // The browser PDF viewer owns page navigation and zoom. Keep only app-level actions visible.
     elements.readerPrev.hidden = true;
     elements.readerNext.hidden = true;
     elements.readerZoomOut.hidden = true;
@@ -44,8 +97,10 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
       loadTimer = null;
     }
     if (iframe) {
+      const objectUrl = iframe.dataset.objectUrl || "";
       iframe.src = "about:blank";
       iframe.remove();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       iframe = null;
     }
     if (elements.readerCanvas) elements.readerCanvas.hidden = true;
@@ -93,7 +148,13 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
         updateControls();
         onBusyChange(false);
       }, { once: true });
-      frame.src = drivePreviewUrl(material.driveFileId);
+      const endpoint = material.section === "worksheet" || material.section === "exam-paper"
+        ? `/worksheet/${encodeURIComponent(material.id)}/`
+        : `/pdf/${encodeURIComponent(material.id)}/`;
+      const { blob } = await fetchGatewayBlob(endpoint);
+      if (!loading || !iframe) return;
+      iframe.src = URL.createObjectURL(blob);
+      iframe.dataset.objectUrl = iframe.src;
       loadTimer = setTimeout(() => {
         if (!loading) return;
         loading = false;
@@ -134,8 +195,10 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
     await open(material, watermark);
   }
 
-  async function downloadWorksheet() {
-    throw new Error("WORKSHEET_DOWNLOAD_DISABLED");
+  async function downloadWorksheet(material) {
+    if (!material?.id) throw new Error("PDF_FILE_ID_MISSING");
+    const { blob } = await fetchGatewayBlob(`/worksheet/${encodeURIComponent(material.id)}/`);
+    triggerBlobDownload(blob, safeDownloadName(material));
   }
 
   function bind() {

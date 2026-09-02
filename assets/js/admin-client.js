@@ -5,34 +5,20 @@ import {
   sendResetEmail,
   logout,
   observeAuth,
-  ADMIN_EMAIL,
+  normaliseStudentId,
 } from "./auth.js";
 import { get, ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { DRIVE_GATEWAY_URL } from "./drive-config.js";
+import { ADMIN_EMAIL, STUDENT_EMAIL_DOMAIN, CLASSES, SUBJECTS, SECTIONS } from "./constants.js";
 
 const MAX_LINK_LENGTH = 2048;
-const SUBJECTS = [
-  { id: "sst", label: "SST", icon: "🌍" },
-  { id: "science", label: "Science", icon: "🔬" },
-  { id: "math", label: "Math", icon: "🧮" },
-  { id: "english", label: "English", icon: "📚" },
-];
-const SECTIONS = [
-  { id: "detailed", label: "Detailed Notes" },
-  { id: "short", label: "Short Notes" },
-  { id: "pyq", label: "PYQ's" },
-  { id: "worksheet", label: "Worksheet" },
-  { id: "exam-paper", label: "Exam Paper" },
-];
-const CLASSES = [6, 7, 8, 9, 10];
-export { SUBJECTS, SECTIONS, CLASSES, ADMIN_EMAIL };
+
 
 function timeout(ms, code = "NETWORK_TIMEOUT") {
   return new Promise((_, reject) => setTimeout(() => reject(new Error(code)), ms));
 }
 async function withTimeout(promise, ms = 15000) { return Promise.race([promise, timeout(ms)]); }
-function normaliseStudentId(value) { return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 40); }
-function studentEmailFromId(studentId) { return `${normaliseStudentId(studentId).toLowerCase()}@students.ezeevisionchampua.com`; }
+function studentEmailFromId(studentId) { return `${normaliseStudentId(studentId).toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`; }
 function cleanDriveId(value) { return String(value ?? "").trim(); }
 export function extractDriveFileId(input) {
   const value = String(input ?? "").trim();
@@ -86,13 +72,14 @@ function userRecordFromAuth(user, studentId, displayName, classNumber) {
   return { displayName, studentId, email: user.email || studentEmailFromId(studentId), role: "student", class: classNumber, active: true, createdAt: now, updatedAt: now, lastSignInTime: null };
 }
 
-async function notifyClassStudents(classNumber, title, message, type = "material") {
+export async function notifyStudents(classNumber, title, message, type = "material", priority = "normal") {
   try {
     const snap = await withTimeout(get(ref(database, "users")), 12000);
     const users = snap.val() || {};
     const updates = {};
     Object.entries(users).forEach(([uid, user]) => {
-      if (user?.role !== "student" || user?.active === false || Number(user.class) !== Number(classNumber)) return;
+      if (user?.role !== "student" || user?.active === false) return;
+      if (classNumber !== null && Number(user.class) !== Number(classNumber)) return;
       const id = `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${Math.random().toString(36).slice(2, 5)}`;
       updates[`notifications/${uid}/${id}`] = {
         title: String(title || "New update"),
@@ -100,13 +87,18 @@ async function notifyClassStudents(classNumber, title, message, type = "material
         type,
         createdAt: Date.now(),
         read: false,
-        targetClass: Number(classNumber),
+        targetClass: classNumber === null ? "all" : Number(classNumber),
+        priority,
       };
     });
     if (Object.keys(updates).length) await withTimeout(update(ref(database), updates), 15000);
   } catch (error) {
     console.warn("Student notification creation failed:", error);
   }
+}
+
+export async function notifyClassStudents(classNumber, title, message, type = "material", priority = "normal") {
+  return notifyStudents(Number(classNumber), title, message, type, priority);
 }
 
 export async function createStudent({ displayName, studentId, password, classNumber }) {
@@ -218,13 +210,11 @@ function validateMaterialMetadata(metadata) {
 export async function verifyDriveLink(driveUrl) {
   const driveFileId = extractDriveFileId(driveUrl);
   if (!driveFileId) throw new Error("INVALID_DRIVE_LINK");
-  return {
-    driveFileId,
-    name: "Google Drive PDF",
-    size: 0,
-    mimeType: "application/pdf",
-    verified: true,
-  };
+  return gatewayFetch("/admin/check-file/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ driveFileId }),
+  });
 }
 export async function uploadMaterial({ metadata, publish }) {
   const driveFileId = validateMaterialMetadata(metadata);

@@ -8,9 +8,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { ref, get } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { auth, database } from "./firebase-init.js";
+import { ADMIN_EMAIL, STUDENT_EMAIL_DOMAIN } from "./constants.js";
 
-export const STUDENT_EMAIL_DOMAIN = "students.ezeevisionchampua.com";
-export const ADMIN_EMAIL = "creativesayeedd@gmail.com";
+export { ADMIN_EMAIL, STUDENT_EMAIL_DOMAIN };
 
 export async function configureAuthPersistence() {
   await setPersistence(auth, browserLocalPersistence);
@@ -34,10 +34,12 @@ export async function loginWithEmailAndPassword(email, password) {
 export async function loginWithStudentId(studentId, password) {
   const id = normaliseStudentId(studentId);
   if (!id) throw new Error("INVALID_STUDENT_ID");
-  return signInWithEmailAndPassword(
-    auth,
-    `${id.toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`,
-    password
+  return withTimeout(
+    signInWithEmailAndPassword(
+      auth,
+      `${id.toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`,
+      password
+    )
   );
 }
 

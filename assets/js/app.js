@@ -23,14 +23,9 @@ import { searchMaterials, debounce } from "./search.js";
 import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount, uploadStudentPhoto } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+import { CLASSES as CLASS_NUMBERS } from "./constants.js";
 
-const CLASSES = [
-  { id: "class-6", label: "Class 6", number: 6 },
-  { id: "class-7", label: "Class 7", number: 7 },
-  { id: "class-8", label: "Class 8", number: 8 },
-  { id: "class-9", label: "Class 9", number: 9 },
-  { id: "class-10", label: "Class 10", number: 10 },
-];
+const CLASSES = CLASS_NUMBERS.map((number) => ({ id: `class-${number}`, label: `Class ${number}`, number }));
 
 const SUBJECT_BY_ID = Object.fromEntries(SUBJECTS.map((item) => [item.id, item]));
 const SECTION_BY_ID = Object.fromEntries(SECTIONS.map((item) => [item.id, item]));
@@ -746,29 +741,19 @@ async function saveProfile(event) {
   }
 }
 
-function downloadMaterial(material) {
-  const driveFileId = String(material?.driveFileId || "").trim();
-  if (!/^[A-Za-z0-9_-]{10,200}$/.test(driveFileId)) {
-    setGlobalStatus("This material has no valid download source.");
-    setTimeout(() => setGlobalStatus(""), 2200);
-    return;
+async function downloadMaterial(material) {
+  if (!readerController) throw new Error("PDF_READER_UNAVAILABLE");
+  setGlobalStatus("Preparing download…");
+  try {
+    await readerController.downloadWorksheet(material);
+    setGlobalStatus("Download started.");
+  } catch (error) {
+    console.error(error);
+    const message = error?.code === "PDF_ACCESS_DENIED" ? "You are not authorised to download this material." : error?.message === "DRIVE_GATEWAY_NOT_CONFIGURED" ? "The secure file gateway is not configured." : error?.message === "NETWORK_TIMEOUT" ? "The download took too long. Please retry." : "The material could not be downloaded. Please retry.";
+    setGlobalStatus(message);
+  } finally {
+    setTimeout(() => setGlobalStatus(""), 2400);
   }
-
-  const safeName = String(material?.title || "learning-material")
-    .replace(/[\\/:*?"<>|]+/g, " ")
-    .replace(/\\s+/g, " ")
-    .trim()
-    .slice(0, 120) || "learning-material";
-
-  const url = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(driveFileId)}`;
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.target = "_blank";
-  anchor.rel = "noopener noreferrer";
-  anchor.download = `${safeName}.pdf`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
 }
 
 async function openMaterialAction(material) {
@@ -1039,7 +1024,7 @@ async function renderRoute(route) {
           if (section.downloadable) {
             const downloadMaterialBtn = document.querySelector("#downloadMaterialBtn");
             downloadMaterialBtn?.addEventListener("click", () => {
-              downloadMaterial(material);
+              void downloadMaterial(material);
             });
           }
         } catch (error) {
