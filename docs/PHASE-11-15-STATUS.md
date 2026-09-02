@@ -30,7 +30,7 @@ Implemented:
 ## Phase 13 — Worksheet Download
 Implemented:
 - Worksheet detail page has a real Download Worksheet action
-- Firebase Storage `getDownloadURL()` is used intentionally because worksheets are allowed to download
+- Worksheets and exam papers are downloaded through the authenticated Google Drive Worker; Firebase Storage is reserved for profile photos.
 - Browser download target is named from the material filename
 - Errors are caught and shown without leaving a permanent loading state
 
