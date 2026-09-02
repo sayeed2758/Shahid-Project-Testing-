@@ -1391,21 +1391,6 @@ body.menu-is-open { overflow: hidden; }
   font-weight: 900;
 }
 
-.profile-mini-button.has-photo {
-  padding: 0;
-  overflow: hidden;
-  background: #fff;
-}
-
-.profile-mini-button.has-photo img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  border-radius: inherit;
-}
-
 .profile-avatar {
   display: grid;
   place-items: center;
@@ -2594,3 +2579,20 @@ textarea {
   .premium-notification-card .notification-copy p{font-size:10px}
   .premium-notification-card .notification-read-btn{font-size:8px;padding:6px 8px}
 }
+
+
+/* Student profile photo sync */
+.profile-mini-button.has-photo { padding: 0; overflow: hidden; background: #fff; }
+.profile-mini-button > #topbarAvatar {
+  display: block; width: 100%; height: 100%; overflow: hidden; border-radius: inherit;
+}
+.profile-mini-button > #topbarAvatar.has-photo { background: #fff; }
+.profile-mini-button > #topbarAvatar.has-photo img {
+  display: block; width: 100%; height: 100%; max-width: none; max-height: none;
+  object-fit: cover; object-position: center; border-radius: inherit;
+}
+.profile-avatar { position: relative; overflow: hidden; }
+.profile-avatar.has-photo { padding: 0; background: #fff; }
+.profile-avatar.has-photo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; border-radius: inherit; }
+.profile-photo-button { min-width: 140px; }
+.profile-photo-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
