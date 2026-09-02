@@ -20,7 +20,7 @@ import {
 } from "./catalog.js";
 import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
-import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount, uploadStudentPhoto } from "./profile.js";
+import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount, uploadStudentPhoto, createProfilePhotoPreview } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
@@ -649,26 +649,18 @@ async function onProfilePhotoSelected(event) {
   let previewURL = "";
   try {
     previewURL = URL.createObjectURL(file);
-    const previewReader = new FileReader();
-    previewReader.onload = () => {
-      const value = String(previewReader.result || "");
-      if (!value) return;
+    const previewValue = await createProfilePhotoPreview(file);
+    if (previewValue) {
       const key = profilePhotoStorageKey();
-      if (key) {
-        try { localStorage.setItem(key, value); } catch { /* local fallback is best-effort */ }
-      }
+      if (key) { try { localStorage.setItem(key, previewValue); } catch {} }
       const name = getDisplayName(state.user, state.profile);
-      renderProfilePhoto(value, name.trim().charAt(0).toUpperCase() || "S");
-    };
-    previewReader.readAsDataURL(file);
+      renderProfilePhoto(previewValue, name.trim().charAt(0).toUpperCase() || "S");
+    }
 
     const photoURL = await uploadStudentPhoto(state.user.uid, file);
     state.profile = { ...(state.profile || {}), photoURL, updatedAt: Date.now() };
-    try {
-      const key = profilePhotoStorageKey();
-      if (key) localStorage.removeItem(key);
-    } catch { /* best-effort cleanup */ }
-    populateProfileForm();
+    const finalName = getDisplayName(state.user, state.profile);
+    renderProfilePhoto(photoURL, finalName.trim().charAt(0).toUpperCase() || "S");
     setProfileMessage("Profile photo saved successfully.", "success");
   } catch (error) {
     console.error(error);

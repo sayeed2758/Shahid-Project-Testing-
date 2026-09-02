@@ -33,7 +33,7 @@ async function prepareProfilePhoto(file) {
   const source = URL.createObjectURL(file);
   try {
     const img = await loadImage(source);
-    const size = 720;
+    const size = 640;
     const canvas = document.createElement("canvas");
     canvas.width = size; canvas.height = size;
     const ctx = canvas.getContext("2d", { alpha: false });
@@ -43,12 +43,22 @@ async function prepareProfilePhoto(file) {
     const w = img.naturalWidth * scale;
     const h = img.naturalHeight * scale;
     ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.86));
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.8));
     if (!blob) throw new Error("PROFILE_PHOTO_INVALID");
     return blob;
   } finally {
     URL.revokeObjectURL(source);
   }
+}
+
+export async function createProfilePhotoPreview(file) {
+  const blob = await prepareProfilePhoto(file);
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("PROFILE_PHOTO_INVALID"));
+    reader.readAsDataURL(blob);
+  });
 }
 
 export async function uploadStudentPhoto(uid, file) {
