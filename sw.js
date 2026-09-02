@@ -1,4 +1,4 @@
-const CACHE_NAME = "ezee-vision-shell-simple-v8-stable-feature-fix";
+const CACHE_NAME = "ezee-vision-shell-v9-secure-gateway";
 
 const APP_SHELL = [
   "./",
@@ -20,6 +20,8 @@ const APP_SHELL = [
   "./assets/js/profile.js",
   "./assets/js/student-features.js",
   "./assets/js/admin-features.js",
+  "./assets/js/practice.js",
+  "./assets/js/constants.js",
   "./assets/images/logo.png",
   "./assets/images/icon-192.png",
   "./assets/images/icon-512.png",

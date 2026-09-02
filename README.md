@@ -54,7 +54,7 @@ The site uses relative paths and is designed for a project-page deployment such 
 
 ## Security reality
 
-The student sees a custom in-app PDF reader, with no Google Drive UI or normal download/print controls. The Worker hides the source Drive URL and performs access checks before streaming.
+The student sees a custom in-app PDF reader. Learning PDFs are fetched through the authenticated Worker, which hides the source Drive URL and checks the student's assigned class before streaming. Worksheets and exam papers use the same Worker for authenticated downloads.
 
 No browser-based system can guarantee that a user cannot screenshot, screen-record, or capture data visible on their device. This release is designed for practical deterrence and access control, not an absolute anti-copy guarantee.
 
