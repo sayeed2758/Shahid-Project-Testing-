@@ -5,20 +5,21 @@ import {
   sendResetEmail,
   logout,
   observeAuth,
-  normaliseStudentId,
+  ADMIN_EMAIL,
 } from "./auth.js";
 import { get, ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { DRIVE_GATEWAY_URL } from "./drive-config.js";
-import { ADMIN_EMAIL, STUDENT_EMAIL_DOMAIN, CLASSES, SUBJECTS, SECTIONS } from "./constants.js";
+import { ADMIN_EMAIL, SUBJECTS, SECTIONS, CLASSES, studentEmailFromId } from "./constants.js";
 
 const MAX_LINK_LENGTH = 2048;
-
+export { SUBJECTS, SECTIONS, CLASSES, ADMIN_EMAIL };
 
 function timeout(ms, code = "NETWORK_TIMEOUT") {
   return new Promise((_, reject) => setTimeout(() => reject(new Error(code)), ms));
 }
 async function withTimeout(promise, ms = 15000) { return Promise.race([promise, timeout(ms)]); }
-function studentEmailFromId(studentId) { return `${normaliseStudentId(studentId).toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`; }
+function normaliseStudentId(value) { return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 40); }
+
 function cleanDriveId(value) { return String(value ?? "").trim(); }
 export function extractDriveFileId(input) {
   const value = String(input ?? "").trim();
@@ -72,14 +73,13 @@ function userRecordFromAuth(user, studentId, displayName, classNumber) {
   return { displayName, studentId, email: user.email || studentEmailFromId(studentId), role: "student", class: classNumber, active: true, createdAt: now, updatedAt: now, lastSignInTime: null };
 }
 
-export async function notifyStudents(classNumber, title, message, type = "material", priority = "normal") {
+async function notifyClassStudents(classNumber, title, message, type = "material") {
   try {
     const snap = await withTimeout(get(ref(database, "users")), 12000);
     const users = snap.val() || {};
     const updates = {};
     Object.entries(users).forEach(([uid, user]) => {
-      if (user?.role !== "student" || user?.active === false) return;
-      if (classNumber !== null && Number(user.class) !== Number(classNumber)) return;
+      if (user?.role !== "student" || user?.active === false || Number(user.class) !== Number(classNumber)) return;
       const id = `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${Math.random().toString(36).slice(2, 5)}`;
       updates[`notifications/${uid}/${id}`] = {
         title: String(title || "New update"),
@@ -87,18 +87,13 @@ export async function notifyStudents(classNumber, title, message, type = "materi
         type,
         createdAt: Date.now(),
         read: false,
-        targetClass: classNumber === null ? "all" : Number(classNumber),
-        priority,
+        targetClass: Number(classNumber),
       };
     });
     if (Object.keys(updates).length) await withTimeout(update(ref(database), updates), 15000);
   } catch (error) {
     console.warn("Student notification creation failed:", error);
   }
-}
-
-export async function notifyClassStudents(classNumber, title, message, type = "material", priority = "normal") {
-  return notifyStudents(Number(classNumber), title, message, type, priority);
 }
 
 export async function createStudent({ displayName, studentId, password, classNumber }) {
@@ -210,11 +205,18 @@ function validateMaterialMetadata(metadata) {
 export async function verifyDriveLink(driveUrl) {
   const driveFileId = extractDriveFileId(driveUrl);
   if (!driveFileId) throw new Error("INVALID_DRIVE_LINK");
-  return gatewayFetch("/admin/check-file/", {
+  const data = await gatewayFetch("/admin/check-file/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ driveFileId }),
-  });
+  }, 30000);
+  return {
+    driveFileId: data?.id || driveFileId,
+    name: data?.name || "Google Drive PDF",
+    size: Number(data?.size || 0),
+    mimeType: data?.mimeType || "application/pdf",
+    verified: data?.success === true,
+  };
 }
 export async function uploadMaterial({ metadata, publish }) {
   const driveFileId = validateMaterialMetadata(metadata);

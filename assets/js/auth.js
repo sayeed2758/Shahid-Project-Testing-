@@ -8,7 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { ref, get } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { auth, database } from "./firebase-init.js";
-import { ADMIN_EMAIL, STUDENT_EMAIL_DOMAIN } from "./constants.js";
+import { ADMIN_EMAIL, STUDENT_EMAIL_DOMAIN, studentEmailFromId } from "./constants.js";
 
 export { ADMIN_EMAIL, STUDENT_EMAIL_DOMAIN };
 
@@ -34,13 +34,7 @@ export async function loginWithEmailAndPassword(email, password) {
 export async function loginWithStudentId(studentId, password) {
   const id = normaliseStudentId(studentId);
   if (!id) throw new Error("INVALID_STUDENT_ID");
-  return withTimeout(
-    signInWithEmailAndPassword(
-      auth,
-      `${id.toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`,
-      password
-    )
-  );
+  return withTimeout(signInWithEmailAndPassword(auth, studentEmailFromId(id), password));
 }
 
 export async function sendResetEmail(email) {
@@ -53,7 +47,7 @@ export async function logout() {
 
 export async function loadStudentProfile(uid) {
   if (!uid) return null;
-  const snapshot = await get(ref(database, `users/${uid}`));
+  const snapshot = await withTimeout(get(ref(database, `users/${uid}`)));
   return snapshot.exists() ? snapshot.val() : null;
 }
 

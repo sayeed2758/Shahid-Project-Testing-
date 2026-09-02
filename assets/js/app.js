@@ -1,4 +1,5 @@
 import { database } from "./firebase-init.js";
+import { CLASS_CARDS as CLASSES } from "./constants.js";
 import {
   configureAuthPersistence,
   observeAuth,
@@ -23,9 +24,6 @@ import { searchMaterials, debounce } from "./search.js";
 import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount, uploadStudentPhoto } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
-import { CLASSES as CLASS_NUMBERS } from "./constants.js";
-
-const CLASSES = CLASS_NUMBERS.map((number) => ({ id: `class-${number}`, label: `Class ${number}`, number }));
 
 const SUBJECT_BY_ID = Object.fromEntries(SUBJECTS.map((item) => [item.id, item]));
 const SECTION_BY_ID = Object.fromEntries(SECTIONS.map((item) => [item.id, item]));
@@ -742,17 +740,25 @@ async function saveProfile(event) {
 }
 
 async function downloadMaterial(material) {
-  if (!readerController) throw new Error("PDF_READER_UNAVAILABLE");
-  setGlobalStatus("Preparing download…");
+  if (!material?.driveFileId) {
+    setGlobalStatus("This material has no valid download source.");
+    setTimeout(() => setGlobalStatus(""), 2200);
+    return;
+  }
   try {
+    setGlobalStatus("Preparing PDF download…");
     await readerController.downloadWorksheet(material);
-    setGlobalStatus("Download started.");
+    setGlobalStatus("Download started.", "success");
   } catch (error) {
     console.error(error);
-    const message = error?.code === "PDF_ACCESS_DENIED" ? "You are not authorised to download this material." : error?.message === "DRIVE_GATEWAY_NOT_CONFIGURED" ? "The secure file gateway is not configured." : error?.message === "NETWORK_TIMEOUT" ? "The download took too long. Please retry." : "The material could not be downloaded. Please retry.";
+    const message = error?.code === "PDF_ACCESS_DENIED"
+      ? "You are not authorised to download this material."
+      : error?.code === "DRIVE_GATEWAY_NOT_CONFIGURED"
+        ? "Secure PDF gateway is not configured yet."
+        : "The PDF could not be downloaded. Please retry.";
     setGlobalStatus(message);
   } finally {
-    setTimeout(() => setGlobalStatus(""), 2400);
+    setTimeout(() => setGlobalStatus(""), 2600);
   }
 }
 
@@ -1024,7 +1030,7 @@ async function renderRoute(route) {
           if (section.downloadable) {
             const downloadMaterialBtn = document.querySelector("#downloadMaterialBtn");
             downloadMaterialBtn?.addEventListener("click", () => {
-              void downloadMaterial(material);
+              downloadMaterial(material);
             });
           }
         } catch (error) {

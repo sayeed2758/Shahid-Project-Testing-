@@ -3,67 +3,47 @@ import { DRIVE_GATEWAY_URL } from "./drive-config.js";
 
 const LOAD_TIMEOUT = 30_000;
 
-function gatewayEndpoint(path) {
-  if (!DRIVE_GATEWAY_URL) throw new Error("DRIVE_GATEWAY_NOT_CONFIGURED");
-  return `${DRIVE_GATEWAY_URL.replace(/\/$/, "")}${path}`;
+function normaliseDriveFileId(value) {
+  const id = String(value ?? "").trim();
+  return /^[A-Za-z0-9_-]{10,200}$/.test(id) ? id : "";
 }
 
-async function fetchGatewayBlob(path, { timeoutMs = LOAD_TIMEOUT } = {}) {
+function gatewayUrl(material) {
+  if (!DRIVE_GATEWAY_URL) throw new Error("DRIVE_GATEWAY_NOT_CONFIGURED");
+  const id = normaliseDriveFileId(material?.driveFileId);
+  if (!id) throw new Error("PDF_FILE_ID_MISSING");
+  const section = String(material?.section || "").toLowerCase() === "worksheet" ? "worksheet" : "pdf";
+  return `${DRIVE_GATEWAY_URL.replace(/\/$/, "")}/${section}/${encodeURIComponent(id)}`;
+}
+
+async function fetchProtectedPdf(material) {
   const user = auth.currentUser;
   if (!user) throw new Error("AUTH_REQUIRED");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const token = await user.getIdToken();
-    const response = await fetch(gatewayEndpoint(path), {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    const contentType = response.headers.get("content-type") || "";
-    if (!response.ok) {
-      let payload = null;
-      if (contentType.includes("application/json")) {
-        try { payload = await response.json(); } catch {}
-      }
-      const error = new Error(payload?.message || `Gateway request failed (${response.status})`);
-      error.code = payload?.code || (response.status === 401 ? "AUTH_REQUIRED" : response.status === 403 ? "PDF_ACCESS_DENIED" : "GATEWAY_ERROR");
-      error.status = response.status;
-      throw error;
-    }
-    if (!contentType.toLowerCase().includes("application/pdf")) {
-      throw new Error("GATEWAY_INVALID_PDF_RESPONSE");
-    }
-    return { blob: await response.blob(), contentDisposition: response.headers.get("content-disposition") || "" };
-  } catch (error) {
-    if (error?.name === "AbortError") throw new Error("NETWORK_TIMEOUT");
+
+  const token = await user.getIdToken();
+  const response = await fetch(gatewayUrl(material), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/pdf",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let data = null;
+    try { data = await response.json(); } catch {}
+    const error = new Error(data?.message || `PDF request failed (${response.status})`);
+    error.code = data?.code || (response.status === 403 ? "PDF_ACCESS_DENIED" : "PDF_LOAD_FAILED");
+    error.status = response.status;
     throw error;
-  } finally {
-    clearTimeout(timer);
   }
-}
 
-function safeDownloadName(material) {
-  const source = String(material?.fileName || material?.title || "learning-material")
-    .replace(/^\"|\"$/g, "")
-    .replace(/\.[^.]+$/i, "")
-    .replace(/[\\/:*?"<>|]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120);
-  return `${source || "learning-material"}.pdf`;
-}
-
-function triggerBlobDownload(blob, fileName) {
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = fileName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  const contentType = response.headers.get("Content-Type") || "";
+  if (!contentType.toLowerCase().includes("application/pdf")) {
+    throw new Error("PDF_INVALID_RESPONSE");
+  }
+  return response.blob();
 }
 
 export function createProtectedReaderController(elements, { onBusyChange = () => {} } = {}) {
@@ -72,6 +52,7 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
   let loading = false;
   let currentMaterial = null;
   let loadTimer = null;
+  let objectUrl = "";
 
   function setStatus(message = "", type = "") {
     elements.readerStatus.textContent = message;
@@ -79,7 +60,6 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
   }
 
   function updateControls() {
-    // The browser PDF viewer owns page navigation and zoom. Keep only app-level actions visible.
     elements.readerPrev.hidden = true;
     elements.readerNext.hidden = true;
     elements.readerZoomOut.hidden = true;
@@ -91,20 +71,25 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
     elements.readerClose.disabled = loading;
   }
 
+  function revokeObjectUrl() {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = "";
+    }
+  }
+
   function cleanupFrame() {
     if (loadTimer) {
       clearTimeout(loadTimer);
       loadTimer = null;
     }
     if (iframe) {
-      const objectUrl = iframe.dataset.objectUrl || "";
       iframe.src = "about:blank";
       iframe.remove();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
       iframe = null;
     }
+    revokeObjectUrl();
     if (elements.readerCanvas) elements.readerCanvas.hidden = true;
-    if (elements.readerWatermark) elements.readerWatermark.hidden = true;
   }
 
   function buildFrame(material) {
@@ -115,7 +100,7 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
     iframe.title = material.title || "Learning material";
     iframe.setAttribute("allow", "autoplay");
     iframe.setAttribute("loading", "eager");
-    iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+    iframe.setAttribute("referrerpolicy", "no-referrer");
     iframe.setAttribute("frameborder", "0");
     paper.appendChild(iframe);
     return iframe;
@@ -132,41 +117,49 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
     elements.readerModal.hidden = false;
     document.body.classList.add("reader-open");
     elements.readerRetry.hidden = true;
-    setStatus("Opening PDF…", "loading");
+    setStatus("Loading protected PDF…", "loading");
     updateControls();
     onBusyChange(true);
 
     try {
       const frame = buildFrame(material);
+      const blob = await Promise.race([
+        fetchProtectedPdf(material),
+        new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error("PDF_LOAD_TIMEOUT"), { code: "PDF_LOAD_TIMEOUT" })), LOAD_TIMEOUT)),
+      ]);
+
+      if (!loading) return;
+      objectUrl = URL.createObjectURL(blob);
       frame.addEventListener("load", () => {
         if (!loading) return;
         if (loadTimer) clearTimeout(loadTimer);
         loadTimer = null;
         loading = false;
         elements.readerRetry.hidden = false;
-        setStatus("PDF ready. Use the Google Drive viewer to read.", "success");
+        setStatus("PDF ready. Download/print controls are not exposed by the portal.", "success");
         updateControls();
         onBusyChange(false);
       }, { once: true });
-      const endpoint = material.section === "worksheet" || material.section === "exam-paper"
-        ? `/worksheet/${encodeURIComponent(material.id)}/`
-        : `/pdf/${encodeURIComponent(material.id)}/`;
-      const { blob } = await fetchGatewayBlob(endpoint);
-      if (!loading || !iframe) return;
-      iframe.src = URL.createObjectURL(blob);
-      iframe.dataset.objectUrl = iframe.src;
+      frame.src = objectUrl;
       loadTimer = setTimeout(() => {
         if (!loading) return;
         loading = false;
         elements.readerRetry.hidden = false;
-        setStatus("The PDF preview could not be loaded. Check the Drive link sharing and retry.", "error");
+        setStatus("The PDF could not be displayed. Please retry.", "error");
         updateControls();
         onBusyChange(false);
       }, LOAD_TIMEOUT);
     } catch (error) {
       loading = false;
       elements.readerRetry.hidden = false;
-      setStatus(error?.message === "PDF_FILE_ID_MISSING" ? "This material has no valid Drive file." : "The PDF preview could not be opened.", "error");
+      const message = error?.code === "PDF_ACCESS_DENIED"
+        ? "You are not authorised to access this material."
+        : error?.code === "DRIVE_GATEWAY_NOT_CONFIGURED"
+          ? "The secure PDF gateway is not configured yet."
+          : error?.code === "PDF_LOAD_TIMEOUT"
+            ? "The PDF is taking too long to load. Check your connection and retry."
+            : "The PDF could not be loaded. Please retry.";
+      setStatus(message, "error");
       updateControls();
       onBusyChange(false);
       throw error;
@@ -174,9 +167,7 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
   }
 
   function close(force = false) {
-    if (loading && !force) {
-      loading = false;
-    }
+    if (loading && !force) loading = false;
     cleanupFrame();
     currentMaterial = null;
     elements.readerModal.hidden = true;
@@ -196,9 +187,25 @@ export function createProtectedReaderController(elements, { onBusyChange = () =>
   }
 
   async function downloadWorksheet(material) {
-    if (!material?.id) throw new Error("PDF_FILE_ID_MISSING");
-    const { blob } = await fetchGatewayBlob(`/worksheet/${encodeURIComponent(material.id)}/`);
-    triggerBlobDownload(blob, safeDownloadName(material));
+    if (!material?.driveFileId) throw new Error("PDF_FILE_ID_MISSING");
+    const blob = await fetchProtectedPdf(material);
+    const safeName = String(material.title || "learning-material")
+      .replace(/[\\/:*?"<>|]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120) || "learning-material";
+    const url = URL.createObjectURL(blob);
+    try {
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${safeName}.pdf`;
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
   }
 
   function bind() {

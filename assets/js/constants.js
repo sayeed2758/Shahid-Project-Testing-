@@ -1,3 +1,4 @@
+// Shared application constants. Keep these values in one place so modules do not drift apart.
 export const ADMIN_EMAIL = "creativesayeedd@gmail.com";
 export const STUDENT_EMAIL_DOMAIN = "students.ezeevisionchampua.com";
 
@@ -17,3 +18,13 @@ export const SECTIONS = [
   { id: "worksheet", label: "Worksheet", icon: "⇩", tone: "worksheet", downloadable: true },
   { id: "exam-paper", label: "Exam Paper", icon: "📄", tone: "worksheet", downloadable: true },
 ];
+
+export const CLASS_CARDS = CLASSES.map((number) => ({
+  id: `class-${number}`,
+  label: `Class ${number}`,
+  number,
+}));
+
+export function studentEmailFromId(studentId) {
+  return `${String(studentId).trim().toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`;
+}

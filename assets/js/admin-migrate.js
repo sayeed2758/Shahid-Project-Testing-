@@ -11,7 +11,8 @@ import {
   unlink,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { ADMIN_EMAIL } from "./constants.js";
+
+const ADMIN_EMAIL = "creativesayeedd@gmail.com";
 const app = initializeApp(firebaseConfig, "admin-migration");
 const auth = getAuth(app);
 const $ = (selector) => document.querySelector(selector);

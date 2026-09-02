@@ -1,20 +1,39 @@
 
 import { get, ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { auth, database } from "./firebase-init.js";
-import { ADMIN_EMAIL, CLASSES, SUBJECTS } from "./constants.js";
-import { notifyStudents, notifyClassStudents } from "./admin-client.js";
+import { listStudents } from "./admin-client.js";
+import { ADMIN_EMAIL, SUBJECTS, CLASSES } from "./constants.js";
 
 const $ = (s)=>document.querySelector(s);
+const ADMIN_EMAIL = "creativesayeedd@gmail.com";
+const SUBJECTS = [
+  {id:"sst",label:"SST"},{id:"science",label:"Science"},{id:"math",label:"Math"},{id:"english",label:"English"}
+];
 const TYPES = [
   {id:"mcq",label:"MCQ"},
   {id:"truefalse",label:"True / False"},
   {id:"fill",label:"Fill in the Blanks"}
 ];
+
 const timeout=(ms=15000)=>new Promise((_,r)=>setTimeout(()=>r(new Error("NETWORK_TIMEOUT")),ms));
 async function withTimeout(p,ms=15000){return Promise.race([p,timeout(ms)]);}
+function k(v){return String(v??"").replace(/[.#$\[\]/]/g,"_");}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function isAdmin(){return String(auth.currentUser?.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();}
 function msg(text,type=""){const el=$("#featureAdminMessage");if(el){el.textContent=text;el.dataset.type=type;}}
+async function notifyClass(classNumber,title,message,type="material",priority="normal"){
+  const result=await listStudents();
+  const updates={};
+  result.students.filter(s=>Number(s.class)===Number(classNumber)&&s.active!==false).forEach(s=>{
+    const id=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;
+    updates[`notifications/${s.uid}/${id}`]={title,message,type,priority,createdAt:Date.now(),read:false,targetClass:Number(classNumber)};
+  });
+  if(Object.keys(updates).length) await withTimeout(update(ref(database),updates),15000);
+}
+
+let practiceQuestions=[];
+let editingPracticeId="";
+let practiceClass=6;
 
 function resetQuestionComposer(){
   const type=$("#pqType"); if(!type)return;
@@ -82,7 +101,7 @@ async function savePractice(){
   await withTimeout(update(ref(database),updates),15000);
   if(record.active){
     try {
-      await notifyClassStudents(cls,"New practice test",`${title} is now available for Class ${cls}.`,"practice");
+      await notifyClass(cls,"New practice test",`${title} is now available for Class ${cls}.`,"practice");
     } catch (notifyError) {
       console.warn("Practice notification failed; test was saved successfully.", notifyError);
     }
@@ -133,7 +152,7 @@ async function togglePractice(t){
   if(!confirm(`${next?"Publish":"Unpublish"} “${t.title}”?`))return;
   const updated={...t,active:next,updatedAt:Date.now()};
   await withTimeout(update(ref(database),{[`practiceCatalog/class-${t.class}/${t.id}`]:updated,[`publishedPractice/class-${t.class}/${t.id}`]:next?updated:null}),15000);
-  if(next)await notifyClassStudents(t.class,"New practice test",`${t.title} is now available.`,"practice");
+  if(next)await notifyClass(t.class,"New practice test",`${t.title} is now available.`,"practice");
   await loadPracticeAdmin();
 }
 async function deletePractice(t){
@@ -176,9 +195,11 @@ async function saveAnnouncement(){
   if(rec.active){
     try {
       if(target==="all"){
-        await notifyStudents(null, rec.title, messageText, "announcement", rec.priority||"normal");
+        const r=await listStudents(); const updates={};
+        r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;updates[`notifications/${s.uid}/${nid}`]={title:rec.title,message:messageText,type:"announcement",priority:rec.priority||"normal",createdAt:Date.now(),read:false,targetClass:"all"};});
+        if(Object.keys(updates).length)await withTimeout(update(ref(database),updates),15000);
       }else {
-        await notifyClassStudents(Number(target),rec.title,messageText,"announcement",rec.priority||"normal");
+        await notifyClass(Number(target),rec.title,messageText,"announcement",rec.priority||"normal");
       }
     } catch (notifyError) {
       console.warn("Announcement notification failed; announcement was saved successfully.", notifyError);
@@ -199,9 +220,11 @@ async function toggleAnnouncement(a){
   if(next){
     try {
       if(a.targetClass==="all"){
-        await notifyStudents(null, a.title, a.message, "announcement", a.priority||"normal");
+        const r=await listStudents();const updates={};
+        r.students.filter(s=>s.active!==false).forEach(s=>{const nid=`n-${Date.now()}-${Math.random().toString(36).slice(2,7)}-${k(s.uid).slice(-4)}`;updates[`notifications/${s.uid}/${nid}`]={title:a.title,message:a.message,type:"announcement",priority:a.priority||"normal",createdAt:Date.now(),read:false,targetClass:"all"};});
+        if(Object.keys(updates).length)await withTimeout(update(ref(database),updates),15000);
       } else {
-        await notifyClassStudents(Number(a.targetClass),a.title,a.message,"announcement",a.priority||"normal");
+        await notifyClass(Number(a.targetClass),a.title,a.message,"announcement",a.priority||"normal");
       }
     } catch (notifyError) {
       console.warn("Announcement notification failed after publish toggle.", notifyError);
