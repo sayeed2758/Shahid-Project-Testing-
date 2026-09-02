@@ -571,28 +571,22 @@ function getStoredProfilePhoto() {
 }
 
 function renderTopbarAvatar(photoURL, initial) {
+  if (!elements.topbarAvatar) return;
   const remote = String(photoURL || "").trim();
   const fallback = getStoredProfilePhoto();
   const source = remote || fallback;
-
   if (!source) {
     elements.topbarAvatar.textContent = initial;
     elements.topbarAvatar.classList.remove("has-photo");
     return;
   }
-
   elements.topbarAvatar.innerHTML = `<img src="${escapeHtml(source)}" alt="Student photo" loading="eager" decoding="async">`;
   elements.topbarAvatar.classList.add("has-photo");
-
   const img = elements.topbarAvatar.querySelector("img");
   img?.addEventListener("error", () => {
     const safeFallback = getStoredProfilePhoto();
-    if (safeFallback && img.getAttribute("src") !== safeFallback) {
-      img.src = safeFallback;
-    } else {
-      elements.topbarAvatar.textContent = initial;
-      elements.topbarAvatar.classList.remove("has-photo");
-    }
+    if (safeFallback && img.getAttribute("src") !== safeFallback) img.src = safeFallback;
+    else { elements.topbarAvatar.textContent = initial; elements.topbarAvatar.classList.remove("has-photo"); }
   }, { once: true });
 }
 
@@ -600,9 +594,7 @@ function renderProfilePhoto(photoURL, initial) {
   const remote = String(photoURL || "").trim();
   const fallback = getStoredProfilePhoto();
   const source = remote || fallback;
-
   renderTopbarAvatar(remote, initial);
-
   if (!source) {
     elements.profileAvatar.textContent = initial;
     elements.profileAvatar.classList.remove("has-photo");
@@ -693,7 +685,6 @@ async function onProfilePhotoSelected(event) {
 
     const photoURL = await uploadStudentPhoto(state.user.uid, file);
     state.profile = { ...(state.profile || {}), photoURL, updatedAt: Date.now() };
-    renderTopbarAvatar(photoURL, getDisplayName(state.user, state.profile).trim().charAt(0).toUpperCase() || "S");
     try {
       const key = profilePhotoStorageKey();
       if (key) localStorage.removeItem(key);
@@ -742,7 +733,7 @@ async function saveProfile(event) {
   try {
     const savedName = await updateStudentDisplayName(state.user.uid, name);
     state.profile = { ...(state.profile || {}), displayName: savedName, updatedAt: Date.now() };
-    populateHome();
+    await renderHomeData();
     populateProfileForm();
     setProfileMessage("Profile saved successfully.", "success");
   } catch (error) {

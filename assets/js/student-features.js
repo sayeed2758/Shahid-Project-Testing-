@@ -132,13 +132,13 @@ async function loadAnnouncementsData(){
       .sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0)).slice(0,30);
     return cache.announcements;
   } catch (error) {
-    console.warn("Announcements read failed; using announcement notifications fallback.", error);
-    if (!cache.notifications.length) { try { await loadNotifications(); } catch {} }
-    cache.announcements=cache.notifications
-      .filter(n=>n&&String(n.type||"").toLowerCase()==="announcement")
-      .filter(n=>!n.targetClass||n.targetClass==="all"||Number(n.targetClass)===Number(s.assignedClass))
-      .map(n=>({id:String(n.id),title:n.title||"Announcement",message:n.message||"",targetClass:n.targetClass??"all",priority:n.priority||"normal",active:true,createdAt:Number(n.createdAt||0),updatedAt:Number(n.createdAt||0)}))
+    const fallback=cache.notifications
+      .filter(n=>n?.type==="announcement" && n.active!==false)
+      .map(n=>({id:String(n.id),title:n.title||"Announcement",message:n.message||"",priority:n.priority||"normal",createdAt:n.createdAt||0,targetClass:n.targetClass ?? "all",active:true}))
+      .filter(v=>!v.targetClass||v.targetClass==="all"||Number(v.targetClass)===Number(s.assignedClass))
       .sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0)).slice(0,30);
+    cache.announcements=fallback;
+    console.warn("Standalone announcements read unavailable; using notification fallback.", error);
     return cache.announcements;
   }
 }
@@ -176,37 +176,15 @@ export async function loadAttempts(){
 export async function loadPracticeTests(classNumber, subjectId=""){
   const s=currentState();
   if(Number(classNumber)!==Number(s.assignedClass)) throw new Error("CLASS_NOT_ALLOWED");
-  const cls=Number(classNumber);
-  const wanted=String(subjectId||"").trim().toLowerCase();
-  const snap=await withTimeout(get(ref(database,`publishedPractice/class-${cls}`)));
+  const snap=await withTimeout(get(ref(database,`publishedPractice/class-${Number(classNumber)}`)));
   const value=snap.val()||{};
-  const items=[];
-  Object.entries(value).forEach(([key,node])=>{
-    if(!node||typeof node!=="object") return;
-    // Current format: publishedPractice/class-10/<testId> = test object
-    if(node.title || node.questions) {
-      items.push({id:String(node.id||key),...node});
-      return;
-    }
-    // Legacy/alternate format: publishedPractice/class-10/<subject>/<testId> = test object
-    Object.entries(node).forEach(([id,test])=>{
-      if(test&&typeof test==="object"&&(test.title||test.questions)) items.push({id:String(test.id||id),...test,subject:test.subject||key});
-    });
+  const direct=[]; const nested=[];
+  Object.entries(value).forEach(([id,v])=>{
+    if(v&&typeof v==="object"&&Array.isArray(v.questions)) direct.push({id,...v});
+    else if(v&&typeof v==="object") Object.entries(v).forEach(([nestedId,nestedValue])=>{ if(nestedValue&&typeof nestedValue==="object") nested.push({id:String(nestedId),...nestedValue}); });
   });
-  cache.tests=items
-    .filter(v=>v&&v.active!==false&&(!wanted||String(v.subject||"").toLowerCase()===wanted))
-    .map(v=>({
-      ...v,
-      id:String(v.id),
-      subject:String(v.subject||"").toLowerCase(),
-      durationSec:Math.max(0,Number(v.durationSec??v.durationSeconds??(Number(v.durationMinutes||0)*60))||0),
-      questions:Array.isArray(v.questions)?v.questions.map(q=>({
-        ...q,
-        prompt:String(q?.prompt??q?.question??"").trim(),
-        marks:Number(q?.marks??q?.points??1)||1
-      })):[]
-    }))
-    .filter(v=>v.questions.length)
+  cache.tests=[...direct,...nested]
+    .filter(v=>v&&v.active!==false&&(!subjectId||v.subject===subjectId))
     .sort((a,b)=>(Number(b.updatedAt||0)-Number(a.updatedAt||0))||String(a.title||"").localeCompare(String(b.title||"")));
   return cache.tests;
 }
@@ -216,16 +194,12 @@ export async function loadPracticeTest(classNumber,subjectId,testId){
 }
 
 function questionScore(question, answer){
-  const type=String(question?.type||"mcq").toLowerCase();
-  const marks=Number(question?.marks??question?.points??1)||1;
+  const type=question?.type||"mcq";
   if(answer===null||answer===undefined||String(answer).trim()==="") return 0;
-  if(type==="mcq"||type==="truefalse"||type==="true-false") {
-    const expected=question.answer??question.correctAnswer??question.correct;
-    return String(answer).trim()===String(expected??"").trim() ? marks : 0;
-  }
-  const accepted=Array.isArray(question.acceptedAnswers)?question.acceptedAnswers:[question.answer??question.correctAnswer??""];
+  if(type==="mcq"||type==="truefalse") return String(answer).trim()===String(question.answer??"").trim() ? Number(question.marks||1) : 0;
+  const accepted=Array.isArray(question.acceptedAnswers)?question.acceptedAnswers:[String(question.answer??"")];
   const normal=String(answer).trim().toLowerCase().replace(/\s+/g," ");
-  return accepted.some(a=>String(a).trim().toLowerCase().replace(/\s+/g," ")===normal) ? marks : 0;
+  return accepted.some(a=>String(a).trim().toLowerCase().replace(/\s+/g," ")===normal) ? Number(question.marks||1) : 0;
 }
 
 export async function submitPractice(test, answers, startedAt, forced=false){
@@ -377,14 +351,14 @@ function announcementDetail(id){
   </section>`;
 }
 export async function renderNotificationsRoute({rootEl,announcementId=""}){
-  let notificationError=null;
-  let announcementError=null;
-  try { await loadNotifications(); } catch (error) { notificationError=error; console.warn("Notifications load failed.", error); }
-  try { await loadAnnouncementsData(); } catch (error) { announcementError=error; console.warn("Announcements load failed.", error); }
+  const notificationResult=await Promise.allSettled([loadNotifications()]);
+  const notificationError=notificationResult[0]?.status==="rejected"?notificationResult[0].reason:null;
+  try { await loadAnnouncementsData(); } catch (error) { console.warn("Announcements unavailable:", error); }
   const unread=unreadNotifications();
   const selectedId=String(announcementId||"");
   const enabled=areNotificationsEnabled();
   rootEl.innerHTML=`
+    ${notificationError ? `<div class="feature-empty updates-data-warning">Some personal alerts could not be loaded. Announcements remain available when published.</div>` : ""}
     <div class="updates-center-hero card">
       <div class="updates-center-hero-copy">
         <div class="updates-center-icon">🔔</div>
@@ -401,13 +375,13 @@ export async function renderNotificationsRoute({rootEl,announcementId=""}){
     </div>
     <section class="updates-feed-section">
       <div class="updates-feed-head"><div><p class="eyebrow">LATEST</p><h3>Announcements</h3><p>Updates published by EZEE VISION CHAMPUA.</p></div></div>
-      <div id="updatesAnnouncementsFeed" class="updates-feed">${cache.announcements.length?cache.announcements.map(v=>announcementCard(v)).join(""):(announcementError?`<div class="feature-empty">Announcements are temporarily unavailable. Your alert notifications are still available below.</div>`:`<div class="feature-empty">No announcements for your class right now.</div>`)}</div>
+      <div id="updatesAnnouncementsFeed" class="updates-feed">${cache.announcements.length?cache.announcements.map(v=>announcementCard(v)).join(""):`<div class="feature-empty">No announcements for your class right now.</div>`}</div>
     </section>
     <section class="updates-feed-section">
       <div class="updates-feed-head"><div><p class="eyebrow">YOUR ALERTS</p><h3>Notifications</h3><p>Learning and account alerts.</p></div>
         <div class="feature-toolbar-actions"><button class="secondary-button" data-feature-action="enable-notifications" ${enabled?"disabled":""}>${enabled?"Alerts enabled":"Enable alerts"}</button>${unread.length?`<button class="outline-button" data-feature-action="mark-all-read">Mark all read</button>`:""}</div>
       </div>
-      <div id="updatesNotificationsFeed" class="updates-feed">${cache.notifications.length?cache.notifications.map(n=>notificationCard(n)).join(""):(notificationError?`<div class="feature-empty">Notifications are temporarily unavailable. Please retry when you are back online.</div>`:`<div class="feature-empty">No notifications yet. You're all caught up.</div>`)}</div>
+      <div id="updatesNotificationsFeed" class="updates-feed">${cache.notifications.length?cache.notifications.map(n=>notificationCard(n)).join(""):`<div class="feature-empty">No notifications yet. You're all caught up.</div>`}</div>
     </section>`;
 
   const applyFilter=(filter)=>{
@@ -508,8 +482,9 @@ function attemptStatsForTest(testId){
 export async function renderPracticeList({rootEl,classNumber,subjectId}){
   rootEl.innerHTML=`<div class="practice-hub card"><div class="practice-hub-copy"><p class="eyebrow">SMART PRACTICE</p><h2>${escapeHtml(subjectLabel(subjectId))} Practice</h2><p>Choose a test, track your progress and practise at your own pace.</p></div><div class="practice-hub-badge">⚡</div></div><div id="practiceListInner"><div class="feature-empty">Loading practice tests…</div></div>`;
   try{
-    try { await loadPracticeTests(classNumber,subjectId); } catch (error) { console.warn("Practice tests load failed.", error); cache.tests=[]; }
-    try { await loadAttempts(); } catch (error) { console.warn("Practice attempts load failed; showing tests without attempts.", error); cache.attempts=[]; }
+    const results=await Promise.allSettled([loadPracticeTests(classNumber,subjectId),loadAttempts()]);
+    if(results[0].status==="rejected") throw results[0].reason;
+    if(results[1].status==="rejected") { cache.attempts=[]; console.warn("Practice attempts could not be loaded:", results[1].reason); }
     const tests=cache.tests;
     const attempts=cache.attempts;
     const subjectAttempts=attempts.filter(a=>!subjectId||a.subject===subjectId);
@@ -611,7 +586,7 @@ function applyAnswersToForm(rootEl){
 }
 function renderQuestion(q,i){
   const type=q.type||"mcq";
-  const marks=Number(q.marks??q.points??1);
+  const marks=Number(q.marks||1);
   const marked=activeMarked.has(i);
   const meta=`<div class="practice-question-head"><span class="practice-q-number">Q${i+1}</span><span class="practice-q-marks">${marks} mark${marks===1?"":"s"}</span><button class="question-mark-btn ${marked?"is-marked":""}" type="button" data-mark-question="${i}" aria-label="${marked?"Unmark":"Mark"} question for review">${marked?"★":"☆"}</button></div>`;
   if(type==="mcq"){
@@ -669,7 +644,7 @@ function renderPracticeResult(rootEl,result,forced,goBack){
   const review=questions.map((q,i)=>{
     const value=result.answers?.[i]??"";
     const correct=questionScore(q,value)>0;
-    return `<div class="result-review-row ${correct?"is-correct":String(value).trim()?"is-wrong":"is-unanswered""><span>Q${i+1}</span><div><strong>${correct?"Correct":String(value).trim()?"Needs review":"Not answered"}</strong><small>${escapeHtml(q.prompt||q.question||"")}</small></div><b>${correct?`+${Number(q.marks||1)}`:String(value).trim()?"0":"—"}</b></div>`;
+    return `<div class="result-review-row ${correct?"is-correct":String(value).trim()?"is-wrong":"is-unanswered""><span>Q${i+1}</span><div><strong>${correct?"Correct":String(value).trim()?"Needs review":"Not answered"}</strong><small>${escapeHtml(q.prompt||"")}</small></div><b>${correct?`+${Number(q.marks||1)}`:String(value).trim()?"0":"—"}</b></div>`;
   }).join("");
   rootEl.querySelectorAll("input,button").forEach(x=>x.disabled=false);
   rootEl.querySelector("#practiceWorkspace")?.remove();
