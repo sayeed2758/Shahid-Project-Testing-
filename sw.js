@@ -1,4 +1,4 @@
-const CACHE_NAME = "ezee-vision-shell-simple-v8-profile-avatar-sync";
+const CACHE_NAME = "ezee-vision-shell-simple-v8-stable-feature-fix";
 
 const APP_SHELL = [
   "./",
