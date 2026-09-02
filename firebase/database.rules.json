@@ -58,8 +58,9 @@
     "notifications": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'creativesayeedd@gmail.com')",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'creativesayeedd@gmail.com')",
+        ".write": "auth != null && auth.token.email === 'creativesayeedd@gmail.com'",
         "$notificationId": {
+          ".write": "auth != null && auth.uid === $uid && data.exists() && newData.exists() && newData.child('title').val() === data.child('title').val() && newData.child('message').val() === data.child('message').val() && newData.child('type').val() === data.child('type').val() && newData.child('createdAt').val() === data.child('createdAt').val() && newData.child('read').isBoolean()",
           ".validate": "newData.hasChildren(['title','message','type','createdAt','read']) && newData.child('title').isString() && newData.child('message').isString() && newData.child('read').isBoolean()"
         }
       }
