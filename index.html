@@ -368,6 +368,47 @@
 
     <div id="globalStatus" class="global-status" role="status" aria-live="polite" hidden></div>
 
+    <div id="audioModal" class="audio-modal" hidden role="dialog" aria-modal="true" aria-labelledby="audioTitle">
+      <div class="audio-player-shell">
+        <header class="audio-player-topbar">
+          <button id="audioClose" class="audio-topbar-btn" type="button" aria-label="Close audio player">⌄</button>
+          <div class="audio-topbar-title">
+            <h2 id="audioTitle">Audio Summary</h2>
+            <p id="audioSubtitle">Chapter Summary</p>
+          </div>
+          <button class="audio-topbar-btn" type="button" aria-label="More audio options">⋮</button>
+        </header>
+
+        <div class="audio-poster-wrap">
+          <img id="audioPoster" class="audio-poster" alt="Chapter summary poster" hidden>
+          <div id="audioPosterFallback" class="audio-poster-fallback" aria-hidden="true"><span>♪</span></div>
+        </div>
+
+        <div class="audio-range-row">
+          <input id="audioRange" class="audio-range" type="range" min="0" max="0" value="0" step="0.1" aria-label="Audio progress">
+          <div class="audio-time-row"><span id="audioCurrent">0:00</span><span id="audioDuration">0:00</span></div>
+        </div>
+
+        <div class="audio-main-controls">
+          <button id="audioRepeatBtn" class="audio-icon-btn" type="button" aria-label="Repeat">↻</button>
+          <button id="audioPrevBtn" class="audio-icon-btn" type="button" aria-label="Previous audio">|◀</button>
+          <button id="audioPlayBtn" class="audio-play-btn" type="button" aria-label="Play">▶</button>
+          <button id="audioNextBtn" class="audio-icon-btn" type="button" aria-label="Next audio">▶|</button>
+          <button class="audio-icon-btn" type="button" aria-label="Queue">☷</button>
+        </div>
+
+        <div id="audioStatus" class="audio-status" role="status" aria-live="polite"></div>
+        <audio id="audioElement" class="audio-element-hidden" preload="metadata" playsinline></audio>
+
+        <div class="audio-bottom-controls" aria-hidden="true">
+          <span class="audio-bottom-btn">♡</span>
+          <span class="audio-bottom-btn">⋮</span>
+          <span class="audio-bottom-btn">↗</span>
+          <span class="audio-bottom-btn">☷</span>
+        </div>
+      </div>
+    </div>
+
     <div id="readerModal" class="reader-modal" hidden role="dialog" aria-modal="true" aria-labelledby="readerTitle">
       <div class="reader-shell">
         <header class="reader-header">
