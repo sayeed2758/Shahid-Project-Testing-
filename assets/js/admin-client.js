@@ -9,9 +9,22 @@ import {
 } from "./auth.js";
 import { get, ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { DRIVE_GATEWAY_URL } from "./drive-config.js";
-import { ADMIN_EMAIL, SUBJECTS, SECTIONS, CLASSES, studentEmailFromId } from "./constants.js";
 
 const MAX_LINK_LENGTH = 2048;
+const SUBJECTS = [
+  { id: "sst", label: "SST", icon: "🌍" },
+  { id: "science", label: "Science", icon: "🔬" },
+  { id: "math", label: "Math", icon: "🧮" },
+  { id: "english", label: "English", icon: "📚" },
+];
+const SECTIONS = [
+  { id: "detailed", label: "Detailed Notes" },
+  { id: "short", label: "Short Notes" },
+  { id: "pyq", label: "PYQ's" },
+  { id: "worksheet", label: "Worksheet" },
+  { id: "exam-paper", label: "Exam Paper" },
+];
+const CLASSES = [6, 7, 8, 9, 10];
 export { SUBJECTS, SECTIONS, CLASSES, ADMIN_EMAIL };
 
 function timeout(ms, code = "NETWORK_TIMEOUT") {
@@ -19,7 +32,7 @@ function timeout(ms, code = "NETWORK_TIMEOUT") {
 }
 async function withTimeout(promise, ms = 15000) { return Promise.race([promise, timeout(ms)]); }
 function normaliseStudentId(value) { return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 40); }
-
+function studentEmailFromId(studentId) { return `${normaliseStudentId(studentId).toLowerCase()}@students.ezeevisionchampua.com`; }
 function cleanDriveId(value) { return String(value ?? "").trim(); }
 export function extractDriveFileId(input) {
   const value = String(input ?? "").trim();
@@ -71,29 +84,6 @@ export function getDriveGatewayStatus() { return Boolean(DRIVE_GATEWAY_URL); }
 function userRecordFromAuth(user, studentId, displayName, classNumber) {
   const now = Date.now();
   return { displayName, studentId, email: user.email || studentEmailFromId(studentId), role: "student", class: classNumber, active: true, createdAt: now, updatedAt: now, lastSignInTime: null };
-}
-
-async function notifyClassStudents(classNumber, title, message, type = "material") {
-  try {
-    const snap = await withTimeout(get(ref(database, "users")), 12000);
-    const users = snap.val() || {};
-    const updates = {};
-    Object.entries(users).forEach(([uid, user]) => {
-      if (user?.role !== "student" || user?.active === false || Number(user.class) !== Number(classNumber)) return;
-      const id = `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${Math.random().toString(36).slice(2, 5)}`;
-      updates[`notifications/${uid}/${id}`] = {
-        title: String(title || "New update"),
-        message: String(message || ""),
-        type,
-        createdAt: Date.now(),
-        read: false,
-        targetClass: Number(classNumber),
-      };
-    });
-    if (Object.keys(updates).length) await withTimeout(update(ref(database), updates), 15000);
-  } catch (error) {
-    console.warn("Student notification creation failed:", error);
-  }
 }
 
 export async function createStudent({ displayName, studentId, password, classNumber }) {
@@ -205,17 +195,12 @@ function validateMaterialMetadata(metadata) {
 export async function verifyDriveLink(driveUrl) {
   const driveFileId = extractDriveFileId(driveUrl);
   if (!driveFileId) throw new Error("INVALID_DRIVE_LINK");
-  const data = await gatewayFetch("/admin/check-file/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driveFileId }),
-  }, 30000);
   return {
-    driveFileId: data?.id || driveFileId,
-    name: data?.name || "Google Drive PDF",
-    size: Number(data?.size || 0),
-    mimeType: data?.mimeType || "application/pdf",
-    verified: data?.success === true,
+    driveFileId,
+    name: "Google Drive PDF",
+    size: 0,
+    mimeType: "application/pdf",
+    verified: true,
   };
 }
 export async function uploadMaterial({ metadata, publish }) {
@@ -227,10 +212,7 @@ export async function uploadMaterial({ metadata, publish }) {
     createdAt: Number(metadata.createdAt || Date.now()), updatedAt: Date.now(),
   };
   await withTimeout(update(ref(database), { [`catalog/class-${record.class}/${record.id}`]: record }), 15000);
-  if (publish) {
-    await writePublished(record, true);
-    await notifyClassStudents(record.class, "New material available", `${record.title} is now available in your class materials.`, "material");
-  }
+  if (publish) await writePublished(record, true);
   return record;
 }
 export async function replaceMaterial(material, metadata, publish) {
@@ -246,7 +228,6 @@ export async function replaceMaterial(material, metadata, publish) {
     updates[`publishedCatalog/class-${material.class}/${material.id}`] = null;
   }
   await withTimeout(update(ref(database), updates), 15000);
-  if (publish) await notifyClassStudents(updated.class, "Material updated", `${updated.title} has been updated in your class materials.`, "material");
   return updated;
 }
 export async function deleteMaterial(material) {
@@ -260,7 +241,6 @@ export async function publishMaterial(material, publish) {
     [`catalog/class-${material.class}/${material.id}`]: updated,
     [`publishedCatalog/class-${material.class}/${material.id}`]: publish ? updated : null,
   }), 15000);
-  if (publish) await notifyClassStudents(updated.class, "New material available", `${updated.title} is now available in your class materials.`, "material");
   return updated;
 }
 

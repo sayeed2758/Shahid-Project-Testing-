@@ -1,5 +1,4 @@
 import { database } from "./firebase-init.js";
-import { CLASS_CARDS as CLASSES } from "./constants.js";
 import {
   configureAuthPersistence,
   observeAuth,
@@ -21,9 +20,17 @@ import {
 } from "./catalog.js";
 import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
-import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount, uploadStudentPhoto } from "./profile.js";
+import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+
+const CLASSES = [
+  { id: "class-6", label: "Class 6", number: 6 },
+  { id: "class-7", label: "Class 7", number: 7 },
+  { id: "class-8", label: "Class 8", number: 8 },
+  { id: "class-9", label: "Class 9", number: 9 },
+  { id: "class-10", label: "Class 10", number: 10 },
+];
 
 const SUBJECT_BY_ID = Object.fromEntries(SUBJECTS.map((item) => [item.id, item]));
 const SECTION_BY_ID = Object.fromEntries(SECTIONS.map((item) => [item.id, item]));
@@ -36,7 +43,6 @@ const state = {
   catalogLoadedFor: null,
   recent: [],
   isBusy: false,
-  features: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -58,9 +64,6 @@ const elements = {
   worksheetsCount: $("#worksheetsCount"),
   totalMaterialsCount: $("#totalMaterialsCount"),
   homeClassGrid: $("#homeClassGrid"),
-  homeAnnouncements: $("#homeAnnouncements"),
-  homeNotifications: $("#homeNotifications"),
-  homeFeatureActions: $("#homeFeatureActions"),
 
   homeRoute: $("#homeRoute"),
   classesRoute: $("#classesRoute"),
@@ -70,11 +73,6 @@ const elements = {
   materialDetailRoute: $("#materialDetailRoute"),
   searchRoute: $("#searchRoute"),
   recentRoute: $("#recentRoute"),
-  notificationsRoute: $("#notificationsRoute"),
-  practiceRoute: $("#practiceRoute"),
-  practiceTestRoute: $("#practiceTestRoute"),
-  performanceRoute: $("#performanceRoute"),
-  plannerRoute: $("#plannerRoute"),
   contactRoute: $("#contactRoute"),
   notFoundRoute: $("#notFoundRoute"),
 
@@ -97,13 +95,6 @@ const elements = {
   materialDetailMeta: $("#materialDetailMeta"),
   materialDetailBody: $("#materialDetailBody"),
   materialsSubjectTitle: $("#materialsSubjectTitle"),
-  practiceShortcut: $("#practiceShortcut"),
-  practicePageTitle: $("#practicePageTitle"),
-  notificationsContent: $("#notificationsContent"),
-  practiceContent: $("#practiceContent"),
-  practiceTestContent: $("#practiceTestContent"),
-  performanceContent: $("#performanceContent"),
-  plannerContent: $("#plannerContent"),
 
   searchInput: $("#searchInput"),
   searchClearBtn: $("#searchClearBtn"),
@@ -116,8 +107,6 @@ const elements = {
   profileStudentIdInput: $("#profileStudentIdInput"),
   profileClassInput: $("#profileClassInput"),
   profileAvatar: $("#profileAvatar"),
-  profilePhotoInput: $("#profilePhotoInput"),
-  profilePhotoBtn: $("#profilePhotoBtn"),
   profileMessage: $("#profileMessage"),
   profileSaveBtn: $("#profileSaveBtn"),
   profileRefreshBtn: $("#profileRefreshBtn"),
@@ -145,11 +134,6 @@ const elements = {
   materialDetailBackBtn: $("#materialDetailBackBtn"),
   searchBackBtn: $("#searchBackBtn"),
   recentBackBtn: $("#recentBackBtn"),
-  notificationsBackBtn: $("#notificationsBackBtn"),
-  practiceBackBtn: $("#practiceBackBtn"),
-  practiceTestBackBtn: $("#practiceTestBackBtn"),
-  performanceBackBtn: $("#performanceBackBtn"),
-  plannerBackBtn: $("#plannerBackBtn"),
   contactBackBtn: $("#contactBackBtn"),
 
   menuOpenBtn: $("#menuOpenBtn"),
@@ -280,14 +264,6 @@ function parseRoute() {
   }
   if (parts[0] === "search") return { name: "search", query: params.get("q") || "" };
   if (parts[0] === "recent") return { name: "recent" };
-  if (/^(notifications?|announc(e)?ments?|announcement-view|notice|notices)$/i.test(parts[0] || "")) {
-    const announcementId = parts[1] || params.get("id") || params.get("announcementId") || "";
-    return { name: "notifications", announcementId };
-  }
-  if (parts[0] === "practice" && parts[1] && parts[2]) return { name: "practice", classNumber: Number(parts[1]), subjectId: parts[2] };
-  if (parts[0] === "practice-test" && parts[1] && parts[2] && parts[3]) return { name: "practice-test", classNumber: Number(parts[1]), subjectId: parts[2], testId: parts.slice(3).join("/") };
-  if (parts[0] === "performance") return { name: "performance" };
-  if (parts[0] === "planner") return { name: "planner" };
   if (parts[0] === "contact") return { name: "contact" };
   if (parts[0] === "profile") return { name: "profile" };
 
@@ -449,14 +425,6 @@ function renderSections(classNumber, subjectId) {
   elements.sectionsGrid.innerHTML = SECTIONS.map((section) =>
     createSectionCard(section, classNumber, subjectId)
   ).join("");
-  if (elements.practiceShortcut) {
-    elements.practiceShortcut.innerHTML = `
-      <button class="practice-shortcut card" type="button" data-action="open-practice" data-class-number="${classNumber}" data-subject-id="${escapeHtml(subjectId)}">
-        <span class="practice-shortcut-icon">📝</span>
-        <span><strong>Practice</strong><small>MCQ • Fill in the Blanks • True / False • Timed</small></span>
-        <b>→</b>
-      </button>`;
-  }
 }
 
 function createMaterialCard(material) {
@@ -553,68 +521,13 @@ function setProfileMessage(message = "", type = "") {
   elements.profileMessage.className = `inline-message ${type}`.trim();
 }
 
-function profilePhotoStorageKey() {
-  return state.user?.uid ? `ezee_profile_photo_${state.user.uid}` : "";
-}
-
-function getStoredProfilePhoto() {
-  const key = profilePhotoStorageKey();
-  if (!key) return "";
-  try { return String(localStorage.getItem(key) || "").trim(); } catch { return ""; }
-}
-
-function renderTopbarAvatar(photoURL, initial) {
-  if (!elements.topbarAvatar) return;
-  const remote = String(photoURL || "").trim();
-  const fallback = getStoredProfilePhoto();
-  const source = remote || fallback;
-  if (!source) {
-    elements.topbarAvatar.textContent = initial;
-    elements.topbarAvatar.classList.remove("has-photo");
-    return;
-  }
-  elements.topbarAvatar.innerHTML = `<img src="${escapeHtml(source)}" alt="Student photo" loading="eager" decoding="async">`;
-  elements.topbarAvatar.classList.add("has-photo");
-  const img = elements.topbarAvatar.querySelector("img");
-  img?.addEventListener("error", () => {
-    const safeFallback = getStoredProfilePhoto();
-    if (safeFallback && img.getAttribute("src") !== safeFallback) img.src = safeFallback;
-    else { elements.topbarAvatar.textContent = initial; elements.topbarAvatar.classList.remove("has-photo"); }
-  }, { once: true });
-}
-
-function renderProfilePhoto(photoURL, initial) {
-  const remote = String(photoURL || "").trim();
-  const fallback = getStoredProfilePhoto();
-  const source = remote || fallback;
-  renderTopbarAvatar(remote, initial);
-  if (!source) {
-    elements.profileAvatar.textContent = initial;
-    elements.profileAvatar.classList.remove("has-photo");
-    return;
-  }
-  elements.profileAvatar.innerHTML = `<img src="${escapeHtml(source)}" alt="Student photo" loading="eager" decoding="async">`;
-  elements.profileAvatar.classList.add("has-photo");
-  const img = elements.profileAvatar.querySelector("img");
-  img?.addEventListener("error", () => {
-    const safeFallback = getStoredProfilePhoto();
-    if (safeFallback && img.getAttribute("src") !== safeFallback) {
-      img.src = safeFallback;
-    } else {
-      elements.profileAvatar.textContent = initial;
-      elements.profileAvatar.classList.remove("has-photo");
-    }
-  }, { once: true });
-}
-
 function populateProfileForm() {
   const name = getDisplayName(state.user, state.profile);
   elements.profileNameInput.value = name === "Student" ? "" : name;
   elements.profileStudentIdInput.value = state.profile?.studentId || "";
   elements.profileClassInput.value = state.assignedClass ? `Class ${state.assignedClass}` : "Not assigned";
   const initial = name.trim().charAt(0).toUpperCase() || "S";
-  const photoURL = String(state.profile?.photoURL || state.user?.photoURL || "").trim();
-  renderProfilePhoto(photoURL, initial);
+  elements.profileAvatar.textContent = initial;
 }
 
 async function refreshProfileView() {
@@ -646,62 +559,6 @@ async function refreshProfileView() {
   }
 }
 
-async function changeProfilePhoto() {
-  if (!state.user || state.isBusy || !elements.profilePhotoInput) return;
-  elements.profilePhotoInput.click();
-}
-
-async function onProfilePhotoSelected(event) {
-  const file = event.target.files?.[0];
-  event.target.value = "";
-  if (!file || !state.user || state.isBusy) return;
-  state.isBusy = true;
-  elements.profilePhotoBtn.disabled = true;
-  elements.profileSaveBtn.disabled = true;
-  elements.profileRefreshBtn.disabled = true;
-  setProfileMessage("Uploading photo…", "loading");
-  let previewURL = "";
-  try {
-    previewURL = URL.createObjectURL(file);
-    const previewReader = new FileReader();
-    previewReader.onload = () => {
-      const value = String(previewReader.result || "");
-      if (!value) return;
-      const key = profilePhotoStorageKey();
-      if (key) {
-        try { localStorage.setItem(key, value); } catch { /* local fallback is best-effort */ }
-      }
-      const name = getDisplayName(state.user, state.profile);
-      renderProfilePhoto(value, name.trim().charAt(0).toUpperCase() || "S");
-    };
-    previewReader.readAsDataURL(file);
-
-    const photoURL = await uploadStudentPhoto(state.user.uid, file);
-    state.profile = { ...(state.profile || {}), photoURL, updatedAt: Date.now() };
-    try {
-      const key = profilePhotoStorageKey();
-      if (key) localStorage.removeItem(key);
-    } catch { /* best-effort cleanup */ }
-    populateProfileForm();
-    setProfileMessage("Profile photo saved successfully.", "success");
-  } catch (error) {
-    console.error(error);
-    const messages = {
-      PROFILE_PHOTO_TYPE: "Please choose an image file.",
-      PROFILE_PHOTO_TOO_LARGE: "Photo is too large. Please choose an image under 8 MB.",
-      PROFILE_PHOTO_INVALID: "This photo could not be processed. Please choose another image.",
-      PROFILE_AUTH_REQUIRED: "Your session is no longer valid. Please sign in again.",
-    };
-    setProfileMessage(messages[error?.message] || "Photo could not be saved. Please try again.", "error");
-  } finally {
-    if (previewURL) URL.revokeObjectURL(previewURL);
-    elements.profilePhotoBtn.disabled = false;
-    elements.profileSaveBtn.disabled = false;
-    elements.profileRefreshBtn.disabled = false;
-    state.isBusy = false;
-  }
-}
-
 async function saveProfile(event) {
   event.preventDefault();
   if (!state.user || state.isBusy) return;
@@ -726,7 +583,7 @@ async function saveProfile(event) {
   try {
     const savedName = await updateStudentDisplayName(state.user.uid, name);
     state.profile = { ...(state.profile || {}), displayName: savedName, updatedAt: Date.now() };
-    await renderHomeData();
+    populateHome();
     populateProfileForm();
     setProfileMessage("Profile saved successfully.", "success");
   } catch (error) {
@@ -739,27 +596,29 @@ async function saveProfile(event) {
   }
 }
 
-async function downloadMaterial(material) {
-  if (!material?.driveFileId) {
+function downloadMaterial(material) {
+  const driveFileId = String(material?.driveFileId || "").trim();
+  if (!/^[A-Za-z0-9_-]{10,200}$/.test(driveFileId)) {
     setGlobalStatus("This material has no valid download source.");
     setTimeout(() => setGlobalStatus(""), 2200);
     return;
   }
-  try {
-    setGlobalStatus("Preparing PDF download…");
-    await readerController.downloadWorksheet(material);
-    setGlobalStatus("Download started.", "success");
-  } catch (error) {
-    console.error(error);
-    const message = error?.code === "PDF_ACCESS_DENIED"
-      ? "You are not authorised to download this material."
-      : error?.code === "DRIVE_GATEWAY_NOT_CONFIGURED"
-        ? "Secure PDF gateway is not configured yet."
-        : "The PDF could not be downloaded. Please retry.";
-    setGlobalStatus(message);
-  } finally {
-    setTimeout(() => setGlobalStatus(""), 2600);
-  }
+
+  const safeName = String(material?.title || "learning-material")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\\s+/g, " ")
+    .trim()
+    .slice(0, 120) || "learning-material";
+
+  const url = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(driveFileId)}`;
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  anchor.download = `${safeName}.pdf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 }
 
 async function openMaterialAction(material) {
@@ -812,10 +671,8 @@ async function ensureCatalog(classNumber, { force = false, targetNotice = null }
 
 async function renderHomeData() {
   const displayName = getDisplayName(state.user, state.profile);
-  const initial = displayName.trim().charAt(0).toUpperCase() || "S";
-  const photoURL = String(state.profile?.photoURL || state.user?.photoURL || "").trim();
   elements.welcomeHeading.innerHTML = `${escapeHtml(displayName)} <span aria-hidden="true">👋</span>`;
-  renderTopbarAvatar(photoURL, initial);
+  elements.topbarAvatar.textContent = displayName.trim().charAt(0).toUpperCase() || "S";
   elements.dateLine.textContent = formatToday();
   elements.classStatus.textContent = state.assignedClass
     ? `Your assigned class: Class ${state.assignedClass}`
@@ -837,20 +694,6 @@ async function renderHomeData() {
     elements.protectedNotesCount.textContent = "—";
     elements.worksheetsCount.textContent = "—";
     elements.totalMaterialsCount.textContent = "—";
-  }
-
-  if (state.features) {
-    try {
-      await state.features.loadNotifications();
-      await state.features.renderAnnouncements(elements.homeAnnouncements);
-      state.features.renderHomeWidgets({
-        announcementsEl: elements.homeAnnouncements,
-        notificationsEl: elements.homeNotifications,
-        homeActionsEl: elements.homeFeatureActions,
-      });
-    } catch (error) {
-      console.warn("Student feature home widgets failed:", error);
-    }
   }
 }
 
@@ -1008,9 +851,6 @@ async function renderRoute(route) {
                   ? `<button class="secondary-button material-action-button" id="downloadMaterialBtn" type="button">Download PDF</button>`
                   : ""}
               </div>
-              <a class="whatsapp-material-help" href="https://wa.me/919124478453?text=${encodeURIComponent(`Sir, I need help with ${material.title} on EZEE VISION CHAMPUA application.`)}" target="_blank" rel="noopener noreferrer">
-                <span>💬</span><span><strong>Ask Teacher on WhatsApp</strong><small>Get help with this material</small></span><b>→</b>
-              </a>
             </div>
           `;
 
@@ -1049,81 +889,6 @@ async function renderRoute(route) {
 
       case "recent":
         await renderRecent();
-        break;
-
-      case "notifications":
-        if (!elements.notificationsRoute || !elements.notificationsContent) {
-          setRouteVisibility("not-found");
-          break;
-        }
-        setRouteVisibility("notifications");
-        if (!state.features) {
-          elements.notificationsContent.innerHTML = makeErrorState("Notifications are still loading. Please retry.", "notifications");
-        } else {
-          await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent, announcementId: route.announcementId || "" });
-        }
-        break;
-
-      case "practice": {
-        if (!elements.practiceRoute || !elements.practiceContent) {
-          setRouteVisibility("not-found");
-          break;
-        }
-        if (!prepareSubjectsRoute(route)) return;
-        const subject = getSubject(route.subjectId);
-        if (!subject) { redirectTo(`class/${state.assignedClass}`); return; }
-        setRouteVisibility("practice");
-        if (elements.practicePageTitle) elements.practicePageTitle.textContent = `${subject.label} Practice`;
-        if (!state.features) {
-          elements.practiceContent.innerHTML = makeErrorState("Practice is still loading. Please retry.", "practice");
-        } else {
-          await state.features.renderPracticeList({
-            rootEl: elements.practiceContent,
-            classNumber: route.classNumber,
-            subjectId: route.subjectId,
-          });
-        }
-        break;
-      }
-
-      case "practice-test":
-        if (!elements.practiceTestRoute || !elements.practiceTestContent) {
-          setRouteVisibility("not-found");
-          break;
-        }
-        if (!prepareSubjectsRoute(route)) return;
-        setRouteVisibility("practice-test");
-        if (!state.features) {
-          elements.practiceTestContent.innerHTML = makeErrorState("Practice is still loading. Please retry.", "practice-test");
-        } else {
-          await state.features.renderPracticeTest({
-            rootEl: elements.practiceTestContent,
-            classNumber: route.classNumber,
-            subjectId: route.subjectId,
-            testId: route.testId,
-            goBack: () => redirectTo(`practice/${route.classNumber}/${route.subjectId}`),
-          });
-        }
-        break;
-
-      case "performance":
-        if (!elements.performanceRoute || !elements.performanceContent) {
-          setRouteVisibility("not-found");
-          break;
-        }
-        setRouteVisibility("performance");
-        if (!state.features) elements.performanceContent.innerHTML = makeErrorState("Performance is still loading. Please retry.", "performance");
-        else await state.features.renderPerformance({ rootEl: elements.performanceContent });
-        break;
-
-      case "planner":
-        if (!elements.plannerRoute || !elements.plannerContent) {
-          setRouteVisibility("not-found");
-          break;
-        }
-        setRouteVisibility("planner");
-        if (!state.features) elements.plannerContent.innerHTML = makeErrorState("Study Planner is still loading. Please retry.", "planner");
-        else await state.features.renderPlanner({ rootEl: elements.plannerContent });
         break;
 
       case "contact":
@@ -1272,60 +1037,6 @@ function bindDelegatedActions() {
     if (action === "open-recent") {
       const item = state.recent.find((entry) => entry.id === button.dataset.materialId);
       if (item) await openRecentItem(item);
-      return;
-    }
-
-    if (action === "open-practice") {
-      const cls = Number(button.dataset.classNumber);
-      const subject = button.dataset.subjectId;
-      if (ensureAssignedClass(cls) && subject) redirectTo(`practice/${cls}/${encodeURIComponent(subject)}`);
-      return;
-    }
-
-    if (action === "open-practice-test") {
-      const cls = Number(button.dataset.classNumber);
-      const subject = button.dataset.subjectId;
-      const id = button.dataset.testId;
-      if (ensureAssignedClass(cls) && subject && id) redirectTo(`practice-test/${cls}/${encodeURIComponent(subject)}/${encodeURIComponent(id)}`);
-      return;
-    }
-
-    if (action === "open-announcement") {
-      const id = button.dataset.announcementId;
-      if (id) redirectTo(`announcement/${encodeURIComponent(id)}`);
-      return;
-    }
-
-    if (action === "open-notifications") {
-      redirectTo("notifications");
-      return;
-    }
-
-    if (action === "open-performance") { redirectTo("performance"); return; }
-    if (action === "open-planner") { redirectTo("planner"); return; }
-
-    if (button.dataset.featureAction) {
-      const featureAction = button.dataset.featureAction;
-      try {
-        if (featureAction === "read-notification" && state.features) {
-          await state.features.markNotificationRead(button.dataset.id);
-          const currentRoute = parseRoute();
-          if (currentRoute.name === "notifications") {
-            await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent, announcementId: currentRoute.announcementId || "" });
-          } else {
-            await renderHomeData();
-          }
-        } else if (featureAction === "mark-all-read" && state.features) {
-          await state.features.markAllNotificationsRead();
-          const currentRoute = parseRoute();
-          await state.features.renderNotificationsRoute({ rootEl: elements.notificationsContent, announcementId: currentRoute.announcementId || "" });
-        } else if (featureAction === "enable-notifications" && state.features) {
-          try { await state.features.enableNotifications(); alert("Notifications enabled for this device."); }
-          catch { alert("Notification permission was not granted."); }
-        }
-      } catch (error) {
-        console.error("Feature action failed:", error);
-      }
       return;
     }
 
@@ -1485,25 +1196,14 @@ async function handleAuthenticatedUser(user) {
 
     state.profile = profile;
     state.assignedClass = assigned;
-    renderTopbarAvatar(
-      String(profile?.photoURL || user?.photoURL || "").trim(),
-      getDisplayName(user, profile).trim().charAt(0).toUpperCase() || "S"
-    );
     state.catalog = [];
     state.catalogLoadedFor = null;
-    if (state.features) {
-      await Promise.allSettled([
-        state.features.loadMaterialSeen(),
-        state.features.loadNotifications(),
-      ]);
-      state.features.watchNotifications?.(user.uid);
-    }
 
     showView("app");
     renderClassCards();
 
     const current = parseRoute();
-    const safeRoute = ["home", "classes", "search", "recent", "notifications", "performance", "planner", "practice", "practice-test", "contact", "profile"].includes(current.name)
+    const safeRoute = ["home", "classes", "search", "recent", "contact", "profile"].includes(current.name)
       ? current
       : current.name === "subjects" || current.name === "sections" || current.name === "materials" || current.name === "material-detail"
         ? current
@@ -1535,7 +1235,6 @@ function handleLoggedOut() {
   state.catalog = [];
   state.catalogLoadedFor = null;
   state.recent = [];
-  state.features?.stopNotificationWatch?.();
   showView("auth");
   setAuthControlsDisabled(false);
   setButtonBusy(elements.loginBtn, false);
@@ -1544,82 +1243,61 @@ function handleLoggedOut() {
 }
 
 function bindEvents() {
-  // Some optional feature routes are intentionally absent from the baseline HTML.
-  // Bind only when an element exists so a missing optional control can never
-  // abort application startup (and incorrectly surface as a Firebase error).
-  const on = (element, event, handler, options) => {
-    if (element && typeof element.addEventListener === "function") {
-      element.addEventListener(event, handler, options);
-    }
-  };
+  elements.loginForm.addEventListener("submit", onLoginSubmit);
+  elements.logoutTopBtn.addEventListener("click", onLogout);
 
-  on(elements.loginForm, "submit", onLoginSubmit);
-  on(elements.logoutTopBtn, "click", onLogout);
-
-  on(elements.togglePasswordBtn, "click", () => {
+  elements.togglePasswordBtn.addEventListener("click", () => {
     const visible = elements.passwordInput.type === "text";
     elements.passwordInput.type = visible ? "password" : "text";
     elements.togglePasswordBtn.setAttribute("aria-label", visible ? "Show password" : "Hide password");
     elements.togglePasswordBtn.textContent = visible ? "◉" : "◌";
   });
 
-  on(elements.viewClassesBtn, "click", () => redirectTo("classes"));
-  on(elements.classesBackBtn, "click", () => redirectTo("home"));
-  on(elements.subjectsBackBtn, "click", () => redirectTo("classes"));
-  on(elements.sectionsBackBtn, "click", () => {
+  elements.viewClassesBtn.addEventListener("click", () => redirectTo("classes"));
+  elements.classesBackBtn.addEventListener("click", () => redirectTo("home"));
+  elements.subjectsBackBtn.addEventListener("click", () => redirectTo("classes"));
+  elements.sectionsBackBtn.addEventListener("click", () => {
     const parsed = parseRoute();
     redirectTo(`class/${parsed.classNumber || state.assignedClass}`);
   });
-  on(elements.materialsBackBtn, "click", () => {
+  elements.materialsBackBtn.addEventListener("click", () => {
     const parsed = parseRoute();
     redirectTo(`subject/${parsed.classNumber || state.assignedClass}/${parsed.subjectId}`);
   });
-  on(elements.materialDetailBackBtn, "click", () => {
+  elements.materialDetailBackBtn.addEventListener("click", () => {
     const parsed = parseRoute();
     redirectTo(`section/${parsed.classNumber || state.assignedClass}/${parsed.subjectId}/${parsed.sectionId}`);
   });
-  on(elements.searchBackBtn, "click", () => redirectTo("home"));
-  on(elements.recentBackBtn, "click", () => redirectTo("home"));
-  on(elements.notificationsBackBtn, "click", () => redirectTo("home"));
-  on(elements.practiceBackBtn, "click", () => {
-    const parsed = parseRoute();
-    redirectTo(`subject/${parsed.classNumber || state.assignedClass}/${parsed.subjectId || ""}`);
-  });
-  on(elements.practiceTestBackBtn, "click", () => {
-    const parsed = parseRoute();
-    redirectTo(`practice/${parsed.classNumber || state.assignedClass}/${parsed.subjectId || ""}`);
-  });
-  on(elements.performanceBackBtn, "click", () => redirectTo("home"));
-  on(elements.plannerBackBtn, "click", () => redirectTo("home"));
+  elements.searchBackBtn.addEventListener("click", () => redirectTo("home"));
+  elements.recentBackBtn.addEventListener("click", () => redirectTo("home"));
 
-  on(elements.materialDetailHomeBtn, "click", () => redirectTo("home"));
-  on(elements.fallbackHomeBtn, "click", () => redirectTo("home"));
+  elements.materialDetailHomeBtn.addEventListener("click", () => redirectTo("home"));
+  elements.fallbackHomeBtn.addEventListener("click", () => redirectTo("home"));
 
-  on(elements.searchInput, "input", onSearchInput);
-  on(elements.searchClearBtn, "click", onSearchClear);
+  elements.searchInput.addEventListener("input", onSearchInput);
+  elements.searchClearBtn.addEventListener("click", onSearchClear);
 
-  on(elements.contactBackBtn, "click", () => redirectTo("home"));
+  elements.contactBackBtn.addEventListener("click", () => redirectTo("home"));
 
-  on(elements.menuOpenBtn, "click", () => setMenuOpen(true));
-  on(elements.menuCloseBtn, "click", closeMenu);
-  on(elements.menuBackdrop, "click", closeMenu);
+  elements.menuOpenBtn.addEventListener("click", () => setMenuOpen(true));
+  elements.menuCloseBtn.addEventListener("click", closeMenu);
+  elements.menuBackdrop.addEventListener("click", closeMenu);
   elements.menuItems.forEach((button) => {
-    on(button, "click", () => {
+    button.addEventListener("click", () => {
       closeMenu();
       redirectTo(button.dataset.menuNav);
     });
   });
 
-  on(elements.profileForm, "submit", saveProfile);
-  on(elements.profilePhotoInput, "change", onProfilePhotoSelected);
-  on(elements.profileRefreshBtn, "click", refreshProfileView);
-  on(elements.profileDeleteBtn, "click", onDeleteAccount);
-  on(elements.profileBackBtn, "click", () => redirectTo("home"));
-  on(elements.profileLogoutBtn, "click", onLogout);
+  elements.profileForm.addEventListener("submit", saveProfile);
+  elements.profileRefreshBtn.addEventListener("click", refreshProfileView);
+  elements.profileDeleteBtn.addEventListener("click", onDeleteAccount);
+  elements.profileBackBtn.addEventListener("click", () => redirectTo("home"));
+  elements.profileLogoutBtn.addEventListener("click", onLogout);
 
   // Profile is an explicit app-area action, not a duplicate page.
   const profileOpenBtn = document.querySelector("#profileOpenBtn");
-  on(profileOpenBtn, "click", () => redirectTo("profile"));
+  profileOpenBtn.addEventListener("click", () => redirectTo("profile"));
 
   // One reader controller for the entire SPA.
   readerController = createProtectedReaderController(
@@ -1643,7 +1321,7 @@ function bindEvents() {
   readerController.bind();
 
   elements.navItems.forEach((button) => {
-    on(button, "click", () => redirectTo(button.dataset.nav));
+    button.addEventListener("click", () => redirectTo(button.dataset.nav));
   });
 
   bindDelegatedActions();
@@ -1660,11 +1338,6 @@ function bindEvents() {
   window.addEventListener("offline", () => {
     setGlobalStatus("You’re offline. Firebase-backed data may not load.");
   });
-
-  window.addEventListener("evc-notifications-updated", () => {
-    if (!state.user || parseRoute().name !== "home") return;
-    void renderHomeData();
-  });
 }
 
 async function bootstrap() {
@@ -1672,15 +1345,6 @@ async function bootstrap() {
   bindEvents();
   showView("auth");
   setAuthMessage("Connecting securely…", "loading");
-
-  try {
-    const featureModule = await import("./student-features.js");
-    featureModule.init(() => state);
-    state.features = featureModule;
-    await featureModule.loadMaterialSeen().catch(() => {});
-  } catch (error) {
-    console.warn("Student feature module could not load; core app will continue:", error);
-  }
 
   try {
     await configureAuthPersistence();

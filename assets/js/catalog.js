@@ -1,8 +1,19 @@
 import { database } from "./firebase-init.js";
 import { get, ref } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
-import { SUBJECTS, SECTIONS, CLASSES } from "./constants.js";
-
+export const SUBJECTS = [
+  { id: "sst", label: "SST", icon: "🌍", description: "Social Studies" },
+  { id: "science", label: "Science", icon: "🔬", description: "Science & discovery" },
+  { id: "math", label: "Math", icon: "🧮", description: "Numbers & problem solving" },
+  { id: "english", label: "English", icon: "📚", description: "Language & literature" },
+];
+export const SECTIONS = [
+  { id: "detailed", label: "Detailed Notes", icon: "▤", tone: "notes", downloadable: false },
+  { id: "short", label: "Short Notes", icon: "▥", tone: "notes", downloadable: false },
+  { id: "pyq", label: "PYQ's", icon: "📝", tone: "notes", downloadable: false },
+  { id: "worksheet", label: "Worksheet", icon: "⇩", tone: "worksheet", downloadable: true },
+  { id: "exam-paper", label: "Exam Paper", icon: "📄", tone: "worksheet", downloadable: true },
+];
 const normaliseClass = value => { const n = Number.parseInt(String(value ?? "").replace(/[^\d]/g, ""), 10); return Number.isInteger(n) && n >= 6 && n <= 10 ? n : null; };
 const validSubject = value => SUBJECTS.some(x => x.id === String(value).toLowerCase()) ? String(value).toLowerCase() : null;
 const validSection = value => SECTIONS.some(x => x.id === String(value).toLowerCase()) ? String(value).toLowerCase() : null;
