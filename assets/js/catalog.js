@@ -11,6 +11,7 @@ export const SECTIONS = [
   { id: "detailed", label: "Detailed Notes", icon: "▤", tone: "notes", downloadable: false },
   { id: "short", label: "Short Notes", icon: "▥", tone: "notes", downloadable: false },
   { id: "pyq", label: "PYQ's", icon: "📝", tone: "notes", downloadable: false },
+  { id: "audio-summary", label: "Audio Summary", icon: "◉", tone: "audio", downloadable: false },
   { id: "worksheet", label: "Worksheet", icon: "⇩", tone: "worksheet", downloadable: true },
   { id: "exam-paper", label: "Exam Paper", icon: "📄", tone: "worksheet", downloadable: true },
 ];
@@ -21,9 +22,11 @@ function withTimeout(promise, ms=12000){return Promise.race([promise,new Promise
 function normaliseMaterial(id, raw={}, classNumber){
   const cls=normaliseClass(raw.class)||classNumber, subject=validSubject(raw.subject), section=validSection(raw.section);
   const driveFileId=String(raw.driveFileId||"").trim();
+  const posterDriveFileId=String(raw.posterDriveFileId||"").trim();
   const storagePath=String(raw.storagePath||"").trim();
+  const type=raw.type === "audio" || section === "audio-summary" ? "audio" : "pdf";
   if(!cls||!subject||!section||raw.active===false||(!driveFileId&&!storagePath))return null;
-  return {id:String(id),title:String(raw.title||"Untitled Material").trim(),chapter:String(raw.chapter||"").trim(),class:cls,subject,section,driveFileId,storagePath,fileName:String(raw.fileName||raw.driveName||"PDF"),fileSize:Number(raw.fileSize)||0,type:"pdf",active:true,createdAt:Number(raw.createdAt)||0,updatedAt:Number(raw.updatedAt)||Number(raw.createdAt)||0};
+  return {id:String(id),title:String(raw.title||"Untitled Material").trim(),chapter:String(raw.chapter||"").trim(),class:cls,subject,section,driveFileId,posterDriveFileId,storagePath,fileName:String(raw.fileName||raw.driveName||(type==="audio"?"Audio Summary":"PDF")).trim(),fileSize:Number(raw.fileSize)||0,mimeType:String(raw.mimeType||"").trim(),type,active:true,createdAt:Number(raw.createdAt)||0,updatedAt:Number(raw.updatedAt)||Number(raw.createdAt)||0};
 }
 let cachedClassCatalog=new Map();
 export async function loadClassCatalog(classNumber,{force=false}={}){

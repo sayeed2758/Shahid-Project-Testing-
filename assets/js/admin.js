@@ -80,6 +80,11 @@ const el = {
   uploadTitle: $("#uploadTitle"),
   uploadChapter: $("#uploadChapter"),
   uploadDriveLink: $("#uploadDriveLink"),
+  uploadPosterLink: $("#uploadPosterLink"),
+  uploadPosterField: $("#uploadPosterField"),
+  uploadDriveLabel: $("#uploadDriveLabel"),
+  verifyPosterBtn: $("#verifyPosterBtn"),
+  posterFileStatus: $("#posterFileStatus"),
   verifyDriveBtn: $("#verifyDriveBtn"),
   driveFileStatus: $("#driveFileStatus"),
   publishOnUpload: $("#publishOnUpload"),
@@ -158,6 +163,8 @@ function friendly(error) {
     DRIVE_AUTH_FAILED: "Drive Gateway could not authenticate with Google Drive.",
     DRIVE_FILE_ERROR: "Google Drive could not read this file. Check the file permission.",
     DRIVE_NOT_PDF: "The selected Drive file must be a non-trashed PDF.",
+    DRIVE_NOT_AUDIO: "The selected Drive file must be a supported audio file (MP3, M4A, WAV, OGG, AAC or similar).",
+    DRIVE_NOT_IMAGE: "The poster file must be a supported image (JPG, PNG or WebP).",
     GATEWAY_ERROR: "Drive Gateway rejected the request. Check its configuration.",
     AUTH_REQUIRED: "Please sign in again.",
     PASSWORD_MANAGEMENT_UNAVAILABLE: "Student password editing is not available in this browser-only build.",
@@ -423,14 +430,27 @@ async function toggleStudent(student) {
   }
 }
 
+function updateUploadMediaFields() {
+  const isAudio = el.uploadSection.value === "audio-summary";
+  if (el.uploadPosterField) el.uploadPosterField.hidden = !isAudio;
+  if (el.uploadDriveLabel) el.uploadDriveLabel.textContent = isAudio ? "Private Google Drive audio link" : "Private Google Drive PDF link";
+  el.uploadDriveLink.placeholder = isAudio ? "https://drive.google.com/file/d/.../view" : "https://drive.google.com/file/d/.../view";
+  el.uploadDriveLink.accept = isAudio ? "audio/*" : ".pdf,application/pdf";
+  if (!isAudio && el.uploadPosterLink) { el.uploadPosterLink.value = ""; if (el.posterFileStatus) el.posterFileStatus.textContent = "Poster is only used for Audio Summary."; }
+}
+
 function resetUploadForm() {
   el.uploadForm.reset();
   state.replacingMaterial = null;
   state.verifiedDriveId = "";
   el.uploadModeLabel.textContent = "ADD MATERIAL";
+  if (el.uploadPosterLink) el.uploadPosterLink.value = "";
+  if (el.posterFileStatus) { el.posterFileStatus.textContent = "Optional poster. Upload a square image to Google Drive."; el.posterFileStatus.dataset.type = ""; }
+  if (el.uploadSection) el.uploadSection.value = el.uploadSection.value || "";
+  updateUploadMediaFields();
   el.uploadBtn.textContent = "Save Material";
   el.publishOnUpload.checked = true;
-  el.driveFileStatus.textContent = "Paste a Google Drive PDF link, then check it.";
+  el.driveFileStatus.textContent = "Paste a Google Drive link, then check the file.";
   el.driveFileStatus.dataset.type = "";
   updateDriveActionState();
 }
@@ -450,13 +470,15 @@ function openReplace(material) {
   el.uploadClass.value = String(material.class);
   el.uploadSubject.value = material.subject;
   el.uploadSection.value = material.section;
+  updateUploadMediaFields();
   el.uploadTitle.value = material.title || "";
   el.uploadChapter.value = material.chapter || "";
   el.uploadDriveLink.value = "";
+  if (el.uploadPosterLink) el.uploadPosterLink.value = material.posterDriveFileId || "";
   el.publishOnUpload.checked = Boolean(material.active);
   el.uploadModeLabel.textContent = "REPLACE MATERIAL";
   el.uploadBtn.textContent = "Save Replacement";
-  message(el.uploadMessage, `Replacing “${material.title}”. Paste and verify the new Drive PDF.`, "loading");
+  message(el.uploadMessage, `Replacing “${material.title}”. Paste and verify the new ${material.type === "audio" ? "audio" : "PDF"}.`, "loading");
   updateDriveActionState();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -506,6 +528,7 @@ async function materialAction(action, id) {
 
 async function verifyDrive() {
   const link = el.uploadDriveLink.value.trim();
+  const mediaKind = el.uploadSection.value === "audio-summary" ? "audio" : "pdf";
   const driveFileId = extractDriveFileId(link);
   state.verifiedDriveId = "";
   if (!driveFileId) {
@@ -516,15 +539,15 @@ async function verifyDrive() {
   }
 
   setButtonBusy(el.verifyDriveBtn, true, "Checking…");
-  el.driveFileStatus.textContent = "Checking Drive link…";
+  el.driveFileStatus.textContent = `Checking Google Drive ${mediaKind === "audio" ? "audio" : "PDF"}…`;
   el.driveFileStatus.dataset.type = "loading";
   try {
-    const meta = await verifyDriveLink(link);
+    const meta = await verifyDriveLink(link, mediaKind);
     state.verifiedDriveId = meta.driveFileId || driveFileId;
-    el.driveFileStatus.textContent = "✓ Google Drive PDF link accepted • Ready to save";
+    el.driveFileStatus.textContent = `✓ Google Drive ${mediaKind === "audio" ? "audio" : "PDF"} accepted • Ready to save`;
     el.driveFileStatus.dataset.type = "success";
-    if (!el.uploadTitle.value.trim() && meta.name && meta.name !== "Google Drive PDF") {
-      el.uploadTitle.value = meta.name.replace(/\.pdf$/i, "");
+    if (!el.uploadTitle.value.trim() && meta.name) {
+      el.uploadTitle.value = meta.name.replace(/\.(pdf|mp3|m4a|wav|ogg|aac)$/i, "");
     }
   } catch (error) {
     console.error(error);
@@ -533,6 +556,28 @@ async function verifyDrive() {
   } finally {
     setButtonBusy(el.verifyDriveBtn, false);
     updateDriveActionState();
+  }
+}
+
+async function verifyPoster() {
+  const link = el.uploadPosterLink?.value.trim() || "";
+  if (!link) {
+    if (el.posterFileStatus) { el.posterFileStatus.textContent = "Poster is optional. Add a square JPG/PNG/WebP from Drive for the player cover."; el.posterFileStatus.dataset.type = ""; }
+    return;
+  }
+  setButtonBusy(el.verifyPosterBtn, true, "Checking…");
+  el.posterFileStatus.textContent = "Checking poster image…";
+  el.posterFileStatus.dataset.type = "loading";
+  try {
+    const meta = await verifyDriveLink(link, "image");
+    el.posterFileStatus.textContent = `✓ Poster accepted • ${meta.name || "Image"}`;
+    el.posterFileStatus.dataset.type = "success";
+  } catch (error) {
+    console.error(error);
+    el.posterFileStatus.textContent = friendly(error);
+    el.posterFileStatus.dataset.type = "error";
+  } finally {
+    setButtonBusy(el.verifyPosterBtn, false);
   }
 }
 
@@ -548,10 +593,12 @@ async function submitUpload(event) {
   if (!CLASSES.includes(classNumber)) return message(el.uploadMessage, "Choose Class 6–10.", "error");
   if (!SUBJECTS.some((item) => item.id === subject) || !SECTIONS.some((item) => item.id === section)) return message(el.uploadMessage, "Choose subject and section.", "error");
   if (title.length < 2) return message(el.uploadMessage, "Enter a material title.", "error");
-  if (!extractDriveFileId(driveUrl)) return message(el.uploadMessage, "Paste a valid Google Drive PDF link.", "error");
+  if (!extractDriveFileId(driveUrl)) return message(el.uploadMessage, `Paste a valid Google Drive ${section === "audio-summary" ? "audio" : "PDF"} link.`, "error");
   if (!state.verifiedDriveId || state.verifiedDriveId !== extractDriveFileId(driveUrl)) {
     return message(el.uploadMessage, "Verify the current Drive file before saving.", "error");
   }
+  const posterDriveUrl = section === "audio-summary" ? (el.uploadPosterLink?.value.trim() || "") : "";
+  if (posterDriveUrl && !extractDriveFileId(posterDriveUrl)) return message(el.uploadMessage, "Paste a valid Google Drive poster image link.", "error");
 
   setButtonBusy(el.uploadBtn, true, state.replacingMaterial ? "Saving…" : "Saving…");
   el.verifyDriveBtn.disabled = true;
@@ -566,6 +613,7 @@ async function submitUpload(event) {
       subject,
       section,
       driveUrl,
+      posterDriveUrl,
     };
     const result = state.replacingMaterial
       ? await replaceMaterial(state.replacingMaterial, metadata, el.publishOnUpload.checked)
@@ -740,6 +788,11 @@ function bind() {
   el.materialSectionFilter.addEventListener("change", renderMaterials);
   el.refreshMaterialsBtn.addEventListener("click", () => loadMaterials(true));
   el.verifyDriveBtn.addEventListener("click", verifyDrive);
+  el.verifyPosterBtn?.addEventListener("click", verifyPoster);
+  el.uploadSection.addEventListener("change", () => { state.verifiedDriveId = ""; updateUploadMediaFields(); updateDriveActionState(); el.driveFileStatus.textContent = "Section changed. Check the new Drive file before saving."; el.driveFileStatus.dataset.type = ""; });
+  el.uploadPosterLink?.addEventListener("input", () => {
+    if (el.posterFileStatus) { el.posterFileStatus.textContent = "Poster changed. Check the new poster before saving."; el.posterFileStatus.dataset.type = ""; }
+  });
   el.uploadDriveLink.addEventListener("input", () => {
     state.verifiedDriveId = "";
     el.driveFileStatus.textContent = "Link changed. Check the new Drive link before saving.";

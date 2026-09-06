@@ -22,6 +22,7 @@ import { loadRecent, saveRecent } from "./recent.js";
 import { searchMaterials, debounce } from "./search.js";
 import { updateStudentDisplayName, getFriendlyProfileError, refreshStudentProfile, deleteStudentAccount } from "./profile.js";
 import { createProtectedReaderController } from "./pdf-reader.js";
+import { createAudioPlayerController } from "./audio-player.js";
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
 const CLASSES = [
@@ -125,6 +126,22 @@ const elements = {
   readerZoomIn: $("#readerZoomIn"),
   readerClose: $("#readerClose"),
   readerRetry: $("#readerRetry"),
+
+  audioModal: $("#audioModal"),
+  audioTitle: $("#audioTitle"),
+  audioSubtitle: $("#audioSubtitle"),
+  audioPoster: $("#audioPoster"),
+  audioPosterFallback: $("#audioPosterFallback"),
+  audioElement: $("#audioElement"),
+  audioRange: $("#audioRange"),
+  audioCurrent: $("#audioCurrent"),
+  audioDuration: $("#audioDuration"),
+  audioPlayBtn: $("#audioPlayBtn"),
+  audioPrevBtn: $("#audioPrevBtn"),
+  audioNextBtn: $("#audioNextBtn"),
+  audioClose: $("#audioClose"),
+  audioRepeatBtn: $("#audioRepeatBtn"),
+  audioStatus: $("#audioStatus"),
   
   viewClassesBtn: $("#viewClassesBtn"),
   classesBackBtn: $("#classesBackBtn"),
@@ -431,15 +448,17 @@ function createMaterialCard(material) {
   const section = SECTION_BY_ID[material.section];
   const subject = SUBJECT_BY_ID[material.subject];
 
+  const isAudio = material.type === "audio" || material.section === "audio-summary";
+
   return `
-    <button class="material-card" type="button"
+    <button class="material-card ${isAudio ? "material-audio-card" : ""}" type="button"
       data-action="open-material"
       data-class-number="${material.class}"
       data-subject-id="${escapeHtml(material.subject)}"
       data-section-id="${escapeHtml(material.section)}"
       data-material-id="${escapeHtml(material.id)}">
-      <span class="material-icon ${section?.downloadable ? "worksheet" : "notes"}" aria-hidden="true">
-        ${section?.icon || (section?.downloadable ? "⇩" : "▤")}
+      <span class="material-icon ${isAudio ? "audio" : section?.downloadable ? "worksheet" : "notes"}" aria-hidden="true">
+        ${isAudio ? "▶" : section?.icon || (section?.downloadable ? "⇩" : "▤")}
       </span>
       <span class="material-copy">
         <strong>${escapeHtml(material.title)}</strong>
@@ -447,7 +466,7 @@ function createMaterialCard(material) {
         <small>
           ${escapeHtml(subject?.label || material.subject)} •
           ${escapeHtml(section?.label || material.section)} •
-          ${escapeHtml(formatFileSize(material.fileSize))}
+          ${isAudio ? "Audio Summary" : escapeHtml(formatFileSize(material.fileSize))}
         </small>
       </span>
       <span class="material-arrow" aria-hidden="true">→</span>
@@ -478,14 +497,16 @@ function createRecentCard(item) {
   const subject = SUBJECT_BY_ID[item.subject];
   const section = SECTION_BY_ID[item.section];
 
+  const isAudio = item.type === "audio" || item.section === "audio-summary";
+
   return `
-    <button class="material-card recent-card" type="button"
+    <button class="material-card recent-card ${isAudio ? "material-audio-card" : ""}" type="button"
       data-action="open-recent"
       data-class-number="${Number(item.class)}"
       data-subject-id="${escapeHtml(item.subject || "")}"
       data-section-id="${escapeHtml(item.section || "")}"
       data-material-id="${escapeHtml(item.id)}">
-      <span class="material-icon ${section?.tone === "worksheet" ? "worksheet" : "notes"}" aria-hidden="true">◷</span>
+      <span class="material-icon ${isAudio ? "audio" : section?.tone === "worksheet" ? "worksheet" : "notes"}" aria-hidden="true">${isAudio ? "▶" : "◷"}</span>
       <span class="material-copy">
         <strong>${escapeHtml(item.title || "Untitled Material")}</strong>
         ${item.chapter ? `<span>${escapeHtml(item.chapter)}</span>` : ""}
@@ -503,6 +524,7 @@ function createRecentCard(item) {
 
 let readerController = null;
 let readerBusy = false;
+let audioPlayerController = null;
 
 function getStudentWatermark() {
   const name = getDisplayName(state.user, state.profile);
@@ -636,6 +658,18 @@ async function openMaterialAction(material) {
     const message = error?.code === "PDF_ACCESS_DENIED" ? "You are not authorised to access this material." : error?.message === "DRIVE_GATEWAY_NOT_CONFIGURED" ? "This material is not configured for the app viewer yet." : "The material could not be opened. Please retry.";
     setGlobalStatus(message);
   } finally {
+    setTimeout(() => setGlobalStatus(""), 2600);
+  }
+}
+
+async function openAudioAction(material, queue = null) {
+  if (!audioPlayerController) return;
+  try {
+    await audioPlayerController.open(material, queue || state.catalog.filter(item => item.type === "audio" && item.class === material.class && item.subject === material.subject && item.section === "audio-summary"), getStudentWatermark());
+  } catch (error) {
+    console.error(error);
+    const message = error?.code === "MEDIA_NOT_CONFIGURED" ? "This audio summary is not fully configured yet." : "The audio summary could not be played. Please retry.";
+    setGlobalStatus(message);
     setTimeout(() => setGlobalStatus(""), 2600);
   }
 }
@@ -818,10 +852,11 @@ async function renderRoute(route) {
           elements.materialDetailMeta.textContent =
             `Class ${material.class} • ${subject.label} • ${section.label}`;
 
+          const isAudio = material.type === "audio" || material.section === "audio-summary";
           elements.materialDetailBody.innerHTML = `
-            <div class="material-detail-card card">
-              <div class="detail-icon ${section.tone === "worksheet" ? "worksheet" : "notes"}">
-                ${section.tone === "worksheet" ? "⇩" : "▤"}
+            <div class="material-detail-card card ${isAudio ? "audio-detail-card" : ""}">
+              <div class="detail-icon ${isAudio ? "audio" : section.tone === "worksheet" ? "worksheet" : "notes"}">
+                ${isAudio ? "▶" : section.tone === "worksheet" ? "⇩" : "▤"}
               </div>
               <p class="eyebrow">${escapeHtml(section.label)}</p>
               <h2>${escapeHtml(material.title)}</h2>
@@ -829,27 +864,19 @@ async function renderRoute(route) {
               <div class="detail-grid">
                 <div><span>Subject</span><strong>${escapeHtml(subject.label)}</strong></div>
                 <div><span>Class</span><strong>Class ${material.class}</strong></div>
-                <div><span>File</span><strong>${escapeHtml(material.fileName || "PDF")}</strong></div>
-                <div><span>Size</span><strong>${escapeHtml(formatFileSize(material.fileSize))}</strong></div>
+                <div><span>${isAudio ? "Audio" : "File"}</span><strong>${escapeHtml(material.fileName || (isAudio ? "Audio Summary" : "PDF"))}</strong></div>
+                <div><span>${isAudio ? "Format" : "Size"}</span><strong>${isAudio ? escapeHtml((material.mimeType || "audio").replace(/^audio\//i, "").toUpperCase()) : escapeHtml(formatFileSize(material.fileSize))}</strong></div>
                 <div><span>Updated</span><strong>${escapeHtml(formatMaterialDate(material.updatedAt))}</strong></div>
               </div>
 
               <div class="detail-info">
-                <strong>Google Drive PDF Viewer</strong>
-                <span>
-                  ${section.downloadable
-                    ? "This paper opens inside the app and also has a download option."
-                    : "This study material opens inside the app. Download and print remain controlled by the Drive sharing settings."}
-                </span>
+                <strong>${isAudio ? "Google Drive Audio Player" : "Google Drive PDF Viewer"}</strong>
+                <span>${isAudio ? "This chapter summary plays inside the app. Use the player controls for play, previous and next audio." : (section.downloadable ? "This paper opens inside the app and also has a download option." : "This study material opens inside the app. Download and print remain controlled by the Drive sharing settings.")}</span>
               </div>
 
               <div class="material-action-row ${section.downloadable ? "has-download" : ""}">
-                <button class="primary-button material-action-button" id="openMaterialNowBtn" type="button">
-                  Open PDF in App
-                </button>
-                ${section.downloadable
-                  ? `<button class="secondary-button material-action-button" id="downloadMaterialBtn" type="button">Download PDF</button>`
-                  : ""}
+                <button class="primary-button material-action-button" id="openMaterialNowBtn" type="button">${isAudio ? "Play Audio Summary" : "Open PDF in App"}</button>
+                ${section.downloadable ? `<button class="secondary-button material-action-button" id="downloadMaterialBtn" type="button">Download PDF</button>` : ""}
               </div>
             </div>
           `;
@@ -857,21 +884,20 @@ async function renderRoute(route) {
           const openMaterialNowBtn = document.querySelector("#openMaterialNowBtn");
           openMaterialNowBtn.addEventListener("click", async () => {
             openMaterialNowBtn.disabled = true;
-            openMaterialNowBtn.textContent = "Opening…";
+            openMaterialNowBtn.textContent = isAudio ? "Opening…" : "Opening…";
             try {
-              await openMaterialAction(material);
+              if (isAudio) await openAudioAction(material);
+              else await openMaterialAction(material);
               saveRecent(state.user.uid, material).catch((error) => console.warn("Recent save failed:", error));
             } finally {
               openMaterialNowBtn.disabled = false;
-              openMaterialNowBtn.textContent = "Open PDF in App";
+              openMaterialNowBtn.textContent = isAudio ? "Play Audio Summary" : "Open PDF in App";
             }
           });
 
           if (section.downloadable) {
             const downloadMaterialBtn = document.querySelector("#downloadMaterialBtn");
-            downloadMaterialBtn?.addEventListener("click", () => {
-              downloadMaterial(material);
-            });
+            downloadMaterialBtn?.addEventListener("click", () => { downloadMaterial(material); });
           }
         } catch (error) {
           console.error(error);
@@ -1320,6 +1346,25 @@ function bindEvents() {
   );
   readerController.bind();
 
+  audioPlayerController = createAudioPlayerController({
+    audioModal: elements.audioModal,
+    audioTitle: elements.audioTitle,
+    audioSubtitle: elements.audioSubtitle,
+    audioPoster: elements.audioPoster,
+    audioPosterFallback: elements.audioPosterFallback,
+    audioElement: elements.audioElement,
+    audioRange: elements.audioRange,
+    audioCurrent: elements.audioCurrent,
+    audioDuration: elements.audioDuration,
+    audioPlayBtn: elements.audioPlayBtn,
+    audioPrevBtn: elements.audioPrevBtn,
+    audioNextBtn: elements.audioNextBtn,
+    audioClose: elements.audioClose,
+    audioRepeatBtn: elements.audioRepeatBtn,
+    audioStatus: elements.audioStatus,
+  });
+  audioPlayerController.bind();
+
   elements.navItems.forEach((button) => {
     button.addEventListener("click", () => redirectTo(button.dataset.nav));
   });
@@ -1341,6 +1386,13 @@ function bindEvents() {
 }
 
 async function bootstrap() {
+  try {
+    const configModule = await import("./drive-config.js");
+    window.__EVC_DRIVE_GATEWAY_URL__ = configModule.DRIVE_GATEWAY_URL || "";
+  } catch (error) {
+    console.warn("Drive config could not load:", error);
+  }
+
   // Bind first so every visible control has a handler even before Firebase state resolves.
   bindEvents();
   showView("auth");

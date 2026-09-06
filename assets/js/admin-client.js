@@ -21,6 +21,7 @@ const SECTIONS = [
   { id: "detailed", label: "Detailed Notes" },
   { id: "short", label: "Short Notes" },
   { id: "pyq", label: "PYQ's" },
+  { id: "audio-summary", label: "Audio Summary" },
   { id: "worksheet", label: "Worksheet" },
   { id: "exam-paper", label: "Exam Paper" },
 ];
@@ -192,35 +193,59 @@ function validateMaterialMetadata(metadata) {
   if (String(metadata.driveUrl || "").length > MAX_LINK_LENGTH) throw new Error("INVALID_DRIVE_LINK");
   return driveFileId;
 }
-export async function verifyDriveLink(driveUrl) {
+
+export async function verifyDriveLink(driveUrl, mediaKind = "pdf") {
   const driveFileId = extractDriveFileId(driveUrl);
   if (!driveFileId) throw new Error("INVALID_DRIVE_LINK");
+  requireGateway();
+  const response = await gatewayFetch("/admin/check-file/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ driveFileId, mediaKind }),
+  }, 20000);
   return {
-    driveFileId,
-    name: "Google Drive PDF",
-    size: 0,
-    mimeType: "application/pdf",
+    driveFileId: response?.id || driveFileId,
+    name: response?.name || (mediaKind === "audio" ? "Audio Summary" : mediaKind === "image" ? "Poster Image" : "Google Drive PDF"),
+    size: Number(response?.size || 0),
+    mimeType: response?.mimeType || "",
     verified: true,
   };
 }
+
+function mediaKindForSection(section) {
+  return section === "audio-summary" ? "audio" : "pdf";
+}
+
 export async function uploadMaterial({ metadata, publish }) {
   const driveFileId = validateMaterialMetadata(metadata);
-  const checked = await verifyDriveLink(metadata.driveUrl || driveFileId);
+  const mediaKind = mediaKindForSection(metadata.section);
+  const checked = await verifyDriveLink(metadata.driveUrl || driveFileId, mediaKind);
+  let poster = null;
+  if (mediaKind === "audio" && metadata.posterDriveUrl) {
+    poster = await verifyDriveLink(metadata.posterDriveUrl, "image");
+  }
   const record = {
     id: metadata.id, title: String(metadata.title).trim(), chapter: String(metadata.chapter || "").trim(), class: Number(metadata.class), subject: metadata.subject, section: metadata.section,
-    storageType: "google-drive", driveFileId, driveName: checked.name || "Google Drive PDF", fileName: checked.name || metadata.fileName || "Google Drive PDF", fileSize: Number(checked.size || 0), type: "pdf", active: Boolean(publish),
-    createdAt: Number(metadata.createdAt || Date.now()), updatedAt: Date.now(),
+    storageType: "google-drive", driveFileId, driveName: checked.name || (mediaKind === "audio" ? "Audio Summary" : "Google Drive PDF"), fileName: checked.name || metadata.fileName || (mediaKind === "audio" ? "Audio Summary" : "Google Drive PDF"), fileSize: Number(checked.size || 0), mimeType: checked.mimeType || "", type: mediaKind,
+    ...(poster?.driveFileId ? { posterDriveFileId: poster.driveFileId } : {}),
+    active: Boolean(publish), createdAt: Number(metadata.createdAt || Date.now()), updatedAt: Date.now(),
   };
   await withTimeout(update(ref(database), { [`catalog/class-${record.class}/${record.id}`]: record }), 15000);
   if (publish) await writePublished(record, true);
   return record;
 }
+
 export async function replaceMaterial(material, metadata, publish) {
   const driveFileId = validateMaterialMetadata(metadata);
-  const checked = await verifyDriveLink(metadata.driveUrl || driveFileId);
+  const mediaKind = mediaKindForSection(metadata.section);
+  const checked = await verifyDriveLink(metadata.driveUrl || driveFileId, mediaKind);
+  let poster = null;
+  if (mediaKind === "audio" && metadata.posterDriveUrl) poster = await verifyDriveLink(metadata.posterDriveUrl, "image");
   const updated = {
     ...material, title: String(metadata.title).trim(), chapter: String(metadata.chapter || "").trim(), class: Number(metadata.class), subject: metadata.subject, section: metadata.section,
-    storageType: "google-drive", driveFileId, driveName: checked.name || "Google Drive PDF", fileName: checked.name || "Google Drive PDF", fileSize: Number(checked.size || 0), active: Boolean(publish), updatedAt: Date.now(),
+    storageType: "google-drive", driveFileId, driveName: checked.name || (mediaKind === "audio" ? "Audio Summary" : "Google Drive PDF"), fileName: checked.name || (mediaKind === "audio" ? "Audio Summary" : "Google Drive PDF"), fileSize: Number(checked.size || 0), mimeType: checked.mimeType || "", type: mediaKind,
+    ...(poster?.driveFileId ? { posterDriveFileId: poster.driveFileId } : mediaKind === "audio" ? { posterDriveFileId: "" } : {}),
+    active: Boolean(publish), updatedAt: Date.now(),
   };
   const updates = { [`catalog/class-${updated.class}/${updated.id}`]: updated, [`publishedCatalog/class-${updated.class}/${updated.id}`]: publish ? updated : null };
   if (material.class !== updated.class) {
