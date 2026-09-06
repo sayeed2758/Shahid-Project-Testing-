@@ -154,28 +154,6 @@
             <p class="micro-note"><strong id="totalMaterialsCount">…</strong> active materials in your assigned-class catalogue.</p>
           </section>
 
-
-
-          <section class="section-block">
-            <div class="updates-center-preview card">
-              <div class="updates-preview-head">
-                <div>
-                  <p class="eyebrow">UPDATES CENTER</p>
-                  <h2>Stay up to date</h2>
-                  <p>Important class announcements, new materials and practice alerts in one place.</p>
-                </div>
-                <button class="updates-preview-open" type="button" data-action="open-notifications">Open all</button>
-              </div>
-              <div id="homeAnnouncements" class="home-update-stack"></div>
-              <div class="home-updates-divider"></div>
-              <div id="homeNotifications" class="home-alert-stack"></div>
-            </div>
-          </section>
-
-          <section class="section-block">
-            <div id="homeFeatureActions" class="feature-action-grid"></div>
-          </section>
-
           <section class="section-block">
             <div class="section-heading">
               <div>
@@ -225,7 +203,6 @@
           </div>
           <div id="sectionsNotice" class="callout" hidden></div>
           <div id="sectionsGrid" class="section-grid"></div>
-          <div id="practiceShortcut" class="practice-shortcut-wrap" aria-label="Practice"></div>
         </section>
 
         <section id="materialsRoute" class="route" data-route="materials" hidden>
@@ -277,50 +254,6 @@
           <div id="searchResults" class="material-list"></div>
         </section>
 
-        <section id="notificationsRoute" class="route" data-route="notifications" hidden>
-          <div class="page-heading">
-            <button id="notificationsBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
-            <div>
-              <p class="eyebrow">UPDATES CENTER</p>
-              <h1>Announcements &amp; Alerts</h1>
-              <p class="muted">Everything important for your class, in one place.</p>
-            </div>
-          </div>
-          <div id="notificationsContent"></div>
-        </section>
-
-        <section id="practiceRoute" class="route" data-route="practice" hidden>
-          <div class="page-heading">
-            <button id="practiceBackBtn" class="back-button" type="button" aria-label="Back to subject">←</button>
-            <div><p class="eyebrow">PRACTICE</p><h1 id="practicePageTitle">Practice</h1><p class="muted">Practice questions with a timer and instant score.</p></div>
-          </div>
-          <div id="practiceContent"></div>
-        </section>
-
-        <section id="practiceTestRoute" class="route" data-route="practice-test" hidden>
-          <div class="page-heading">
-            <button id="practiceTestBackBtn" class="back-button" type="button" aria-label="Back to practice">←</button>
-            <div><p class="eyebrow">PRACTICE TEST</p><h1>Test</h1><p class="muted">Answer the questions before the timer ends.</p></div>
-          </div>
-          <div id="practiceTestContent"></div>
-        </section>
-
-        <section id="performanceRoute" class="route" data-route="performance" hidden>
-          <div class="page-heading">
-            <button id="performanceBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
-            <div><p class="eyebrow">YOUR RESULTS</p><h1>My Performance</h1><p class="muted">Your practice scores and attempt history.</p></div>
-          </div>
-          <div id="performanceContent"></div>
-        </section>
-
-        <section id="plannerRoute" class="route" data-route="planner" hidden>
-          <div class="page-heading">
-            <button id="plannerBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
-            <div><p class="eyebrow">PLAN AHEAD</p><h1>Study Planner</h1><p class="muted">Keep your study tasks in one place.</p></div>
-          </div>
-          <div id="plannerContent"></div>
-        </section>
-
         <section id="contactRoute" class="route" data-route="contact" hidden>
           <div class="page-heading">
             <button id="contactBackBtn" class="back-button" type="button" aria-label="Back to home">←</button>
@@ -361,12 +294,7 @@
           </div>
 
           <div class="profile-card card">
-            <div class="profile-photo-area">
-              <div id="profileAvatar" class="profile-avatar" aria-hidden="true">S</div>
-              <label id="profilePhotoBtn" class="secondary-button profile-photo-button" for="profilePhotoInput">Change Photo</label>
-              <input id="profilePhotoInput" class="profile-photo-input" type="file" accept="image/*">
-              <small class="profile-photo-hint">Use a clear photo. It will be fitted inside the square.</small>
-            </div>
+            <div id="profileAvatar" class="profile-avatar" aria-hidden="true">S</div>
 
             <form id="profileForm" novalidate>
               <label class="field">
