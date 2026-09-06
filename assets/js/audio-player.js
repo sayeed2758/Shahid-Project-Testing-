@@ -7,30 +7,16 @@ function normaliseDriveId(value) {
   return /^[A-Za-z0-9_-]{10,200}$/.test(id) ? id : "";
 }
 
-function gatewayBase() {
-  const base = window.__EVC_DRIVE_GATEWAY_URL__ || "";
-  return String(base).replace(/\/$/, "");
+function driveMediaUrl(fileId) {
+  const id = normaliseDriveId(fileId);
+  if (!id) throw Object.assign(new Error("MEDIA_NOT_CONFIGURED"), { code: "MEDIA_NOT_CONFIGURED" });
+  return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
 }
 
-async function firebaseToken() {
-  const user = auth.currentUser;
-  if (!user) throw Object.assign(new Error("AUTH_REQUIRED"), { code: "AUTH_REQUIRED" });
-  return Promise.race([
-    user.getIdToken(true),
-    new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error("TOKEN_TIMEOUT"), { code: "TOKEN_TIMEOUT" })), TOKEN_TIMEOUT)),
-  ]);
-}
-
-async function streamUrl(kind, material) {
-  const base = gatewayBase();
-  if (!base) throw Object.assign(new Error("DRIVE_GATEWAY_NOT_CONFIGURED"), { code: "DRIVE_GATEWAY_NOT_CONFIGURED" });
-  const fileId = normaliseDriveId(kind === "poster" ? material?.posterDriveFileId : material?.driveFileId);
-  if (!fileId) throw Object.assign(new Error(kind === "poster" ? "MEDIA_NOT_CONFIGURED" : "MEDIA_NOT_CONFIGURED"), { code: "MEDIA_NOT_CONFIGURED" });
-  const token = await firebaseToken();
-  const url = new URL(`${base}/${kind}/${encodeURIComponent(material.id)}`);
-  // The gateway also supports the token from the query string so native media elements can authenticate.
-  url.searchParams.set("token", token);
-  return url.toString();
+function drivePosterUrl(fileId) {
+  const id = normaliseDriveId(fileId);
+  if (!id) return "";
+  return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(id)}`;
 }
 
 function formatTime(seconds) {
@@ -69,18 +55,17 @@ export function createAudioPlayerController(elements) {
     elements.audioPoster.hidden = true;
     elements.audioPosterFallback.hidden = false;
     if (!material?.posterDriveFileId) return;
-    try {
-      const url = await streamUrl("poster", material);
-      const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) throw new Error(`POSTER_${response.status}`);
-      const blob = await response.blob();
-      posterObjectUrl = URL.createObjectURL(blob);
-      elements.audioPoster.src = posterObjectUrl;
+    const url = drivePosterUrl(material.posterDriveFileId);
+    if (!url) return;
+    elements.audioPoster.onload = () => {
       elements.audioPoster.hidden = false;
       elements.audioPosterFallback.hidden = true;
-    } catch (error) {
-      console.warn("Audio poster load failed:", error);
-    }
+    };
+    elements.audioPoster.onerror = () => {
+      elements.audioPoster.hidden = true;
+      elements.audioPosterFallback.hidden = false;
+    };
+    elements.audioPoster.src = url;
   };
 
   const syncNav = () => {
@@ -105,7 +90,7 @@ export function createAudioPlayerController(elements) {
     elements.audioRange.max = "0";
     setStatus("Loading audio…", "loading");
     await loadPoster(current);
-    const url = await streamUrl("audio", current);
+    const url = driveMediaUrl(current.driveFileId);
     elements.audioElement.pause();
     elements.audioElement.src = url;
     elements.audioElement.load();
@@ -201,7 +186,7 @@ export function createAudioPlayerController(elements) {
       if (queue.length > 1) move(1);
       else setStatus("Finished", "ready");
     });
-    elements.audioElement.addEventListener("error", () => setStatus("Audio could not be played. Check the Drive file permission and format.", "error"));
+    elements.audioElement.addEventListener("error", () => setStatus("Audio could not be played. Make sure the Google Drive file is shared as “Anyone with the link → Viewer”.", "error"));
     elements.audioRange.addEventListener("input", () => {
       elements.audioElement.currentTime = Number(elements.audioRange.value) || 0;
     });

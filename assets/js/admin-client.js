@@ -197,6 +197,20 @@ function validateMaterialMetadata(metadata) {
 export async function verifyDriveLink(driveUrl, mediaKind = "pdf") {
   const driveFileId = extractDriveFileId(driveUrl);
   if (!driveFileId) throw new Error("INVALID_DRIVE_LINK");
+
+  // Audio summaries and their posters use the same simple Google Drive
+  // link-based flow as the existing PDF viewer. No Drive Gateway/service
+  // account is required just to accept/store the Drive file ID.
+  if (mediaKind === "audio" || mediaKind === "image") {
+    return {
+      driveFileId,
+      name: mediaKind === "audio" ? "Audio Summary" : "Poster Image",
+      size: 0,
+      mimeType: mediaKind === "audio" ? "audio/mpeg" : "image/jpeg",
+      verified: true,
+    };
+  }
+
   requireGateway();
   const response = await gatewayFetch("/admin/check-file/", {
     method: "POST",
@@ -205,7 +219,7 @@ export async function verifyDriveLink(driveUrl, mediaKind = "pdf") {
   }, 20000);
   return {
     driveFileId: response?.id || driveFileId,
-    name: response?.name || (mediaKind === "audio" ? "Audio Summary" : mediaKind === "image" ? "Poster Image" : "Google Drive PDF"),
+    name: response?.name || "Google Drive PDF",
     size: Number(response?.size || 0),
     mimeType: response?.mimeType || "",
     verified: true,
