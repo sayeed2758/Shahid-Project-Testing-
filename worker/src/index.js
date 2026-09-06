@@ -24,11 +24,7 @@ async function verifyFirebaseToken(token, env){
 }
 function serviceAccount(env){
   if(!env.GOOGLE_SERVICE_ACCOUNT_JSON)throw Object.assign(new Error("Google Drive service account is not configured."),{code:"DRIVE_CONFIG_MISSING"});
-  let value;
-  try { value = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON); }
-  catch { throw Object.assign(new Error("Google service-account JSON is invalid."),{code:"DRIVE_CONFIG_MISSING"}); }
-  if(!value?.client_email || !value?.private_key) throw Object.assign(new Error("Google service-account credentials are incomplete."),{code:"DRIVE_CONFIG_MISSING"});
-  return value;
+  return JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
 }
 function b64url(data){const bytes=typeof data==="string"?new TextEncoder().encode(data):new Uint8Array(data);let s="";for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");}
 async function driveAccessToken(env){
@@ -41,11 +37,8 @@ async function driveFile(env,fileId){
   const token=await driveAccessToken(env);const u=new URL(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`);u.searchParams.set("fields","id,name,mimeType,size,trashed");u.searchParams.set("supportsAllDrives","true");
   const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});const data=await r.json();if(!r.ok)throw Object.assign(new Error(data.error?.message||"Drive file could not be read."),{code:"DRIVE_FILE_ERROR",status:r.status});return data;
 }
-async function dbPath(path){
-  return path.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean).map((part)=>encodeURIComponent(part)).join("/");
-}
 async function dbGet(env,path,firebaseIdToken){
-  const u=`${env.FIREBASE_DATABASE_URL.replace(/\/$/,"")}/${dbPath(path)}.json?auth=${encodeURIComponent(firebaseIdToken)}`;
+  const u=`${env.FIREBASE_DATABASE_URL.replace(/\/$/,"")}/${path.replace(/^\//,"")}.json?auth=${encodeURIComponent(firebaseIdToken)}`;
   const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw Object.assign(new Error("Firebase database request failed."),{code:"DB_ERROR",status:r.status});return r.json();
 }
 async function authorizePublishedMaterial(env,claims,materialId){
@@ -70,7 +63,7 @@ async function firebaseServiceAccessToken(env){
   return data.access_token;
 }
 async function dbDeleteWithServiceToken(env,path,serviceToken){
-  const u=`${env.FIREBASE_DATABASE_URL.replace(/\/$/,"")}/${dbPath(path)}.json`;
+  const u=`${env.FIREBASE_DATABASE_URL.replace(/\/$/,"")}/${path.replace(/^\//,"")}.json`;
   const r=await fetch(u,{method:"DELETE",headers:{Authorization:`Bearer ${serviceToken}`}});
   if(!r.ok)throw Object.assign(new Error("Firebase database deletion failed."),{code:"DB_DELETE_ERROR",status:r.status});
 }
@@ -99,10 +92,6 @@ export default {
         const studentId=String(user.studentId||"").trim();
         await dbDeleteWithServiceToken(env,`users/${claims.user_id}`,serviceToken);
         await dbDeleteWithServiceToken(env,`recent/${claims.user_id}`,serviceToken);
-        await dbDeleteWithServiceToken(env,`materialSeen/${claims.user_id}`,serviceToken);
-        await dbDeleteWithServiceToken(env,`notifications/${claims.user_id}`,serviceToken);
-        await dbDeleteWithServiceToken(env,`practiceAttempts/${claims.user_id}`,serviceToken);
-        await dbDeleteWithServiceToken(env,`studyPlans/${claims.user_id}`,serviceToken);
         if(studentId) await dbDeleteWithServiceToken(env,`studentIndex/${encodeURIComponent(studentId)}`,serviceToken);
         await deleteFirebaseAuthAccount(env,firebaseToken);
         return json(env,{success:true,code:"ACCOUNT_DELETED",message:"Account and associated personal data were deleted."});
