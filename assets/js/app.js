@@ -132,6 +132,7 @@ const elements = {
   audioSubtitle: $("#audioSubtitle"),
   audioPoster: $("#audioPoster"),
   audioPosterFallback: $("#audioPosterFallback"),
+  audioFrameHost: $("#audioFrameHost"),
   audioElement: $("#audioElement"),
   audioRange: $("#audioRange"),
   audioCurrent: $("#audioCurrent"),
@@ -141,6 +142,7 @@ const elements = {
   audioNextBtn: $("#audioNextBtn"),
   audioClose: $("#audioClose"),
   audioRepeatBtn: $("#audioRepeatBtn"),
+  audioRetryBtn: $("#audioRetryBtn"),
   audioStatus: $("#audioStatus"),
   
   viewClassesBtn: $("#viewClassesBtn"),
@@ -1352,15 +1354,12 @@ function bindEvents() {
     audioSubtitle: elements.audioSubtitle,
     audioPoster: elements.audioPoster,
     audioPosterFallback: elements.audioPosterFallback,
-    audioElement: elements.audioElement,
-    audioRange: elements.audioRange,
-    audioCurrent: elements.audioCurrent,
-    audioDuration: elements.audioDuration,
+    audioFrameHost: elements.audioFrameHost,
     audioPlayBtn: elements.audioPlayBtn,
     audioPrevBtn: elements.audioPrevBtn,
     audioNextBtn: elements.audioNextBtn,
     audioClose: elements.audioClose,
-    audioRepeatBtn: elements.audioRepeatBtn,
+    audioRetryBtn: elements.audioRetryBtn,
     audioStatus: elements.audioStatus,
   });
   audioPlayerController.bind();

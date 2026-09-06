@@ -1,73 +1,33 @@
 import { auth } from "./firebase-init.js";
-import { DRIVE_GATEWAY_URL } from "./drive-config.js";
 
-const TOKEN_TIMEOUT = 12000;
+const LOAD_TIMEOUT = 30_000;
 
 function normaliseDriveId(value) {
   const id = String(value ?? "").trim();
   return /^[A-Za-z0-9_-]{10,200}$/.test(id) ? id : "";
 }
 
-function gatewayMediaUrl(kind, materialId) {
-  const id = String(materialId ?? "").trim();
-  if (!id || !/^[^/]{1,240}$/.test(id)) {
-    throw Object.assign(new Error("MEDIA_NOT_CONFIGURED"), { code: "MEDIA_NOT_CONFIGURED" });
-  }
-  const base = String(DRIVE_GATEWAY_URL || "").replace(/\/$/, "");
-  if (!base) throw Object.assign(new Error("DRIVE_GATEWAY_NOT_CONFIGURED"), { code: "DRIVE_GATEWAY_NOT_CONFIGURED" });
-  return `${base}/${kind}/${encodeURIComponent(id)}`;
+function drivePreviewUrl(fileId) {
+  const id = normaliseDriveId(fileId);
+  if (!id) throw Object.assign(new Error("MEDIA_NOT_CONFIGURED"), { code: "MEDIA_NOT_CONFIGURED" });
+  // Same in-app Google Drive preview pattern used by the existing PDF reader.
+  return `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview?rm=minimal`;
 }
 
-async function fetchGatewayBlob(kind, materialId) {
-  if (!auth.currentUser) throw Object.assign(new Error("AUTH_REQUIRED"), { code: "AUTH_REQUIRED" });
-  const token = await auth.currentUser.getIdToken(true);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TOKEN_TIMEOUT);
-  try {
-    const response = await fetch(gatewayMediaUrl(kind, materialId), {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-      credentials: "omit",
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      let message = `Gateway media request failed (${response.status})`;
-      try {
-        const data = await response.json();
-        message = data?.message || message;
-      } catch {}
-      const error = new Error(message);
-      error.status = response.status;
-      throw error;
-    }
-    return await response.blob();
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      const timeoutError = new Error("NETWORK_TIMEOUT");
-      timeoutError.code = "NETWORK_TIMEOUT";
-      throw timeoutError;
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function formatTime(seconds) {
-  const total = Math.max(0, Math.floor(Number(seconds) || 0));
-  const mins = Math.floor(total / 60);
-  const secs = String(total % 60).padStart(2, "0");
-  return `${mins}:${secs}`;
+function driveThumbnailUrl(fileId) {
+  const id = normaliseDriveId(fileId);
+  if (!id) return "";
+  // Public/link-shared Drive images can be rendered directly as thumbnails.
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1200`;
 }
 
 export function createAudioPlayerController(elements) {
   let current = null;
   let queue = [];
   let index = -1;
-  let posterObjectUrl = "";
-  let audioObjectUrl = "";
+  let loadTimer = null;
   let bound = false;
+  let frame = null;
 
   const setStatus = (message = "", type = "") => {
     elements.audioStatus.textContent = message;
@@ -79,39 +39,17 @@ export function createAudioPlayerController(elements) {
     document.body.classList.toggle("audio-player-open", open);
   };
 
-  const cleanupPoster = () => {
-    if (posterObjectUrl) {
-      URL.revokeObjectURL(posterObjectUrl);
-      posterObjectUrl = "";
+  const cleanup = () => {
+    if (loadTimer) {
+      clearTimeout(loadTimer);
+      loadTimer = null;
     }
-    elements.audioPoster.removeAttribute("src");
-  };
-
-  const cleanupAudio = () => {
-    if (audioObjectUrl) {
-      URL.revokeObjectURL(audioObjectUrl);
-      audioObjectUrl = "";
+    if (frame) {
+      frame.src = "about:blank";
+      frame.remove();
+      frame = null;
     }
-    elements.audioElement.removeAttribute("src");
-    elements.audioElement.load();
-  };
-
-  const loadPoster = async (material) => {
-    cleanupPoster();
-    elements.audioPoster.hidden = true;
-    elements.audioPosterFallback.hidden = false;
-    if (!material?.posterDriveFileId) return;
-    try {
-      const blob = await fetchGatewayBlob("poster", material.id);
-      posterObjectUrl = URL.createObjectURL(blob);
-      elements.audioPoster.src = posterObjectUrl;
-      elements.audioPoster.hidden = false;
-      elements.audioPosterFallback.hidden = true;
-    } catch (error) {
-      console.warn("Audio poster could not be loaded", error);
-      elements.audioPoster.hidden = true;
-      elements.audioPosterFallback.hidden = false;
-    }
+    if (elements.audioFrameHost) elements.audioFrameHost.replaceChildren();
   };
 
   const syncNav = () => {
@@ -120,73 +58,99 @@ export function createAudioPlayerController(elements) {
     elements.audioNextBtn.disabled = !hasQueue;
   };
 
-  const setPlayIcon = () => {
-    elements.audioPlayBtn.textContent = elements.audioElement.paused ? "▶" : "Ⅱ";
-    elements.audioPlayBtn.setAttribute("aria-label", elements.audioElement.paused ? "Play" : "Pause");
-  };
-
-  const load = async (material, autoplay = true) => {
-    current = material;
-    if (!current) return;
-    if (!current.id) throw Object.assign(new Error("MEDIA_NOT_CONFIGURED"), { code: "MEDIA_NOT_CONFIGURED" });
-    elements.audioTitle.textContent = current.title || "Audio Summary";
-    elements.audioSubtitle.textContent = "EZEE VISION CHAMPUA";
-    elements.audioCurrent.textContent = "0:00";
-    elements.audioDuration.textContent = "0:00";
-    elements.audioRange.value = "0";
-    elements.audioRange.max = "0";
-    setStatus("Loading audio…", "loading");
-    elements.audioElement.pause();
-    cleanupAudio();
-    syncNav();
-
-    const [audioBlob] = await Promise.all([
-      fetchGatewayBlob("audio", current.id),
-      loadPoster(current),
-    ]);
-    audioObjectUrl = URL.createObjectURL(audioBlob);
-    elements.audioElement.src = audioObjectUrl;
-    elements.audioElement.load();
-    setPlayIcon();
-    if (autoplay) {
-      try {
-        await elements.audioElement.play();
-      } catch {
-        setStatus("Audio is ready. Tap Play to start.", "ready");
-      }
+  const setPoster = (material) => {
+    const posterId = normaliseDriveId(material?.posterDriveFileId);
+    const url = posterId ? driveThumbnailUrl(posterId) : "";
+    elements.audioPoster.onerror = () => {
+      elements.audioPoster.hidden = true;
+      elements.audioPosterFallback.hidden = false;
+    };
+    if (!url) {
+      elements.audioPoster.removeAttribute("src");
+      elements.audioPoster.hidden = true;
+      elements.audioPosterFallback.hidden = false;
+      return;
     }
+    elements.audioPoster.src = url;
+    elements.audioPoster.hidden = false;
+    elements.audioPosterFallback.hidden = true;
   };
 
-  const open = async (material, materialQueue, watermark) => {
+  const buildFrame = (material) => {
+    if (!elements.audioFrameHost) throw Object.assign(new Error("AUDIO_FRAME_CONTAINER_MISSING"), { code: "AUDIO_FRAME_CONTAINER_MISSING" });
+    cleanup();
+    frame = document.createElement("iframe");
+    frame.className = "audio-drive-frame";
+    frame.title = `${material.title || "Audio Summary"} – Google Drive player`;
+    frame.setAttribute("allow", "autoplay; fullscreen; encrypted-media");
+    frame.setAttribute("allowfullscreen", "true");
+    frame.setAttribute("loading", "eager");
+    frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+    frame.setAttribute("frameborder", "0");
+    elements.audioFrameHost.appendChild(frame);
+    return frame;
+  };
+
+  const load = async (material) => {
+    if (!auth.currentUser) throw Object.assign(new Error("AUTH_REQUIRED"), { code: "AUTH_REQUIRED" });
+    const driveId = normaliseDriveId(material?.driveFileId);
+    if (!driveId) throw Object.assign(new Error("MEDIA_NOT_CONFIGURED"), { code: "MEDIA_NOT_CONFIGURED" });
+
+    current = material;
+    elements.audioTitle.textContent = material.title || "Audio Summary";
+    elements.audioSubtitle.textContent = material.chapter ? `EZEE VISION CHAMPUA • ${material.chapter}` : "EZEE VISION CHAMPUA";
+    setPoster(material);
+    syncNav();
+    setStatus("Opening Google Drive audio player…", "loading");
+    elements.audioPlayBtn.textContent = "▶";
+    elements.audioPlayBtn.setAttribute("aria-label", "Open / play audio");
+
+    const playerFrame = buildFrame(material);
+    playerFrame.addEventListener("load", () => {
+      if (loadTimer) clearTimeout(loadTimer);
+      loadTimer = null;
+      setStatus("Audio player ready. Use the controls inside the player to play, pause and seek.", "success");
+    }, { once: true });
+    playerFrame.src = drivePreviewUrl(driveId);
+
+    loadTimer = setTimeout(() => {
+      loadTimer = null;
+      setStatus("The Google Drive audio player could not be loaded. Check the Drive file sharing and retry.", "error");
+    }, LOAD_TIMEOUT);
+  };
+
+  const open = async (material, materialQueue) => {
     queue = Array.isArray(materialQueue) && materialQueue.length ? materialQueue : [material];
-    index = Math.max(0, queue.findIndex(item => item.id === material.id));
+    index = Math.max(0, queue.findIndex(item => item.id === material?.id));
     if (index < 0) index = 0;
     setModalOpen(true);
-    elements.audioElement.dataset.watermark = watermark || "";
     try {
-      await load(queue[index], true);
+      await load(queue[index]);
     } catch (error) {
       console.error(error);
-      const message = error?.code === "DRIVE_GATEWAY_NOT_CONFIGURED" ? "Audio gateway is not configured." : error?.code === "AUTH_REQUIRED" ? "Please sign in again and retry." : error?.code === "NETWORK_TIMEOUT" ? "Audio request timed out. Please retry." : "The audio summary could not be loaded. Please retry.";
+      const message = error?.code === "AUTH_REQUIRED"
+        ? "Please sign in again and retry."
+        : error?.code === "MEDIA_NOT_CONFIGURED"
+          ? "This audio summary has no valid Google Drive file."
+          : "The audio summary could not be loaded. Please retry.";
       setStatus(message, "error");
     }
   };
 
   const move = async (direction) => {
-    if (!queue.length || queue.length < 2) return;
+    if (queue.length < 2) return;
     index = (index + direction + queue.length) % queue.length;
     try {
-      await load(queue[index], true);
+      await load(queue[index]);
     } catch (error) {
       console.error(error);
-      setStatus("The next audio could not be loaded.", "error");
+      setStatus("The selected audio could not be loaded. Please retry.", "error");
     }
   };
 
   const close = () => {
-    elements.audioElement.pause();
-    cleanupAudio();
-    cleanupPoster();
+    cleanup();
+    setPoster({});
     setStatus("");
     setModalOpen(false);
     current = null;
@@ -194,66 +158,38 @@ export function createAudioPlayerController(elements) {
     index = -1;
   };
 
+  const retry = () => {
+    if (current) void load(current);
+  };
+
   const bind = () => {
     if (bound) return;
     bound = true;
-    elements.audioPlayBtn.addEventListener("click", async () => {
-      if (elements.audioElement.paused) {
-        try { await elements.audioElement.play(); setStatus("Playing", "playing"); }
-        catch { setStatus("Tap Play again to start the audio.", "error"); }
-      } else {
-        elements.audioElement.pause();
-        setStatus("Paused", "ready");
-      }
-      setPlayIcon();
-    });
-    elements.audioPrevBtn.addEventListener("click", () => move(-1));
-    elements.audioNextBtn.addEventListener("click", () => move(1));
+    elements.audioPrevBtn.addEventListener("click", () => void move(-1));
+    elements.audioNextBtn.addEventListener("click", () => void move(1));
     elements.audioClose.addEventListener("click", close);
-    elements.audioRepeatBtn.addEventListener("click", () => {
-      elements.audioElement.loop = !elements.audioElement.loop;
-      elements.audioRepeatBtn.classList.toggle("is-active", elements.audioElement.loop);
-      setStatus(elements.audioElement.loop ? "Repeat on" : "Repeat off", "ready");
-    });
-    elements.audioElement.addEventListener("loadedmetadata", () => {
-      const duration = Number(elements.audioElement.duration);
-      if (Number.isFinite(duration) && duration > 0) {
-        elements.audioRange.max = String(duration);
-        elements.audioDuration.textContent = formatTime(duration);
+    elements.audioPlayBtn.addEventListener("click", () => {
+      // The actual playback controls belong to Google Drive's same-file preview iframe.
+      if (current?.driveFileId) {
+        try {
+          if (frame) frame.src = drivePreviewUrl(current.driveFileId);
+          else void load(current);
+          setStatus("Drive player refreshed. Tap Play inside the player to start.", "ready");
+        } catch (error) {
+          console.error(error);
+          setStatus("The audio player could not be opened. Please retry.", "error");
+        }
       }
-      setStatus("Ready", "ready");
-      setPlayIcon();
     });
-    elements.audioElement.addEventListener("timeupdate", () => {
-      const currentTime = Number(elements.audioElement.currentTime) || 0;
-      const duration = Number(elements.audioElement.duration) || 0;
-      elements.audioCurrent.textContent = formatTime(currentTime);
-      elements.audioRange.value = String(currentTime);
-      if (duration > 0) elements.audioRange.max = String(duration);
-    });
-    elements.audioElement.addEventListener("play", () => { setPlayIcon(); setStatus("Playing", "playing"); });
-    elements.audioElement.addEventListener("pause", () => { setPlayIcon(); if (!elements.audioElement.ended) setStatus("Paused", "ready"); });
-    elements.audioElement.addEventListener("ended", () => {
-      if (elements.audioElement.loop) return;
-      if (queue.length > 1) move(1);
-      else setStatus("Finished", "ready");
-    });
-    elements.audioElement.addEventListener("error", () => setStatus("Audio could not be played. Check that the Drive audio is shared as “Anyone with the link → Viewer” and is an MP3, M4A, WAV, OGG or AAC file.", "error"));
-    elements.audioRange.addEventListener("input", () => {
-      elements.audioElement.currentTime = Number(elements.audioRange.value) || 0;
-    });
+    elements.audioRetryBtn?.addEventListener("click", retry);
     elements.audioModal.addEventListener("click", (event) => {
       if (event.target === elements.audioModal) close();
     });
     document.addEventListener("keydown", (event) => {
       if (elements.audioModal.hidden) return;
       if (event.key === "Escape") close();
-      if (event.key === "ArrowLeft") move(-1);
-      if (event.key === "ArrowRight") move(1);
-      if (event.key === " ") {
-        event.preventDefault();
-        elements.audioPlayBtn.click();
-      }
+      if (event.key === "ArrowLeft") void move(-1);
+      if (event.key === "ArrowRight") void move(1);
     });
   };
 
