@@ -14,7 +14,7 @@ function cors(env, extra = {}) {
   };
 }
 function json(env, body, status = 200, extra = {}) { return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", ...cors(env, extra) } }); }
-function tokenFromRequest(request){const h=request.headers.get("Authorization")||"";return h.startsWith("Bearer ")?h.slice(7).trim():"";}
+function tokenFromRequest(request){const h=request.headers.get("Authorization")||"";if(h.startsWith("Bearer "))return h.slice(7).trim();const token=new URL(request.url).searchParams.get("token")||"";return token.trim();}
 async function verifyFirebaseToken(token, env){
   if(!token)throw Object.assign(new Error("Authentication is required."),{code:"AUTH_REQUIRED"});
   const {payload}=await jwtVerify(token,FIREBASE_JWKS,{issuer:`https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,audience:env.FIREBASE_PROJECT_ID});
@@ -97,15 +97,30 @@ export default {
         return json(env,{success:true,code:"ACCOUNT_DELETED",message:"Account and associated personal data were deleted."});
       }
       if(path==="/admin/check-file/" && request.method==="POST"){
-        const raw=await request.json();const id=String(raw?.driveFileId||"").trim();const token=tokenFromRequest(request);const claims=await verifyFirebaseToken(token,env);if(String(claims.email||"").toLowerCase()!==String(env.ADMIN_EMAIL).toLowerCase())throw Object.assign(new Error("Admin permission is required."),{code:"ADMIN_REQUIRED"});if(!/^[A-Za-z0-9_-]{10,200}$/.test(id))throw Object.assign(new Error("Invalid Google Drive file ID."),{code:"INVALID_DRIVE_ID"});
-        const meta=await driveFile(env,id);if(meta.trashed||meta.mimeType!=="application/pdf")throw Object.assign(new Error("The selected Drive file must be a non-trashed PDF."),{code:"DRIVE_NOT_PDF"});return json(env,{success:true,id:meta.id,name:meta.name,size:Number(meta.size||0),mimeType:meta.mimeType});
+        const raw=await request.json();const id=String(raw?.driveFileId||"").trim();const mediaKind=String(raw?.mediaKind||"pdf").trim().toLowerCase();const token=tokenFromRequest(request);const claims=await verifyFirebaseToken(token,env);if(String(claims.email||"").toLowerCase()!==String(env.ADMIN_EMAIL).toLowerCase())throw Object.assign(new Error("Admin permission is required."),{code:"ADMIN_REQUIRED"});if(!/^[A-Za-z0-9_-]{10,200}$/.test(id))throw Object.assign(new Error("Invalid Google Drive file ID."),{code:"INVALID_DRIVE_ID"});
+        const meta=await driveFile(env,id);
+        const isPdf=meta.mimeType==="application/pdf";
+        const isAudio=String(meta.mimeType||"").startsWith("audio/") || ["application/octet-stream","video/mp4"].includes(meta.mimeType) && /\.(mp3|m4a|aac|wav|ogg|oga|flac)$/i.test(String(meta.name||""));
+        const isImage=String(meta.mimeType||"").startsWith("image/");
+        if(meta.trashed) throw Object.assign(new Error("The selected Drive file is in the trash."),{code:"DRIVE_FILE_ERROR"});
+        if(mediaKind==="audio" && !isAudio) throw Object.assign(new Error("The selected Drive file must be a supported audio file (MP3, M4A, WAV, OGG, AAC or similar)."),{code:"DRIVE_NOT_AUDIO"});
+        if(mediaKind==="image" && !isImage) throw Object.assign(new Error("The poster file must be a supported image (JPG, PNG or WebP)."),{code:"DRIVE_NOT_IMAGE"});
+        if(mediaKind==="pdf" && !isPdf) throw Object.assign(new Error("The selected Drive file must be a non-trashed PDF."),{code:"DRIVE_NOT_PDF"});
+        return json(env,{success:true,id:meta.id,name:meta.name,size:Number(meta.size||0),mimeType:meta.mimeType});
       }
-      const match=path.match(/^\/(pdf|worksheet)\/([^/]+)\/?$/);
+      const match=path.match(/^\/(pdf|worksheet|audio|poster)\/([^/]+)\/?$/);
       if(match && request.method==="GET"){
+        const kind=match[1];
         const firebaseToken=tokenFromRequest(request);const rawClaims=await verifyFirebaseToken(firebaseToken,env);const claims={...rawClaims,rawToken:firebaseToken};const {material}=await authorizePublishedMaterial(env,claims,match[2]);
-        const serviceToken=await driveAccessToken(env);const driveUrl=new URL(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(material.driveFileId)}`);driveUrl.searchParams.set("alt","media");driveUrl.searchParams.set("supportsAllDrives","true");
-        const range=request.headers.get("Range");const headers={Authorization:`Bearer ${serviceToken}`};if(range)headers.Range=range;const driveResponse=await fetch(driveUrl,{headers});if(!driveResponse.ok)throw Object.assign(new Error("The Drive PDF could not be streamed."),{code:"DRIVE_STREAM_ERROR",status:driveResponse.status});
-        const outHeaders=cors(env,{"Content-Type":"application/pdf","Cache-Control":"private, no-store, max-age=0","Content-Disposition":`inline; filename="${String(material.fileName||material.title||"material").replace(/[\\"]+/g,"_")}"`});
+        if(kind==="audio" && material.type!=="audio") throw Object.assign(new Error("This material is not an audio summary."),{code:"MEDIA_TYPE_MISMATCH"});
+        if(kind==="poster" && material.type!=="audio") throw Object.assign(new Error("This poster belongs to an audio summary."),{code:"MEDIA_TYPE_MISMATCH"});
+        const fileId=kind==="poster" ? String(material.posterDriveFileId||"") : String(material.driveFileId||"");
+        if(!fileId) throw Object.assign(new Error(kind==="poster" ? "This audio has no poster image." : "This material has no Drive media file."),{code:"MEDIA_NOT_CONFIGURED"});
+        const serviceToken=await driveAccessToken(env);const driveUrl=new URL(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`);driveUrl.searchParams.set("alt","media");driveUrl.searchParams.set("supportsAllDrives","true");
+        const range=request.headers.get("Range");const headers={Authorization:`Bearer ${serviceToken}`};if(range)headers.Range=range;const driveResponse=await fetch(driveUrl,{headers});if(!driveResponse.ok)throw Object.assign(new Error(`The Drive ${kind} could not be streamed.`),{code:"DRIVE_STREAM_ERROR",status:driveResponse.status});
+        const fallbackType=kind==="pdf"||kind==="worksheet"?"application/pdf":kind==="poster"?"image/jpeg":"audio/mpeg";
+        const contentType=kind==="poster"?(driveResponse.headers.get("Content-Type")||"image/jpeg"):kind==="audio"?String(material.mimeType||fallbackType):fallbackType;
+        const outHeaders=cors(env,{"Content-Type":contentType,"Cache-Control":"private, no-store, max-age=0","Content-Disposition":`inline; filename="${String(kind==="poster"?material.title||"poster":material.fileName||material.title||"material").replace(/[\\"]+/g,"_")}"`});
         ["Content-Length","Content-Range","Accept-Ranges"].forEach(h=>{const v=driveResponse.headers.get(h);if(v)outHeaders[h]=v;});
         return new Response(driveResponse.body,{status:driveResponse.status,headers:outHeaders});
       }
