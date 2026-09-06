@@ -384,21 +384,18 @@
           <div id="audioPosterFallback" class="audio-poster-fallback" aria-hidden="true"><span>♪</span></div>
         </div>
 
-        <div class="audio-range-row">
-          <input id="audioRange" class="audio-range" type="range" min="0" max="0" value="0" step="0.1" aria-label="Audio progress">
-          <div class="audio-time-row"><span id="audioCurrent">0:00</span><span id="audioDuration">0:00</span></div>
+        <div class="audio-drive-player-wrap">
+          <div id="audioFrameHost" class="audio-drive-player" aria-label="Google Drive audio player"></div>
         </div>
 
-        <div class="audio-main-controls">
-          <button id="audioRepeatBtn" class="audio-icon-btn" type="button" aria-label="Repeat">↻</button>
+        <div class="audio-player-actions">
           <button id="audioPrevBtn" class="audio-icon-btn" type="button" aria-label="Previous audio">|◀</button>
-          <button id="audioPlayBtn" class="audio-play-btn" type="button" aria-label="Play">▶</button>
+          <button id="audioPlayBtn" class="audio-play-btn" type="button" aria-label="Refresh audio player">▶</button>
           <button id="audioNextBtn" class="audio-icon-btn" type="button" aria-label="Next audio">▶|</button>
-          <button class="audio-icon-btn" type="button" aria-label="Queue">☷</button>
         </div>
 
         <div id="audioStatus" class="audio-status" role="status" aria-live="polite"></div>
-        <audio id="audioElement" class="audio-element-hidden" preload="metadata" playsinline></audio>
+        <button id="audioRetryBtn" class="audio-retry-btn" type="button">Reload Audio Player</button>
 
         <div class="audio-bottom-controls" aria-hidden="true">
           <span class="audio-bottom-btn">♡</span>
