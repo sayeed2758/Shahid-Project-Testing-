@@ -2024,3 +2024,28 @@ textarea {
 .detail-icon.audio { background: #171717; color: #fff; }
 
 .audio-poster-admin { margin-top: 10px; padding: 14px; border: 1px solid rgba(31,55,88,.10); border-radius: 14px; background: #f8fbff; }
+
+/* Audio summary: keep only the working Google Drive player. */
+.audio-drive-player-wrap { position: relative; }
+.audio-drive-player { position: relative; min-height: 150px; overflow: hidden; }
+.audio-drive-frame { position: relative; z-index: 1; }
+.audio-drive-blocker {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: 0;
+  width: 82px;
+  height: 82px;
+  background: transparent;
+  pointer-events: auto;
+  cursor: default;
+}
+.audio-drive-blocker::after { content: ""; position: absolute; inset: 0; }
+.audio-protection-note {
+  width: min(90vw, 680px);
+  margin: 12px auto 0;
+  text-align: center;
+  color: #8d8d8d;
+  font-size: 12px;
+  line-height: 1.4;
+}
