@@ -385,24 +385,12 @@
         </div>
 
         <div class="audio-drive-player-wrap">
-          <div id="audioFrameHost" class="audio-drive-player" aria-label="Google Drive audio player"></div>
+          <div id="audioFrameHost" class="audio-drive-player" aria-label="Google Drive audio player">
+            <div class="audio-drive-blocker" aria-hidden="true"></div>
+          </div>
         </div>
 
-        <div class="audio-player-actions">
-          <button id="audioPrevBtn" class="audio-icon-btn" type="button" aria-label="Previous audio">|◀</button>
-          <button id="audioPlayBtn" class="audio-play-btn" type="button" aria-label="Refresh audio player">▶</button>
-          <button id="audioNextBtn" class="audio-icon-btn" type="button" aria-label="Next audio">▶|</button>
-        </div>
-
-        <div id="audioStatus" class="audio-status" role="status" aria-live="polite"></div>
-        <button id="audioRetryBtn" class="audio-retry-btn" type="button">Reload Audio Player</button>
-
-        <div class="audio-bottom-controls" aria-hidden="true">
-          <span class="audio-bottom-btn">♡</span>
-          <span class="audio-bottom-btn">⋮</span>
-          <span class="audio-bottom-btn">↗</span>
-          <span class="audio-bottom-btn">☷</span>
-        </div>
+        <p class="audio-protection-note">Audio plays inside the app. The Google Drive open/download control is disabled.</p>
       </div>
     </div>
 
