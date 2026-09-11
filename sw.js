@@ -1,4 +1,4 @@
-const CACHE_NAME = "ezee-vision-shell-simple-v6";
+const CACHE_NAME = "ezee-vision-shell-simple-v7";
 
 const APP_SHELL = [
   "./",
