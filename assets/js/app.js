@@ -476,6 +476,12 @@ function createMaterialCard(material) {
   `;
 }
 
+function chapterSortKey(label) {
+  const text = String(label || "").trim();
+  const match = text.match(/(?:chapter|ch|unit|lesson)\s*(\d+)/i);
+  return match ? Number(match[1]) : Number.POSITIVE_INFINITY;
+}
+
 function renderMaterials(classNumber, subjectId, sectionId) {
   const materials = state.catalog.filter(
     (material) =>
@@ -492,7 +498,33 @@ function renderMaterials(classNumber, subjectId, sectionId) {
     return;
   }
 
-  elements.materialsList.innerHTML = materials.map(createMaterialCard).join("");
+  const grouped = new Map();
+  materials.forEach((material) => {
+    const chapter = String(material.chapter || "").trim() || "Other / General";
+    if (!grouped.has(chapter)) grouped.set(chapter, []);
+    grouped.get(chapter).push(material);
+  });
+
+  const groups = [...grouped.entries()].sort(([a], [b]) => {
+    const chapterOrder = chapterSortKey(a) - chapterSortKey(b);
+    return chapterOrder || a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
+  });
+
+  elements.materialsList.innerHTML = groups.map(([chapter, items], index) => `
+    <details class="chapter-group" ${index === 0 ? "open" : ""}>
+      <summary class="chapter-group-header">
+        <span class="chapter-group-icon" aria-hidden="true">#</span>
+        <span class="chapter-group-copy">
+          <strong>${escapeHtml(chapter)}</strong>
+          <small>${items.length} part${items.length === 1 ? "" : "s"}</small>
+        </span>
+        <span class="chapter-group-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="chapter-group-materials">
+        ${items.map(createMaterialCard).join("")}
+      </div>
+    </details>
+  `).join("");
 }
 
 function createRecentCard(item) {

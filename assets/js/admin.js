@@ -593,6 +593,7 @@ async function submitUpload(event) {
   if (!CLASSES.includes(classNumber)) return message(el.uploadMessage, "Choose Class 6–10.", "error");
   if (!SUBJECTS.some((item) => item.id === subject) || !SECTIONS.some((item) => item.id === section)) return message(el.uploadMessage, "Choose subject and section.", "error");
   if (title.length < 2) return message(el.uploadMessage, "Enter a material title.", "error");
+  if (chapter.length < 1) return message(el.uploadMessage, "Enter a chapter name, for example Chapter 1.", "error");
   if (!extractDriveFileId(driveUrl)) return message(el.uploadMessage, `Paste a valid Google Drive ${section === "audio-summary" ? "audio" : "PDF"} link.`, "error");
   if (!state.verifiedDriveId || state.verifiedDriveId !== extractDriveFileId(driveUrl)) {
     return message(el.uploadMessage, "Verify the current Drive file before saving.", "error");
