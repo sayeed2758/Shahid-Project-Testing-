@@ -1105,7 +1105,88 @@ body.menu-is-open { overflow: hidden; }
 
 .material-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+.chapter-group {
+  border: 1px solid rgba(31, 55, 88, 0.10);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 24px rgba(31, 55, 88, 0.06);
+  overflow: hidden;
+}
+
+.chapter-group[open] {
+  box-shadow: 0 10px 28px rgba(31, 55, 88, 0.09);
+}
+
+.chapter-group-header {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 64px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.chapter-group-header::-webkit-details-marker {
+  display: none;
+}
+
+.chapter-group-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: #edf4ff;
+  color: var(--navy-900);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.chapter-group-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chapter-group-copy strong {
+  color: var(--navy-900);
+  font-family: "Manrope", sans-serif;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.chapter-group-copy small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chapter-group-chevron {
+  color: var(--navy-900);
+  font-size: 18px;
+  font-weight: 900;
+  transition: transform 0.2s ease;
+}
+
+.chapter-group[open] .chapter-group-chevron {
+  transform: rotate(180deg);
+}
+
+.chapter-group-materials {
+  display: grid;
+  gap: 9px;
+  padding: 0 12px 12px;
+}
+
+.chapter-group-materials .material-card {
+  background: #fbfdff;
 }
 
 .material-card {
