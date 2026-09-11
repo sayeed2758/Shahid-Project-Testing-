@@ -21,7 +21,7 @@ import {
   publishMaterial,
   extractDriveFileId,
   getDriveGatewayStatus,
-} from "./admin-client.js";
+} from "./admin-client.js?v=20260911";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -833,6 +833,5 @@ function bind() {
   } catch (error) {
     console.warn("Drive config could not load", error);
   }
-  await checkGatewayHealth();
   updateDriveActionState();
 })();

@@ -198,30 +198,15 @@ export async function verifyDriveLink(driveUrl, mediaKind = "pdf") {
   const driveFileId = extractDriveFileId(driveUrl);
   if (!driveFileId) throw new Error("INVALID_DRIVE_LINK");
 
-  // Audio summaries and their posters use the same simple Google Drive
-  // link-based flow as the existing PDF viewer. No Drive Gateway/service
-  // account is required just to accept/store the Drive file ID.
-  if (mediaKind === "audio" || mediaKind === "image") {
-    return {
-      driveFileId,
-      name: mediaKind === "audio" ? "Audio Summary" : "Poster Image",
-      size: 0,
-      mimeType: mediaKind === "audio" ? "audio/mpeg" : "image/jpeg",
-      verified: true,
-    };
-  }
-
-  requireGateway();
-  const response = await gatewayFetch("/admin/check-file/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driveFileId, mediaKind }),
-  }, 20000);
+  // Admin-side verification is intentionally simple: validate the Google
+  // Drive link and extract its file ID. This does not call the Drive Gateway,
+  // so a Google service-account configuration is NOT required just to verify
+  // or save a Drive link in the admin panel.
   return {
-    driveFileId: response?.id || driveFileId,
-    name: response?.name || "Google Drive PDF",
-    size: Number(response?.size || 0),
-    mimeType: response?.mimeType || "",
+    driveFileId,
+    name: mediaKind === "audio" ? "Audio Summary" : mediaKind === "image" ? "Poster Image" : "Google Drive PDF",
+    size: 0,
+    mimeType: mediaKind === "audio" ? "audio/mpeg" : mediaKind === "image" ? "image/jpeg" : "application/pdf",
     verified: true,
   };
 }
